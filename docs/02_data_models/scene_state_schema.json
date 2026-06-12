@@ -1,0 +1,39 @@
+{
+  "$id": "scene_active_102",
+  "metadata": {
+    "campaign_id": "camp_alpha_2026",
+    "created_at": "2026-06-12T10:00:00Z",
+    "status": "ACTIVE" 
+  },
+  "context": {
+    "location_id": "loc_02",
+    "active_npc_ids": ["entity_npc_001"],
+    "scene_objective": "Interrogar a Jax Chen para conseguir los pases de seguridad sin levantar sospechas."
+  },
+  "turn_management": {
+    "current_turn_player_id": "char_player_02",
+    "turn_order": ["char_player_01", "char_player_02", "char_player_04", "master"],
+    "pending_responses": ["char_player_04"]
+  },
+  "chat_buffer": [
+    {
+      "timestamp": "2026-06-12T17:10:00Z",
+      "sender_id": "char_player_01",
+      "type": "NARRATIVE",
+      "text": "Me acerco a la mesa de Jax, apoyando mi mano cerca de su implante óptico. 'Tenemos un trato pendiente, viejo amigo', le digo en tono amenazante."
+    },
+    {
+      "timestamp": "2026-06-12T17:12:00Z",
+      "sender_id": "char_player_01",
+      "type": "DICE_ROLL",
+      "dice_expression": "1d10 + 4",
+      "raw_result": 7,
+      "final_result": 11,
+      "skill_checked": "Intimidación / Coerción"
+    }
+  ],
+  "state_flags": {
+    "combat_mode_active": false,
+    "ai_alert_triggered": false
+  }
+}

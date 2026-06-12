@@ -1,0 +1,34 @@
+{
+  "$id": "arc_cyber_conspiracy_01",
+  "metadata": {
+    "type": "ARC_MANIFEST",
+    "created_at": "2026-06-12T17:15:00Z",
+    "last_updated": "2026-06-12T17:15:00Z"
+  },
+  "plot_line": {
+    "title": "La Caída de la Red de Sombra",
+    "global_summary": "Los jugadores deben descubrir qué corporación está detrás de las desconexiones masivas en el distrito de Kabuki antes de que colapse la infraestructura médica.",
+    "current_act": 1,
+    "narrative_tone": "Tecno-noir, alta tensión, desconfianza mutua."
+  },
+  "active_quests": [
+    {
+      "quest_id": "q_kabuki_01",
+      "title": "El Escriba Silenciado",
+      "description": "Encontrar el paradero del netrunner 'Jax Vektor' y extraer su cifrado de datos.",
+      "required_triggers": ["entity_npc_001_met", "data_pad_retrieved"],
+      "secret_dm_notes": "Jax ha sido comprado por Arasaka. Si los jugadores lo presionan demasiado, intentará venderlos a una patrulla corporativa."
+    }
+  ],
+  "completed_milestones": [
+    {
+      "milestone_id": "m_intro_01",
+      "description": "El grupo sobrevive a la emboscada en el callejón y recupera el contacto cifrado.",
+      "resolved_at": "2026-06-11T20:00:00Z"
+    }
+  ],
+  "state_flags": {
+    "is_main_plot_derailed": false,
+    "world_threat_level": 3
+  }
+}

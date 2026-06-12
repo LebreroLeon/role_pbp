@@ -1,0 +1,40 @@
+{
+  "$id": "entity_npc_001",
+  "metadata": {
+    "type": "NPC",
+    "system_agnostic": true,
+    "created_at": "2026-06-12T16:50:00Z",
+    "last_updated": "2026-06-12T16:50:00Z"
+  },
+  "identity": {
+    "name": "Jax Chen / Sir Gareth / Lord Akodo",
+    "concept": "Arquetipo base (ej: Fixer paranoico / Paladín caído / Samurái del Clan León)",
+    "faction_id": "faction_04",
+    "current_location_id": "loc_02"
+  },
+  "ai_narrative_profile": {
+    "public_description": "Lo que los jugadores ven a simple vista en el chat (aspecto, ropa, actitud, cicatrices).",
+    "secret_lore_master": "Los secretos, intenciones ocultas, deudas o giros en la trama que solo sabe el Máster.",
+    "personality_traits": ["Cínico", "Honorable", "Obsesivo"],
+    "voice_and_tone": "Instrucciones de estilo para que la IA genere diálogos coherentes (ej: 'Habla con arrogancia y usa un vocabulario arcaico')."
+  },
+  "system_mechanics": {
+    "system_name": "Cyberpunk_RED / DND_5e / L5A / Vampire_V5",
+    "power_scale": "Escala de amenaza (Low / Medium / High / Boss)", 
+    "stats_summary": {
+      "key_attribute_1": "Reflejos: 7 / Fuerza: 18 / Aire: 4 / Sangre: 3",
+      "key_attribute_2": "Cibertech: 8 / Atletismo: +5 / Cortesía: 5 / Dominación: 4"
+    },
+    "notable_features": [
+      "Tiene un implante ocular",
+      "Espada larga rúnica",
+      "Katana ancestral",
+      "Colmillos alargados"
+    ]
+  },
+  "state_flags": {
+    "is_dead": false,
+    "has_met_party": true,
+    "attitude_towards_party": "Suspicious"
+  }
+}
