@@ -1,12 +1,12 @@
 # 🧠 Arquitectura del Motor de IA: Canalización RAG (Rag Pipeline)
 
-Este documento describe el flujo lógico que sigue el backend para enriquecer el contexto de los Modelos de Lenguaje (LLMs) mediante Generación Aumentada por Recuperación (RAG). El objetivo es que la IA responda con precisión técnica e histórica sin sufrir alucinaciones y protegiendo los secretos del Máster.
+Este documento describe el flujo lógico que sigue el backend para enriquecer el contexto de los Modelos de Lenguaje (LLMs) mediante Generación Aumentada por Recuperación (RAG). El objetivo es que la IA responda con precisión técnica e histórica sin sufrir alucinaciones, protegiendo los secretos del Máster y optimizando el consumo de tokens.
 
 ## 1. El Flujo de Inyección de Contexto Híbrido (Paso a Paso)
 
-Cuando un jugador interactúa en el canal de juego o hace una consulta de Lore, el sistema no envía un prompt vacío. Sigue estrictamente este pipeline asíncrono en FastAPI:
+Cuando un usuario solicita explícitamente la interacción o consulta de la IA, el sistema ejecuta de forma asíncrona este pipeline en FastAPI:
 
-    [ Acción del Jugador / Comando / Consulta ]
+    [ Solicitud de Interacción / Comando / Consulta ]
                         │
                         ▼
     =============================================
@@ -61,3 +61,17 @@ Para mitigar alucinaciones de la IA ante contradicciones temporales, el prompt f
 Al ejecutar la acción de "Cierre de Escena", el pipeline realiza dos acciones atómicas:
 1.  Genera un resumen narrativo de la escena y lo indexa en la BD Vectorial para futuras consultas del RAG.
 2.  Un parser del backend extrae las mutaciones de estado clave ocurridas (ej: la muerte de un NPC o la resolución de una misión) e impacta un `UPDATE` directo en las tablas relacionales de PostgreSQL, manteniendo la "Verdad Absoluta" actualizada para el inicio de la siguiente escena.
+
+## 4. Políticas de Optimización de Tokens y Filosofía "On-Demand"
+
+Para garantizar la soberanía creativa del Director de Juego y la viabilidad económica de la plataforma, el Motor de IA se rige por un principio estricto de **Intervención Bajo Demanda**.
+
+### Soberanía del Máster (Flujo por Defecto)
+El Máster tiene control absoluto y nativo sobre el chat de juego. Puede leer las acciones de los jugadores y enviar sus propias respuestas lógicas y descripciones de forma manual sin que intervenga el LLM, resultando en un coste de tokens igual a cero. La IA actúa únicamente como un copiloto pasivo.
+
+### Triggers de Activación del LLM
+El backend de FastAPI solo procesará el pipeline de inyección de IA y consumo de créditos en los siguientes casos aislados:
+* **Petición del Consultor de Lore:** Un jugador lanza una pregunta explícita en su chat privado etiquetando al bot (`@asistente`).
+* **Solicitud de Soporte Creativo (Shadow Master):** El Máster pulsa activamente un botón de la interfaz de su panel privado solicitando ideas de escenas, ganchos o diálogos para un NPC específico.
+* **Comandos del Sistema:** Ejecución de comandos estructurales delegados que requieran traducción narrativa (ej: resolución automatizada de una tirada de dados reglamentaria con `/roll`).
+* **Hito de Cierre:** Al finalizar formalmente una escena de juego para consolidar el diario de campaña.
