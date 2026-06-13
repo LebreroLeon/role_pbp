@@ -9,35 +9,35 @@ Cuando un jugador interactúa en el canal de juego o hace una consulta de Lore, 
     [ Acción del Jugador / Comando / Consulta ]
                         │
                         ▼
- ┌───────────────────────────────────────────────┐
- │ 1. Generación de Embeddings Semánticos        │
- │    - Se vectoriza el mensaje del usuario      │
- └──────────────────────┬────────────────────────┘
+    =============================================
+    1. Generación de Embeddings Semánticos
+       - Se vectoriza el mensaje del usuario
+    =============================================
                         │
                         ▼
- ┌───────────────────────────────────────────────┐
- │ 2. Consulta en Base de Datos Vectorial        │
- │    - ChromaDB busca los "top K matches"       │
- └──────────────────────┬────────────────────────┘
+    =============================================
+    2. Consulta en Base de Datos Vectorial
+       - ChromaDB busca los "top K matches"
+    =============================================
                         │
                         ▼
- ┌───────────────────────────────────────────────┐
- │ 3. Extracción de Estado Presente (Postgres)   │
- │    - Se extrae el JSON actual de entidades    │
- └──────────────────────┬────────────────────────┘
+    =============================================
+    3. Extracción de Estado Presente (Postgres)
+       - Se extrae el JSON actual de entidades
+    =============================================
                         │
                         ▼
- ┌───────────────────────────────────────────────┐
- │ 4. Filtrado de Seguridad y Roles             │
- │    - Si es JUGADOR ──> Destruye 'secret_lore' │
- │    - Si es MÁSTER  ──> Mantiene completo      │
- └──────────────────────┬────────────────────────┘
+    =============================================
+    4. Filtrado de Seguridad y Roles
+       - Si es JUGADOR ──> Destruye 'secret_lore'
+       - Si es MÁSTER  ──> Mantiene completo
+    =============================================
                         │
                         ▼
- ┌───────────────────────────────────────────────┐
- │ 5. Construcción del Prompt (El Sándwich)      │
- │    - [Reglas] + [RAG] + [Buffer] + [Input]    │
- └──────────────────────┬────────────────────────┘
+    =============================================
+    5. Construcción del Prompt (El Sándwich)
+       - [Reglas] + [RAG] + [Buffer] + [Input]
+    =============================================
                         │
                         ▼
             [ Envío a la API del LLM ]
