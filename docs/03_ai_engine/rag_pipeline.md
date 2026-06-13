@@ -1,4 +1,3 @@
-Markdown
 # 🧠 Arquitectura del Motor de IA: Canalización RAG (Rag Pipeline)
 
 Este documento describe el flujo lógico que sigue el backend para enriquecer el contexto de los Modelos de Lenguaje (LLMs) mediante Generación Aumentada por Recuperación (RAG). El objetivo es que la IA responda con precisión técnica e histórica sin sufrir alucinaciones y protegiendo los secretos del Máster.
@@ -7,44 +6,41 @@ Este documento describe el flujo lógico que sigue el backend para enriquecer el
 
 Cuando un jugador interactúa en el canal de juego o hace una consulta de Lore, el sistema no envía un prompt vacío. Sigue estrictamente este pipeline asíncrono en FastAPI:
 
-[ Acción del Jugador / Comando / Consulta ]
-                 │
-                 ▼
+    [ Acción del Jugador / Comando / Consulta ]
+                        │
+                        ▼
  ┌───────────────────────────────────────────────┐
  │ 1. Generación de Embeddings Semánticos        │
- │    (Se vectoriza el mensaje del usuario)      │
- └───────────────┬───────────────────────────────┘
-                 │
-                 ▼
+ │    - Se vectoriza el mensaje del usuario      │
+ └──────────────────────┬────────────────────────┘
+                        │
+                        ▼
  ┌───────────────────────────────────────────────┐
- │ 2. Consulta en la Base de Datos Vectorial     │
- │    (ChromaDB / Pinecone busca top K matches)  │
- └───────────────┬───────────────────────────────┘
-                 │
-                 ▼
+ │ 2. Consulta en Base de Datos Vectorial        │
+ │    - ChromaDB busca los "top K matches"       │
+ └──────────────────────┬────────────────────────┘
+                        │
+                        ▼
  ┌───────────────────────────────────────────────┐
  │ 3. Extracción de Estado Presente (Postgres)   │
- │    (Se extrae el JSON actual de las entidades │
- │     y flags de la escena activa)              │
- └───────────────┬───────────────────────────────┘
-                 │
-                 ▼
+ │    - Se extrae el JSON actual de entidades    │
+ └──────────────────────┬────────────────────────┘
+                        │
+                        ▼
  ┌───────────────────────────────────────────────┐
- │ 4. Filtrado de Seguridad y Roles (Middleware) │
- │    ¿El emisor es un JUGADOR?                  │
- │    ──> SI: Se destruye el campo 'secret_lore' │
- │    ──> NO (Máster): Se mantiene completo.     │
- └───────────────┬───────────────────────────────┘
-                 │
-                 ▼
+ │ 4. Filtrado de Seguridad y Roles             │
+ │    - Si es JUGADOR ──> Destruye 'secret_lore' │
+ │    - Si es MÁSTER  ──> Mantiene completo      │
+ └──────────────────────┬────────────────────────┘
+                        │
+                        ▼
  ┌───────────────────────────────────────────────┐
  │ 5. Construcción del Prompt (El Sándwich)      │
- │    [Reglas Postgres] + [Lore Histórico RAG]   │
- │    + [Sliding Chat Buffer] + [User Input]     │
- └───────────────┬───────────────────────────────┘
-                 │
-                 ▼
-      [ Envío a la API del LLM ]
+ │    - [Reglas] + [RAG] + [Buffer] + [Input]    │
+ └──────────────────────┬────────────────────────┘
+                        │
+                        ▼
+            [ Envío a la API del LLM ]
 
 ## 2. Gestión de Memoria Operativa y Configuración
 
