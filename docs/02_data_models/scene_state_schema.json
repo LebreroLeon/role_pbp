@@ -36,6 +36,7 @@
   ],
   "state_flags": {
     "conflict_mode_active": false,
-    "ai_alert_triggered": false
+    "ai_alert_triggered": false,
+    "remaining_player_lore_tokens": 3
   }
 }
