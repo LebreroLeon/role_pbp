@@ -36,4 +36,8 @@
     "combat_mode_active": false,
     "ai_alert_triggered": false
   }
+  "memory_settings": {
+    "max_chat_buffer_size": 20,
+    "rag_top_k_matches": 3
+  }
 }
