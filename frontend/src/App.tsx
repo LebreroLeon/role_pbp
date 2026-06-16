@@ -6,6 +6,7 @@ import { Layout } from "./components/layout/Layout";
 import { CampaignHubPage } from "./pages/CampaignHubPage";
 import { CampaignsPage } from "./pages/CampaignsPage";
 import { ChatPage } from "./pages/ChatPage";
+import { EntitiesPage } from "./pages/EntitiesPage";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { MasterPanelPage } from "./pages/MasterPanelPage";
@@ -26,6 +27,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="campaigns" element={<CampaignsPage />} />
           <Route path="campaigns/:campaignId" element={<CampaignHubPage />} />
+          <Route path="campaigns/:campaignId/entities" element={<EntitiesPage />} />
           <Route path="campaigns/:campaignId/chat" element={<ChatPage />} />
           <Route
             path="campaigns/:campaignId/master"

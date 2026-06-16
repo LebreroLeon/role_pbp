@@ -2,7 +2,9 @@ import { http } from "./http";
 import type {
   AuthResponse,
   Campaign,
+  CampaignEntity,
   CampaignMember,
+  EntityType,
   MasterAssistResponse,
   Scene,
 } from "./types";
@@ -26,6 +28,11 @@ export type CreateCampaignPayload = {
 export type InviteMemberPayload = {
   email: string;
   role?: "MASTER" | "PLAYER";
+};
+
+export type CreateEntityPayload = {
+  entity_type: EntityType;
+  document: Record<string, unknown>;
 };
 
 export const api = {
@@ -71,7 +78,19 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ campaign_id: campaignId, scene_id: sceneId, query }),
     }),
+  listEntities: (campaignId: string, entityType?: EntityType) => {
+    const params = new URLSearchParams({ campaign_id: campaignId });
+    if (entityType) params.set("entity_type", entityType);
+    return http<CampaignEntity[]>(`/api/v1/entities?${params.toString()}`);
+  },
+  createEntity: (campaignId: string, payload: CreateEntityPayload) =>
+    http<CampaignEntity>("/api/v1/entities", {
+      method: "POST",
+      body: JSON.stringify({ campaign_id: campaignId, ...payload }),
+    }),
+  deleteEntity: (entityId: string) =>
+    http<void>(`/api/v1/entities/${entityId}`, { method: "DELETE" }),
 };
 
-export type { AuthResponse, Campaign, CampaignMember, ChatMessage, MasterAssistResponse, Scene, SceneState } from "./types";
+export type { AuthResponse, Campaign, CampaignEntity, CampaignMember, ChatMessage, EntityType, MasterAssistResponse, Scene, SceneState } from "./types";
 export type { AuthUser, MemberRole } from "../types/auth";

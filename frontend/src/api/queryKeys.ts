@@ -13,8 +13,7 @@ export const queryKeys = {
     detail: (id: string) => ["scenes", id] as const,
   },
   entities: {
-    list: (campaignId: string, entityType?: string) =>
-      entityType ? (["entities", campaignId, entityType] as const) : (["entities", campaignId] as const),
+    all: (campaignId: string) => ["entities", campaignId] as const,
     detail: (id: string) => ["entities", id] as const,
   },
 } as const;

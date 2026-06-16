@@ -32,6 +32,9 @@ export function CampaignHubPage() {
           <Link className="button" to={`/campaigns/${campaignId}/chat`}>
             Ir al chat de escena
           </Link>
+          <Link className="button secondary" to={`/campaigns/${campaignId}/entities`}>
+            Entidades
+          </Link>
           {isMaster && (
             <Link className="button secondary" to={`/campaigns/${campaignId}/master`}>
               Panel del Máster

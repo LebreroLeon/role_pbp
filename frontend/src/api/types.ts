@@ -48,3 +48,14 @@ export type MasterAssistResponse = {
   suggestions: string[];
   note: string;
 };
+
+export type EntityType = "NPC" | "PC" | "FACTION" | "LOCATION" | "RELATIONSHIP" | "ARC_MANIFEST";
+
+export type CampaignEntity = {
+  id: string;
+  campaign_id: string;
+  entity_type: EntityType;
+  document: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
