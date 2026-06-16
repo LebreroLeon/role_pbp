@@ -44,7 +44,7 @@
 
 .app-main {
   padding: 1.5rem;
-  max-width: 960px;
+  max-width: 1040px;
   width: 100%;
   margin: 0 auto;
 }
@@ -660,6 +660,237 @@ textarea {
   font: inherit;
 }
 
+/* —— Fase 4: campaña, navegación, biblioteca —— */
+.campaign-shell {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.campaign-shell__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.campaign-shell__title {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.campaign-shell__meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+}
+
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.breadcrumbs__sep {
+  margin: 0 0.25rem;
+  opacity: 0.5;
+}
+
+.breadcrumbs__current {
+  color: #ff7a92;
+}
+
+.role-pill {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.role-pill--master {
+  background: rgba(125, 255, 179, 0.12);
+  color: #7dffb3;
+}
+
+.role-pill--player {
+  background: rgba(110, 181, 255, 0.12);
+  color: #6eb5ff;
+}
+
+.campaign-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.campaign-nav__link {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.campaign-nav__link:hover,
+.campaign-nav__link.active {
+  background: rgba(233, 69, 96, 0.12);
+  border-color: rgba(233, 69, 96, 0.35);
+}
+
+.campaign-nav__label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.campaign-nav__hint {
+  font-size: 0.75rem;
+  opacity: 0.65;
+}
+
+.nav-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+}
+
+.nav-card {
+  display: grid;
+  gap: 0.4rem;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  min-height: 120px;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.nav-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(233, 69, 96, 0.4);
+}
+
+.nav-card--primary {
+  background: rgba(233, 69, 96, 0.1);
+  border-color: rgba(233, 69, 96, 0.35);
+}
+
+.nav-card__title {
+  font-size: 1.05rem;
+}
+
+.nav-card__desc {
+  margin: 0;
+  font-size: 0.88rem;
+  opacity: 0.75;
+  line-height: 1.45;
+}
+
+.nav-card__cta {
+  margin-top: auto;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.hub-hint {
+  margin-top: 0.75rem;
+}
+
+.wizard-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+}
+
+.wizard-steps li {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  opacity: 0.6;
+}
+
+.wizard-steps li.is-active {
+  opacity: 1;
+  border-color: #e94560;
+  color: #ff7a92;
+}
+
+.wizard-steps li.is-done {
+  opacity: 0.85;
+  border-color: rgba(125, 255, 179, 0.4);
+}
+
+.wizard-finish__list {
+  margin: 0.75rem 0 1.25rem;
+  padding-left: 1.2rem;
+  line-height: 1.6;
+}
+
+.document-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.document-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.document-card__meta {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+}
+
+.import-export__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.import-export__hint pre {
+  margin: 0.5rem 0 0;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.8rem;
+  overflow: auto;
+}
+
+.import-export__note {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.world-page,
+.library-page,
+.wizard-page {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.page-intro {
+  margin-bottom: 0;
+}
+
 @media (max-width: 720px) {
   .app-header {
     flex-direction: column;
@@ -676,6 +907,15 @@ textarea {
   }
 
   .entity-card {
+    flex-direction: column;
+  }
+
+  .document-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .campaign-shell__header {
     flex-direction: column;
   }
 }

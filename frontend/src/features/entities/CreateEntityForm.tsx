@@ -86,8 +86,8 @@ export function CreateEntityForm({ campaignId, members }: CreateEntityFormProps)
   return (
     <Panel>
       <PanelHeader
-        title="Nueva entidad"
-        description="Crea NPCs, ubicaciones o personajes jugador para la campaña."
+        title="Nueva entidad del mundo"
+        description="Añade un NPC, una ubicación o el PJ de un jugador."
       />
       <form className="auth-form" onSubmit={handleSubmit}>
         <label className="form-field">
@@ -95,7 +95,7 @@ export function CreateEntityForm({ campaignId, members }: CreateEntityFormProps)
           <select value={entityType} onChange={(event) => setEntityType(event.target.value as EntityType)}>
             {CREATABLE_TYPES.map((type) => (
               <option key={type} value={type}>
-                {type}
+                {type === "NPC" ? "Personaje no jugador (NPC)" : type === "LOCATION" ? "Ubicación" : "Personaje jugador (PC)"}
               </option>
             ))}
           </select>

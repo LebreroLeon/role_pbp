@@ -10,7 +10,7 @@ export type CampaignEntity = {
 };
 
 export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
-  NPC: "NPC",
+  NPC: "Personaje no jugador",
   PC: "Personaje jugador",
   FACTION: "Facción",
   LOCATION: "Ubicación",

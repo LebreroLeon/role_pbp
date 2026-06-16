@@ -28,10 +28,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://rolepbp:rolepbp@postgres:5432/rolepbp
       CORS_ORIGINS: http://localhost:5173
+      UPLOAD_DIR: /app/campaign_uploads
     volumes:
       - ./backend/app:/app/app
       - ./backend/alembic:/app/alembic
       - ./backend/alembic.ini:/app/alembic.ini
+      - campaign_uploads:/app/campaign_uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,3 +56,4 @@ services:
 
 volumes:
   postgres_data:
+  campaign_uploads:

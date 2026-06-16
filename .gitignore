@@ -23,4 +23,5 @@ Thumbs.db
 
 # Data
 chroma_data/
+campaign_uploads/
 *.db

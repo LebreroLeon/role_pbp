@@ -285,3 +285,25 @@ class EntityResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class EntityImportItem(BaseModel):
+    entity_type: EntityType
+    document: dict
+
+
+class EntityImportRequest(BaseModel):
+    campaign_id: str
+    entities: list[EntityImportItem] = Field(min_length=1)
+
+
+class EntityImportResponse(BaseModel):
+    created: int
+    entities: list[EntityResponse]
+
+
+class EntityExportResponse(BaseModel):
+    version: str = "1.0"
+    campaign_id: str
+    exported_at: datetime
+    entities: list[EntityImportItem]

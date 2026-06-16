@@ -11,7 +11,7 @@ type EntityListProps = {
 
 export function EntityList({ entities, isMaster, onDelete, deletingId }: EntityListProps) {
   if (entities.length === 0) {
-    return <p className="muted">Aún no hay entidades en esta campaña.</p>;
+    return <p className="muted">El mundo está vacío. Crea o importa NPCs y ubicaciones.</p>;
   }
 
   const grouped = entities.reduce<Record<EntityType, CampaignEntity[]>>(

@@ -12,6 +12,9 @@ export const queryKeys = {
   scenes: {
     detail: (id: string) => ["scenes", id] as const,
   },
+  documents: {
+    all: (campaignId: string) => ["documents", campaignId] as const,
+  },
   entities: {
     all: (campaignId: string) => ["entities", campaignId] as const,
     detail: (id: string) => ["entities", id] as const,

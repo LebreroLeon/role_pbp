@@ -10,7 +10,28 @@ export type Campaign = {
   id: string;
   name: string;
   tone: string | null;
+  game_system: string | null;
   role: "MASTER" | "PLAYER";
+};
+
+export type DocumentType = "RULES" | "ADVENTURE" | "NOTES" | "EXPORT" | "OTHER";
+
+export type CampaignDocument = {
+  id: string;
+  campaign_id: string;
+  filename: string;
+  original_name: string;
+  document_type: DocumentType;
+  mime_type: string | null;
+  size_bytes: number;
+  created_at: string;
+};
+
+export type EntityExportBundle = {
+  version: string;
+  campaign_id: string;
+  exported_at: string;
+  entities: Array<{ entity_type: EntityType; document: Record<string, unknown> }>;
 };
 
 export type CampaignMember = {

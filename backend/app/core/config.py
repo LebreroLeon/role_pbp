@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     app_debug: bool = True
     database_url: str = "postgresql+asyncpg://rolepbp:rolepbp@localhost:5432/rolepbp"
     chroma_persist_dir: str = str(PROJECT_ROOT / "chroma_data")
+    upload_dir: str = str(PROJECT_ROOT / "campaign_uploads")
+    max_upload_bytes: int = 20 * 1024 * 1024
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     cors_origins: str = "http://localhost:5173"

@@ -1,6 +1,6 @@
 """ORM models package."""
 
-from app.models.campaign import Campaign, CampaignEntity, Scene
+from app.models.campaign import Campaign, CampaignDocument, CampaignEntity, Scene
 from app.models.user import CampaignMember, User
 
-__all__ = ["Campaign", "CampaignEntity", "CampaignMember", "Scene", "User"]
+__all__ = ["Campaign", "CampaignDocument", "CampaignEntity", "CampaignMember", "Scene", "User"]

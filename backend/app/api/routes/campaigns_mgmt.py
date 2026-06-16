@@ -66,7 +66,13 @@ async def get_campaign(
     if campaign is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    return CampaignResponse(id=str(campaign.id), name=campaign.name, tone=campaign.tone, role=role)
+    return CampaignResponse(
+        id=str(campaign.id),
+        name=campaign.name,
+        tone=campaign.tone,
+        game_system=campaign.game_system,
+        role=role,
+    )
 
 
 @router.get("/{campaign_id}/members", response_model=list[CampaignMemberResponse])

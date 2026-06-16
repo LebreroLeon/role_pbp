@@ -20,13 +20,23 @@ async def list_user_campaigns(db: AsyncSession, user_id: uuid.UUID) -> list[Camp
         .order_by(Campaign.created_at.desc())
     )
     return [
-        CampaignResponse(id=str(campaign.id), name=campaign.name, tone=campaign.tone, role=role)
+        CampaignResponse(
+            id=str(campaign.id),
+            name=campaign.name,
+            tone=campaign.tone,
+            game_system=campaign.game_system,
+            role=role,
+        )
         for campaign, role in rows.all()
     ]
 
 
 async def create_campaign(db: AsyncSession, user_id: uuid.UUID, payload: CampaignCreate) -> CampaignResponse:
-    campaign = Campaign(name=payload.name.strip(), tone=payload.tone)
+    campaign = Campaign(
+        name=payload.name.strip(),
+        tone=payload.tone,
+        game_system=payload.game_system,
+    )
     db.add(campaign)
     await db.flush()
 
@@ -35,7 +45,13 @@ async def create_campaign(db: AsyncSession, user_id: uuid.UUID, payload: Campaig
     await db.commit()
     await db.refresh(campaign)
 
-    return CampaignResponse(id=str(campaign.id), name=campaign.name, tone=campaign.tone, role="MASTER")
+    return CampaignResponse(
+        id=str(campaign.id),
+        name=campaign.name,
+        tone=campaign.tone,
+        game_system=campaign.game_system,
+        role="MASTER",
+    )
 
 
 async def get_user_campaign_role(

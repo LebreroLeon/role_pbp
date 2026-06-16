@@ -150,12 +150,12 @@ export function ChatPage() {
                 />
               )}
               {isMaster && (
-                <Link className="button secondary" to={`/campaigns/${campaignId}/master`}>
-                  Master Screen
+                <Link className="button secondary" to={`/campaigns/${campaignId}/mesa`}>
+                  Mesa del Máster
                 </Link>
               )}
               <Link className="button secondary" to={`/campaigns/${campaignId}`}>
-                Hub
+                Inicio
               </Link>
             </div>
           }

@@ -11,10 +11,11 @@ export function HomePage() {
 
   return (
     <Panel className="hero">
-      <h2>Gestor de rol por turnos asistido por IA</h2>
+      <h2>Rol por turnos, claro y en el bolsillo</h2>
       <p>
-        Hub play-by-post con patrón Shadow Master: la IA asiste solo al Máster. Regístrate, crea una campaña e
-        invita jugadores.
+        RolePBP organiza tu campaña en secciones sencillas: <strong>Jugar</strong> (chat),{" "}
+        <strong>Mundo</strong> (NPCs y lugares), <strong>Biblioteca</strong> (manuales y aventuras) y{" "}
+        <strong>Mesa del Máster</strong> (dirección de partida).
       </p>
       <StatusBadge label="API" value={status} ok={status === "ok"} />
       <div className="actions">

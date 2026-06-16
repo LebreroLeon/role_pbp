@@ -1,9 +1,12 @@
-import { http } from "./http";
+import { http, httpUpload } from "./http";
 import type {
   AuthResponse,
   Campaign,
+  CampaignDocument,
   CampaignEntity,
   CampaignMember,
+  DocumentType,
+  EntityExportBundle,
   EntityType,
   MasterAssistResponse,
   Scene,
@@ -23,6 +26,7 @@ export type LoginPayload = {
 export type CreateCampaignPayload = {
   name: string;
   tone?: string;
+  game_system?: string;
 };
 
 export type InviteMemberPayload = {
@@ -100,7 +104,26 @@ export const api = {
     }),
   deleteEntity: (entityId: string) =>
     http<void>(`/api/v1/entities/${entityId}`, { method: "DELETE" }),
+  exportEntities: (campaignId: string) =>
+    http<EntityExportBundle>(`/api/v1/entities/export?campaign_id=${campaignId}`),
+  importEntities: (campaignId: string, entities: EntityExportBundle["entities"]) =>
+    http<{ created: number; entities: CampaignEntity[] }>("/api/v1/entities/import", {
+      method: "POST",
+      body: JSON.stringify({ campaign_id: campaignId, entities }),
+    }),
+  listDocuments: (campaignId: string) =>
+    http<CampaignDocument[]>(`/api/v1/documents?campaign_id=${campaignId}`),
+  uploadDocument: (campaignId: string, file: File, documentType: DocumentType) => {
+    const form = new FormData();
+    form.append("campaign_id", campaignId);
+    form.append("document_type", documentType);
+    form.append("file", file);
+    return httpUpload<CampaignDocument>("/api/v1/documents", form);
+  },
+  deleteDocument: (documentId: string) =>
+    http<void>(`/api/v1/documents/${documentId}`, { method: "DELETE" }),
+  documentDownloadUrl: (documentId: string) => `${import.meta.env.VITE_API_URL ?? ""}/api/v1/documents/${documentId}/download`,
 };
 
-export type { AuthResponse, Campaign, CampaignEntity, CampaignMember, ChatMessage, EntityType, MasterAssistResponse, MessageType, Scene, SceneState } from "./types";
+export type { AuthResponse, Campaign, CampaignDocument, CampaignEntity, CampaignMember, ChatMessage, DocumentType, EntityExportBundle, EntityType, MasterAssistResponse, MessageType, Scene, SceneState } from "./types";
 export type { AuthUser, MemberRole } from "../types/auth";

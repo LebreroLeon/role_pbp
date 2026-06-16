@@ -14,7 +14,9 @@ from app.api.deps import (
 from app.core.database import get_db
 from app.models.campaign import CampaignEntity
 from app.models.user import User
-from app.schemas.entities import EntityCreate, EntityResponse, EntityType, EntityUpdate
+from datetime import UTC, datetime
+
+from app.schemas.entities import EntityCreate, EntityImportItem, EntityImportRequest, EntityImportResponse, EntityResponse, EntityType, EntityUpdate, EntityExportResponse
 from app.services.entities import EntityValidationError, strip_master_secrets, validate_entity_document
 
 router = APIRouter(prefix="/entities", tags=["entities"])
@@ -77,6 +79,67 @@ async def list_entities(
 
     entities = (await db.scalars(query.order_by(CampaignEntity.created_at))).all()
     return [_entity_to_response(entity, include_secrets=include_secrets) for entity in entities]
+
+
+@router.get("/export", response_model=EntityExportResponse)
+async def export_entities(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+    campaign_id: str = Query(...),
+) -> EntityExportResponse:
+    campaign_uuid = parse_uuid(campaign_id, "campaign_id")
+    await require_campaign_master(db, current_user, campaign_uuid)
+
+    entities = (
+        await db.scalars(
+            select(CampaignEntity)
+            .where(CampaignEntity.campaign_id == campaign_uuid)
+            .order_by(CampaignEntity.created_at)
+        )
+    ).all()
+
+    return EntityExportResponse(
+        campaign_id=campaign_id,
+        exported_at=datetime.now(UTC),
+        entities=[
+            EntityImportItem(entity_type=EntityType(entity.entity_type), document=entity.document)
+            for entity in entities
+        ],
+    )
+
+
+@router.post("/import", response_model=EntityImportResponse, status_code=201)
+async def import_entities(
+    payload: EntityImportRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> EntityImportResponse:
+    campaign_uuid = parse_uuid(payload.campaign_id, "campaign_id")
+    await require_campaign_master(db, current_user, campaign_uuid)
+
+    created_entities: list[CampaignEntity] = []
+    for item in payload.entities:
+        try:
+            validated = validate_entity_document(item.entity_type, item.document)
+        except EntityValidationError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        entity = CampaignEntity(
+            campaign_id=campaign_uuid,
+            entity_type=item.entity_type.value,
+            document=validated.model_dump(mode="json"),
+        )
+        db.add(entity)
+        created_entities.append(entity)
+
+    await db.commit()
+    for entity in created_entities:
+        await db.refresh(entity)
+
+    return EntityImportResponse(
+        created=len(created_entities),
+        entities=[_entity_to_response(entity, include_secrets=True) for entity in created_entities],
+    )
 
 
 @router.get("/{entity_id}", response_model=EntityResponse)
