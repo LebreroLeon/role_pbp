@@ -1,5 +1,6 @@
 import type { CampaignMember } from "../../api/types";
 import type { ChatMessage } from "../../api/types";
+import { Eye } from "../../components/icons";
 import {
   formatChatTimestamp,
   getInitials,
@@ -61,7 +62,8 @@ export function ChatEntry({ message, members, currentUserId, memberCount }: Chat
       <p className="chat-card__body">{message.text}</p>
       <footer className="chat-card__footer">
         <span className="chat-card__read" title={buildReadTooltip(readBy, members)}>
-          👁 {readersExcludingSender.length}/{Math.max(memberCount - 1, 0)} leído
+          <Eye size={13} aria-hidden />
+          {readersExcludingSender.length}/{Math.max(memberCount - 1, 0)} leído
           {unreadCount > 0 && ` · ${unreadCount} pendiente`}
         </span>
       </footer>

@@ -1,16 +1,38 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-type ButtonVariant = "primary" | "secondary";
+import { useSectionTone } from "./SectionToneContext";
+import type { SectionTone } from "./sectionTone";
+
+export type ButtonTone = SectionTone;
+export type ButtonVariant = "primary" | "secondary";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
+  /** Solo para excepciones; por defecto usa el tono de la sección actual. */
+  tone?: ButtonTone;
   children: ReactNode;
 };
 
-export function Button({ variant = "primary", className = "", children, ...props }: ButtonProps) {
-  const classes = ["button", variant === "secondary" ? "secondary" : "", className].filter(Boolean).join(" ");
+export function buttonClasses({
+  variant = "primary",
+  tone,
+  className = "",
+}: {
+  variant?: ButtonVariant;
+  tone?: ButtonTone;
+  className?: string;
+}) {
+  return ["button", variant === "secondary" ? "secondary" : "", tone ? `button--${tone}` : "", className]
+    .filter(Boolean)
+    .join(" ");
+}
+
+export function Button({ variant = "primary", tone, className = "", children, ...props }: ButtonProps) {
+  const sectionTone = useSectionTone();
+  const resolvedTone = tone ?? sectionTone;
+
   return (
-    <button className={classes} {...props}>
+    <button className={buttonClasses({ variant, tone: resolvedTone, className })} {...props}>
       {children}
     </button>
   );

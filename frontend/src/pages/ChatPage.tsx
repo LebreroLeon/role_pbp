@@ -1,12 +1,13 @@
 import { FormEvent, useCallback, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import { ApiError } from "../api/http";
 import { queryKeys } from "../api/queryKeys";
 import type { MessageType, Scene } from "../api/types";
-import { Button, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
+import { SECTION_ICONS } from "../components/icons";
+import { Button, ButtonLink, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
 import { ChatComposer, ChatLog, DiceRoller, type MemberLookup } from "../features/scene";
 import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
 import { useActiveSceneQuery } from "../hooks/queries/useSceneQueries";
@@ -138,6 +139,8 @@ export function ChatPage() {
     <div className="chat-page">
       <Panel className="chat-panel">
         <PanelHeader
+          icon={SECTION_ICONS.chat}
+          iconTone="rose"
           title="Chat de escena"
           description="Diálogo, acción y contexto en tiempo real."
           actions={
@@ -150,13 +153,13 @@ export function ChatPage() {
                 />
               )}
               {isMaster && (
-                <Link className="button secondary" to={`/campaigns/${campaignId}/mesa`}>
+                <ButtonLink variant="secondary" to={`/campaigns/${campaignId}/mesa`}>
                   Mesa del Máster
-                </Link>
+                </ButtonLink>
               )}
-              <Link className="button secondary" to={`/campaigns/${campaignId}`}>
+              <ButtonLink variant="secondary" to={`/campaigns/${campaignId}`}>
                 Inicio
-              </Link>
+              </ButtonLink>
             </div>
           }
         />

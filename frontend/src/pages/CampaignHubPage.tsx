@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 
+import { Activity, Crown, LayoutDashboard, SECTION_ICONS, UserPlus } from "../components/icons";
 import { Panel, PanelHeader, StatusBadge } from "../components/ui";
 import { CampaignNavCard } from "../components/navigation/CampaignNavCard";
 import { InviteMemberForm } from "../features/campaign";
@@ -27,17 +28,23 @@ export function CampaignHubPage() {
     <div className="campaign-hub">
       <Panel>
         <PanelHeader
+          icon={LayoutDashboard}
+          iconTone="violet"
           title="¿Qué quieres hacer?"
           description="Elige una sección. Cada área tiene un propósito claro en tu partida PBP."
         />
         <div className="nav-card-grid">
           <CampaignNavCard
             accent="primary"
+            variant="play"
+            icon={SECTION_ICONS.chat}
             title="Jugar"
             description="Chat de escena en tiempo real: diálogo, acciones, contexto y tiradas."
             to={`${base}/chat`}
           />
           <CampaignNavCard
+            variant="world"
+            icon={SECTION_ICONS.mundo}
             title="Mundo"
             description={`NPCs, lugares y personajes (${entities.length} elementos).`}
             to={`${base}/mundo`}
@@ -45,11 +52,15 @@ export function CampaignHubPage() {
           {isMaster && (
             <>
               <CampaignNavCard
+                variant="library"
+                icon={SECTION_ICONS.biblioteca}
                 title="Biblioteca"
                 description={`Manuales, aventuras y notas (${documents.length} archivos).`}
                 to={`${base}/biblioteca`}
               />
               <CampaignNavCard
+                variant="desk"
+                icon={SECTION_ICONS.mesa}
                 title="Mesa del Máster"
                 description="Control de escena, jugadores y herramientas de dirección."
                 to={`${base}/mesa`}
@@ -60,7 +71,7 @@ export function CampaignHubPage() {
       </Panel>
 
       <Panel>
-        <PanelHeader title="Estado de la partida" />
+        <PanelHeader icon={Activity} iconTone="teal" title="Estado de la partida" />
         <div className="status-row">
           <StatusBadge label="Sistema" value={gameSystemLabel(campaign.game_system)} ok />
           <StatusBadge
@@ -85,14 +96,21 @@ export function CampaignHubPage() {
 
       {isMaster && (
         <Panel>
-          <PanelHeader title="Invitar jugador" description="Añade participantes por email." />
-          <InviteMemberForm campaignId={campaignId} />
+          <PanelHeader
+            icon={UserPlus}
+            iconTone="amber"
+            title="Invitar jugador"
+            description="Añade participantes por email."
+          />
+          <InviteMemberForm campaignId={campaignId} hideHeader />
         </Panel>
       )}
 
       {!isMaster && (
         <Panel>
           <PanelHeader
+            icon={Crown}
+            iconTone="amber"
             title="Tu rol: jugador"
             description="Escribe en el chat cuando te toque. El Máster dirige la escena; la IA le asiste en privado."
           />

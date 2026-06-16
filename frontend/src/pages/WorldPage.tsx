@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 
+import { SECTION_ICONS } from "../components/icons";
 import { Panel, PanelHeader } from "../components/ui";
 import { CreateEntityForm, EntityList, ImportExportPanel } from "../features/entities";
 import { useDeleteEntityMutation } from "../hooks/mutations/useEntityMutations";
@@ -30,6 +31,8 @@ export function WorldPage() {
     <div className="world-page">
       <Panel>
         <PanelHeader
+          icon={SECTION_ICONS.mundo}
+          iconTone="violet"
           title="Mundo"
           description={
             isMaster

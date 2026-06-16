@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 
 import { ApiError } from "../../api/http";
+import { UserPlus } from "../../components/icons";
 import { Button, ErrorBanner, Input, Panel, PanelHeader } from "../../components/ui";
 import { useRegisterMutation } from "../../hooks/mutations/useAuthMutations";
 import { registerSchema, type RegisterFormValues } from "../../schemas/auth";
@@ -19,7 +20,12 @@ export function RegisterForm() {
 
   return (
     <Panel>
-      <PanelHeader title="Crear cuenta" description="Regístrate para crear o unirte a campañas." />
+      <PanelHeader
+        icon={UserPlus}
+        iconTone="violet"
+        title="Crear cuenta"
+        description="Regístrate para crear o unirte a campañas."
+      />
       <form
         className="auth-form"
         onSubmit={handleSubmit((values) =>

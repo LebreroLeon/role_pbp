@@ -1,6 +1,5 @@
-import { Link } from "react-router-dom";
-
-import { ErrorBanner, Panel, PanelHeader } from "../components/ui";
+import { LayoutDashboard, Plus } from "../components/icons";
+import { ButtonLink, ErrorBanner, Panel, PanelHeader } from "../components/ui";
 import { CampaignList } from "../features/campaign";
 import { useCampaignsQuery } from "../hooks/queries/useCampaignQueries";
 
@@ -11,6 +10,8 @@ export function CampaignsPage() {
     <div className="campaigns-page">
       <Panel>
         <PanelHeader
+          icon={LayoutDashboard}
+          iconTone="violet"
           title="Mis campañas"
           description="Partidas donde eres Máster o jugador. Crea una nueva con el asistente paso a paso."
         />
@@ -18,9 +19,10 @@ export function CampaignsPage() {
         {isError && <ErrorBanner message={error instanceof Error ? error.message : "Error al cargar"} />}
         {data && <CampaignList campaigns={data} />}
         <div className="actions">
-          <Link className="button" to="/campaigns/new">
+          <ButtonLink to="/campaigns/new">
+            <Plus size={16} aria-hidden />
             Nueva campaña
-          </Link>
+          </ButtonLink>
         </div>
       </Panel>
     </div>

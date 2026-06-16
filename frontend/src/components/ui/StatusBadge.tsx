@@ -6,9 +6,12 @@ type StatusBadgeProps = {
 
 export function StatusBadge({ label, value, ok }: StatusBadgeProps) {
   return (
-    <div className="status-row">
-      <span>{label}</span>
-      <strong className={ok ? "ok" : "warn"}>{value}</strong>
+    <div className="status-pill">
+      {label ? <span className="status-pill__label">{label}</span> : null}
+      <span className={`status-pill__value ${ok ? "is-ok" : "is-warn"}`}>
+        <span className="status-pill__dot" aria-hidden />
+        {value}
+      </span>
     </div>
   );
 }

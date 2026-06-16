@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 
 import { ApiError } from "../../api/http";
 import type { DocumentType } from "../../api/types";
-import { Button, ErrorBanner, Input, Panel, PanelHeader } from "../../components/ui";
+import { Sparkles } from "../../components/icons";
+import { Button, ErrorBanner, Input, Panel, PanelHeader, Section } from "../../components/ui";
 import { useCreateCampaignMutation } from "../../hooks/mutations/useCampaignMutations";
 import { useUploadDocumentMutation } from "../../hooks/queries/useDocumentQueries";
-import { GAME_SYSTEMS } from "./gameSystems";
+import { GAME_SYSTEM_GROUPS } from "./gameSystems";
 import { InviteMemberForm } from "./InviteMemberForm";
 
 type WizardStep = 1 | 2 | 3 | 4;
@@ -69,6 +70,8 @@ export function CreateCampaignWizard() {
     <div className="wizard-page">
       <Panel>
         <PanelHeader
+          icon={Sparkles}
+          iconTone="rose"
           title="Nueva campaña"
           description="Configura tu partida en unos pasos. Podrás añadir más material después."
         />
@@ -88,10 +91,14 @@ export function CreateCampaignWizard() {
             <label className="form-field">
               <span>Sistema de juego</span>
               <select value={gameSystem} onChange={(e) => setGameSystem(e.target.value)}>
-                {GAME_SYSTEMS.map((system) => (
-                  <option key={system.value} value={system.value}>
-                    {system.label}
-                  </option>
+                {GAME_SYSTEM_GROUPS.map((group) => (
+                  <optgroup key={group.category} label={group.label}>
+                    {group.systems.map((system) => (
+                      <option key={system.value} value={system.value}>
+                        {system.label}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </label>
@@ -108,7 +115,7 @@ export function CreateCampaignWizard() {
         )}
 
         {step === 2 && campaignId && (
-          <>
+          <Section tone="amber">
             <p className="muted">
               Sube manuales, el módulo de aventura o notas. Quedarán en la biblioteca de la campaña.
             </p>
@@ -135,7 +142,7 @@ export function CreateCampaignWizard() {
                 </Button>
               </div>
             </form>
-          </>
+          </Section>
         )}
 
         {step === 3 && campaignId && (

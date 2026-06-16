@@ -1,5 +1,7 @@
-import { Link, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
+import { LayoutDashboard, LogOut, Scroll, User } from "lucide-react";
 
+import { SectionToneProvider } from "../ui";
 import { useLogout } from "../../hooks/mutations/useAuthMutations";
 import { useAuthStore } from "../../stores/authStore";
 
@@ -11,31 +13,49 @@ export function Layout() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div>
-          <p className="eyebrow">Project Chronicler</p>
-          <h1>
-            <Link to="/">RolePBP</Link>
-          </h1>
+        <div className="app-header__brand">
+          <span className="app-header__logo" aria-hidden>
+            <Scroll size={20} strokeWidth={2} />
+          </span>
+          <div>
+            <p className="eyebrow">Project Chronicler</p>
+            <h1>
+              <Link to="/">RolePBP</Link>
+            </h1>
+          </div>
         </div>
         <nav>
           {isAuthenticated ? (
             <>
-              <span className="nav-user">{user?.display_name}</span>
-              <Link to="/campaigns">Campañas</Link>
+              <span className="nav-user">
+                <User size={15} aria-hidden />
+                {user?.display_name}
+              </span>
+              <NavLink to="/campaigns" className="nav-link">
+                <LayoutDashboard size={15} aria-hidden />
+                Campañas
+              </NavLink>
               <button type="button" className="link-button" onClick={logout}>
+                <LogOut size={15} aria-hidden />
                 Salir
               </button>
             </>
           ) : (
             <>
-              <Link to="/login">Entrar</Link>
-              <Link to="/register">Registro</Link>
+              <Link to="/login" className="nav-link">
+                Entrar
+              </Link>
+              <Link to="/register" className="nav-link">
+                Registro
+              </Link>
             </>
           )}
         </nav>
       </header>
       <main className="app-main">
-        <Outlet />
+        <SectionToneProvider>
+          <Outlet />
+        </SectionToneProvider>
       </main>
     </div>
   );

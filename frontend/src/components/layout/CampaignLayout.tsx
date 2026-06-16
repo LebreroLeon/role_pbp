@@ -1,7 +1,10 @@
-import { NavLink, Outlet, useParams } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useParams } from "react-router-dom";
+import { Crown, User } from "lucide-react";
 
 import { Breadcrumbs } from "./Breadcrumbs";
-import { ErrorBanner } from "../ui";
+import { CAMPAIGN_NAV_ICONS } from "../icons";
+import { ErrorBanner, SectionToneProvider, getToneFromPath } from "../ui";
+import { gameSystemLabel } from "../../features/campaign/gameSystems";
 import { useCampaignQuery } from "../../hooks/queries/useCampaignQueries";
 import { useActiveSceneQuery } from "../../hooks/queries/useSceneQueries";
 
@@ -21,6 +24,8 @@ const PLAYER_LINKS = [
 
 export function CampaignLayout() {
   const { campaignId = "" } = useParams();
+  const location = useLocation();
+  const sectionTone = getToneFromPath(location.pathname);
   const base = `/campaigns/${campaignId}`;
   const { data: campaign, isLoading, isError, error } = useCampaignQuery(campaignId);
   const { data: activeScene } = useActiveSceneQuery(campaignId);
@@ -36,6 +41,7 @@ export function CampaignLayout() {
   const isMaster = campaign.role === "MASTER";
   const links = isMaster ? MASTER_LINKS : PLAYER_LINKS;
   const sceneStatus = activeScene?.status ?? "sin escena";
+  const RoleIcon = isMaster ? Crown : User;
 
   return (
     <div className="campaign-shell">
@@ -50,35 +56,46 @@ export function CampaignLayout() {
         <div>
           <h2 className="campaign-shell__title">{campaign.name}</h2>
           <p className="muted campaign-shell__meta">
-            {campaign.game_system ?? "Sistema libre"}
+            {gameSystemLabel(campaign.game_system)}
             {campaign.tone ? ` · ${campaign.tone}` : ""}
             {" · "}
             Escena: {sceneStatus}
           </p>
         </div>
         <span className={`role-pill ${isMaster ? "role-pill--master" : "role-pill--player"}`}>
+          <RoleIcon size={14} aria-hidden />
           {isMaster ? "Máster" : "Jugador"}
         </span>
       </header>
 
       <nav className="campaign-nav">
-        {links.map((link) => (
-          <NavLink
-            key={link.to}
-            to={link.to ? `${base}/${link.to}` : base}
-            end={link.to === ""}
-            className={({ isActive }) => `campaign-nav__link ${isActive ? "active" : ""}`}
-            title={link.hint}
-          >
-            <span className="campaign-nav__label">{link.label}</span>
-            <span className="campaign-nav__hint">{link.hint}</span>
-          </NavLink>
-        ))}
+        {links.map((link) => {
+          const Icon = CAMPAIGN_NAV_ICONS[link.to as keyof typeof CAMPAIGN_NAV_ICONS];
+          return (
+            <NavLink
+              key={link.to}
+              to={link.to ? `${base}/${link.to}` : base}
+              end={link.to === ""}
+              className={({ isActive }) => `campaign-nav__link ${isActive ? "active" : ""}`}
+              title={link.hint}
+            >
+              <span className="campaign-nav__icon" aria-hidden>
+                <Icon size={18} strokeWidth={1.75} />
+              </span>
+              <span className="campaign-nav__text">
+                <span className="campaign-nav__label">{link.label}</span>
+                <span className="campaign-nav__hint">{link.hint}</span>
+              </span>
+            </NavLink>
+          );
+        })}
       </nav>
 
-      <div className="campaign-shell__content">
-        <Outlet />
-      </div>
+      <SectionToneProvider tone={sectionTone}>
+        <div className="campaign-shell__content">
+          <Outlet />
+        </div>
+      </SectionToneProvider>
     </div>
   );
 }

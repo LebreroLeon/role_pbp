@@ -1,0 +1,90 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  Activity,
+  BookOpen,
+  ChevronRight,
+  Clapperboard,
+  Crown,
+  Dices,
+  Download,
+  Eye,
+  FileText,
+  FolderOpen,
+  Globe2,
+  Home,
+  LayoutDashboard,
+  Library,
+  LogIn,
+  LogOut,
+  Map,
+  MapPin,
+  MessageSquare,
+  Plus,
+  Scroll,
+  Settings2,
+  Sparkles,
+  Swords,
+  Trash2,
+  Upload,
+  User,
+  UserPlus,
+  Users,
+} from "lucide-react";
+
+export {
+  Activity,
+  BookOpen,
+  ChevronRight,
+  Clapperboard,
+  Crown,
+  Dices,
+  Download,
+  Eye,
+  FileText,
+  FolderOpen,
+  Globe2,
+  Home,
+  LayoutDashboard,
+  Library,
+  LogIn,
+  LogOut,
+  Map,
+  MapPin,
+  MessageSquare,
+  Plus,
+  Scroll,
+  Sparkles,
+  Swords,
+  Trash2,
+  Upload,
+  User,
+  UserPlus,
+  Users,
+  Settings2,
+};
+
+export type { LucideIcon };
+
+/** Iconos de sección — misma fuente para nav, hub y cabeceras de página. */
+export const SECTION_ICONS = {
+  hub: LayoutDashboard,
+  chat: Swords,
+  mundo: Map,
+  biblioteca: Library,
+  mesa: Crown,
+} as const;
+
+export const CAMPAIGN_NAV_ICONS = {
+  "": SECTION_ICONS.hub,
+  chat: SECTION_ICONS.chat,
+  mundo: SECTION_ICONS.mundo,
+  biblioteca: SECTION_ICONS.biblioteca,
+  mesa: SECTION_ICONS.mesa,
+} as const;
+
+export const DESK_TAB_ICONS = {
+  scene: Clapperboard,
+  players: Users,
+  assist: Sparkles,
+  settings: Settings2,
+} as const;

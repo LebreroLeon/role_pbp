@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 
 import type { CampaignMember } from "../../api/types";
 import { ApiError } from "../../api/http";
+import { MapPin } from "../../components/icons";
 import { Button, ErrorBanner, Input, Panel, PanelHeader } from "../../components/ui";
 import { useCreateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 import {
@@ -86,6 +87,8 @@ export function CreateEntityForm({ campaignId, members }: CreateEntityFormProps)
   return (
     <Panel>
       <PanelHeader
+        icon={MapPin}
+        iconTone="teal"
         title="Nueva entidad del mundo"
         description="Añade un NPC, una ubicación o el PJ de un jugador."
       />

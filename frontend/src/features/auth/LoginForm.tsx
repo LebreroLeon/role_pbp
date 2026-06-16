@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 
 import { ApiError } from "../../api/http";
+import { LogIn } from "../../components/icons";
 import { Button, ErrorBanner, Input, Panel, PanelHeader } from "../../components/ui";
 import { useLoginMutation } from "../../hooks/mutations/useAuthMutations";
 import { loginSchema, type LoginFormValues } from "../../schemas/auth";
@@ -19,7 +20,12 @@ export function LoginForm() {
 
   return (
     <Panel>
-      <PanelHeader title="Iniciar sesión" description="Accede a tus campañas de rol por turnos." />
+      <PanelHeader
+        icon={LogIn}
+        iconTone="rose"
+        title="Iniciar sesión"
+        description="Accede a tus campañas de rol por turnos."
+      />
       <form
         className="auth-form"
         onSubmit={handleSubmit((values) => mutation.mutate(values))}

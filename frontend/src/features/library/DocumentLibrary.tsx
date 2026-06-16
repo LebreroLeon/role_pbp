@@ -3,6 +3,7 @@ import { FormEvent, useRef, useState } from "react";
 import { downloadAuthenticatedFile } from "../../api/download";
 import { ApiError } from "../../api/http";
 import type { DocumentType } from "../../api/types";
+import { Download, FileText, FolderOpen, Trash2, Upload } from "../../components/icons";
 import { Button, ErrorBanner, Panel, PanelHeader } from "../../components/ui";
 import {
   useDeleteDocumentMutation,
@@ -66,6 +67,8 @@ export function DocumentLibrary({ campaignId }: DocumentLibraryProps) {
     <div className="library-page">
       <Panel>
         <PanelHeader
+          icon={Upload}
+          iconTone="teal"
           title="Subir material"
           description="Manuales, módulos de campaña, notas o JSON de respaldo. La IA los usará más adelante como referencia."
         />
@@ -92,7 +95,12 @@ export function DocumentLibrary({ campaignId }: DocumentLibraryProps) {
       </Panel>
 
       <Panel>
-        <PanelHeader title="Archivos de la campaña" description={`${documents.length} documentos`} />
+        <PanelHeader
+          icon={FolderOpen}
+          iconTone="amber"
+          title="Archivos de la campaña"
+          description={`${documents.length} documentos`}
+        />
         {isLoading && <p className="muted">Cargando biblioteca...</p>}
         {!isLoading && documents.length === 0 && (
           <p className="muted">Aún no hay archivos. Sube manuales o el módulo de tu aventura.</p>
@@ -101,11 +109,16 @@ export function DocumentLibrary({ campaignId }: DocumentLibraryProps) {
           <ul className="document-list">
             {documents.map((doc) => (
               <li key={doc.id} className="document-card">
-                <div>
-                  <strong>{doc.original_name}</strong>
-                  <p className="muted document-card__meta">
-                    {DOCUMENT_TYPE_LABELS[doc.document_type]} · {formatSize(doc.size_bytes)}
-                  </p>
+                <div className="document-card__main">
+                  <span className="document-card__icon" aria-hidden>
+                    <FileText size={18} strokeWidth={2} />
+                  </span>
+                  <div>
+                    <strong>{doc.original_name}</strong>
+                    <p className="muted document-card__meta">
+                      {DOCUMENT_TYPE_LABELS[doc.document_type]} · {formatSize(doc.size_bytes)}
+                    </p>
+                  </div>
                 </div>
                 <div className="actions">
                   <Button
@@ -113,6 +126,7 @@ export function DocumentLibrary({ campaignId }: DocumentLibraryProps) {
                     disabled={downloadingId === doc.id}
                     onClick={() => handleDownload(doc.id, doc.original_name)}
                   >
+                    <Download size={15} aria-hidden />
                     {downloadingId === doc.id ? "..." : "Descargar"}
                   </Button>
                   <Button
@@ -120,6 +134,7 @@ export function DocumentLibrary({ campaignId }: DocumentLibraryProps) {
                     disabled={deleteMutation.isPending}
                     onClick={() => deleteMutation.mutate(doc.id)}
                   >
+                    <Trash2 size={15} aria-hidden />
                     Eliminar
                   </Button>
                 </div>

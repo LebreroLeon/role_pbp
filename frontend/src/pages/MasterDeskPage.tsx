@@ -6,7 +6,8 @@ import { api } from "../api/client";
 import type { MasterAssistResponse } from "../api/types";
 import { queryKeys } from "../api/queryKeys";
 import { RoleGate } from "../components/auth/RoleGate";
-import { Button, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
+import { DESK_TAB_ICONS, SECTION_ICONS } from "../components/icons";
+import { Button, ButtonLink, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
 import { InviteMemberForm } from "../features/campaign";
 import { gameSystemLabel } from "../features/campaign/gameSystems";
 import {
@@ -76,22 +77,28 @@ export function MasterDeskPage() {
       <div className="master-screen">
         <Panel className="master-screen__shell">
           <PanelHeader
+            icon={SECTION_ICONS.mesa}
+            iconTone="teal"
             title="Mesa del Máster"
             description="Herramientas de dirección: escena, jugadores y asistencia creativa."
           />
 
           <nav className="master-tabs">
-            {TABS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`master-tabs__btn ${tab === item.id ? "is-active" : ""}`}
-                onClick={() => setTab(item.id)}
-                title={item.hint}
-              >
-                {item.label}
-              </button>
-            ))}
+            {TABS.map((item) => {
+              const TabIcon = DESK_TAB_ICONS[item.id];
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`master-tabs__btn ${tab === item.id ? "is-active" : ""}`}
+                  onClick={() => setTab(item.id)}
+                  title={item.hint}
+                >
+                  <TabIcon size={15} aria-hidden />
+                  {item.label}
+                </button>
+              );
+            })}
           </nav>
 
           {error && <ErrorBanner message={error} />}
@@ -111,9 +118,9 @@ export function MasterDeskPage() {
                     />
                   </div>
                   <div className="actions">
-                    <Link className="button" to={`/campaigns/${campaignId}/chat`}>
+                    <ButtonLink to={`/campaigns/${campaignId}/chat`}>
                       Ir a Jugar
-                    </Link>
+                    </ButtonLink>
                     <Button variant="secondary" onClick={handleFreeze} disabled={freezing}>
                       {activeScene.status === "PAUSED" ? "Reanudar escena" : "Congelar escena"}
                     </Button>
@@ -189,12 +196,12 @@ export function MasterDeskPage() {
                 <strong>Tono:</strong> {campaign?.tone ?? "Sin definir"}
               </p>
               <div className="actions">
-                <Link className="button secondary" to={`/campaigns/${campaignId}/biblioteca`}>
+                <ButtonLink variant="secondary" to={`/campaigns/${campaignId}/biblioteca`}>
                   Abrir biblioteca
-                </Link>
-                <Link className="button secondary" to={`/campaigns/${campaignId}/mundo`}>
+                </ButtonLink>
+                <ButtonLink variant="secondary" to={`/campaigns/${campaignId}/mundo`}>
                   Abrir mundo
-                </Link>
+                </ButtonLink>
               </div>
             </section>
           )}

@@ -3,6 +3,7 @@ import { FormEvent, useRef, useState } from "react";
 import { api } from "../../api/client";
 import { ApiError } from "../../api/http";
 import type { EntityExportBundle } from "../../api/types";
+import { Download } from "../../components/icons";
 import { Button, ErrorBanner, Panel, PanelHeader } from "../../components/ui";
 import { useImportEntitiesMutation } from "../../hooks/mutations/useEntityImportMutations";
 import { EXPORT_FORMAT_HINT, LOCATION_TEMPLATE, NPC_TEMPLATE, downloadJson } from "./entityTemplates";
@@ -69,6 +70,8 @@ export function ImportExportPanel({ campaignId }: ImportExportPanelProps) {
   return (
     <Panel>
       <PanelHeader
+        icon={Download}
+        iconTone="teal"
         title="Importar y exportar mundo"
         description="Copia de seguridad en JSON o carga NPCs y lugares desde otro archivo RolePBP."
       />
