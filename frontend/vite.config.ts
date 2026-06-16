@@ -7,6 +7,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      devOptions: {
+        enabled: false,
+      },
       manifest: {
         name: "RolePBP",
         short_name: "RolePBP",
