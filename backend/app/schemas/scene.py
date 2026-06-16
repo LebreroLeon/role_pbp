@@ -46,13 +46,11 @@ class SceneResponse(BaseModel):
 
 
 class PostMessageRequest(BaseModel):
-    sender_id: str
     type: str = "NARRATIVE"
     text: str
 
 
 class DiceRollRequest(BaseModel):
-    sender_id: str
     dice_expression: str
     modifier: int = 0
     skill_checked: str | None = None

@@ -46,25 +46,25 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  getActiveScene: (campaignId: string) => http<Scene>(`/api/v1/campaigns/${campaignId}/scenes/active`),
   createScene: (campaignId: string, sceneObjective?: string) =>
     http<Scene>("/api/v1/scenes", {
       method: "POST",
       body: JSON.stringify({
         campaign_id: campaignId,
         scene_objective: sceneObjective,
-        turn_order: ["player_1", "master"],
       }),
     }),
   getScene: (sceneId: string) => http<Scene>(`/api/v1/scenes/${sceneId}`),
-  postMessage: (sceneId: string, senderId: string, text: string) =>
+  postMessage: (sceneId: string, text: string) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/messages`, {
       method: "POST",
-      body: JSON.stringify({ sender_id: senderId, type: "NARRATIVE", text }),
+      body: JSON.stringify({ type: "NARRATIVE", text }),
     }),
-  rollDice: (sceneId: string, senderId: string, diceExpression: string) =>
+  rollDice: (sceneId: string, diceExpression: string) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/dice`, {
       method: "POST",
-      body: JSON.stringify({ sender_id: senderId, dice_expression: diceExpression }),
+      body: JSON.stringify({ dice_expression: diceExpression }),
     }),
   masterAssist: (campaignId: string, sceneId: string, query: string) =>
     http<MasterAssistResponse>("/api/v1/master/assist", {

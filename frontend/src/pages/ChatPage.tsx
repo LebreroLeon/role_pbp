@@ -1,37 +1,53 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../api/client";
+import { ApiError } from "../api/http";
+import { queryKeys } from "../api/queryKeys";
 import type { Scene } from "../api/types";
-import { Button, ErrorBanner, Panel, PanelHeader } from "../components/ui";
+import { Button, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
 import { ChatForm, ChatLog, DiceRoller } from "../features/scene";
-import { useAuthStore } from "../stores/authStore";
+import { useActiveSceneQuery } from "../hooks/queries/useSceneQueries";
+import { useSceneWebSocket } from "../hooks/useSceneWebSocket";
 
 export function ChatPage() {
   const { campaignId = "" } = useParams();
-  const user = useAuthStore((state) => state.user);
-  const senderId = user?.id ?? "anonymous";
+  const queryClient = useQueryClient();
+  const { data: activeScene, isLoading, isError, error, refetch } = useActiveSceneQuery(campaignId);
 
   const [scene, setScene] = useState<Scene | null>(null);
   const [message, setMessage] = useState("");
   const [dice, setDice] = useState("1d20");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  async function ensureScene() {
-    if (scene) return scene;
-    const created = await api.createScene(campaignId, "Escena inicial");
-    setScene(created);
-    return created;
-  }
+  const currentScene = scene ?? activeScene ?? null;
+
+  const handleSceneUpdate = useCallback(
+    (updated: Scene) => {
+      setScene(updated);
+      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), updated);
+    },
+    [campaignId, queryClient],
+  );
+
+  const { connected, sendMessage, sendDiceRoll } = useSceneWebSocket({
+    sceneId: currentScene?.id ?? null,
+    onSceneUpdate: handleSceneUpdate,
+  });
+
+  const noActiveScene = !isLoading && (isError && error instanceof ApiError && error.status === 404);
 
   async function handleStart() {
     setLoading(true);
-    setError(null);
+    setErrorMessage(null);
     try {
-      await ensureScene();
+      const created = await api.createScene(campaignId, "Escena inicial");
+      setScene(created);
+      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), created);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo crear la escena");
+      setErrorMessage(err instanceof Error ? err.message : "No se pudo crear la escena");
     } finally {
       setLoading(false);
     }
@@ -39,31 +55,47 @@ export function ChatPage() {
 
   async function handleSend(event: FormEvent) {
     event.preventDefault();
-    if (!message.trim()) return;
+    if (!message.trim() || !currentScene) return;
 
     setLoading(true);
-    setError(null);
+    setErrorMessage(null);
+    const text = message.trim();
+    setMessage("");
+
+    const sent = sendMessage(text);
+    if (sent) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const current = await ensureScene();
-      const updated = await api.postMessage(current.id, senderId, message.trim());
-      setScene(updated);
-      setMessage("");
+      const updated = await api.postMessage(currentScene.id, text);
+      handleSceneUpdate(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al enviar mensaje");
+      setErrorMessage(err instanceof Error ? err.message : "Error al enviar mensaje");
     } finally {
       setLoading(false);
     }
   }
 
   async function handleRoll() {
+    if (!currentScene) return;
+
     setLoading(true);
-    setError(null);
+    setErrorMessage(null);
+    const expression = dice.trim();
+
+    const sent = sendDiceRoll(expression);
+    if (sent) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const current = await ensureScene();
-      const updated = await api.rollDice(current.id, senderId, dice.trim());
-      setScene(updated);
+      const updated = await api.rollDice(currentScene.id, expression);
+      handleSceneUpdate(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al tirar dados");
+      setErrorMessage(err instanceof Error ? err.message : "Error al tirar dados");
     } finally {
       setLoading(false);
     }
@@ -73,26 +105,34 @@ export function ChatPage() {
     <Panel className="chat-panel">
       <PanelHeader
         title="Chat de escena"
-        description="Turnos, narrativa y tiradas indexadas para memoria de campaña."
+        description="Turnos, narrativa y tiradas en tiempo real."
         actions={
-          <Link className="button secondary" to={`/campaigns/${campaignId}`}>
-            Volver al hub
-          </Link>
+          <div className="status-row">
+            {currentScene && <StatusBadge label="WS" value={connected ? "live" : "offline"} ok={connected} />}
+            <Link className="button secondary" to={`/campaigns/${campaignId}`}>
+              Volver al hub
+            </Link>
+          </div>
         }
       />
 
-      {error && <ErrorBanner message={error} />}
+      {errorMessage && <ErrorBanner message={errorMessage} />}
 
-      {!scene ? (
+      {isLoading && <p className="muted">Cargando escena...</p>}
+
+      {noActiveScene ? (
         <div className="actions">
           <Button onClick={handleStart} disabled={loading}>
             Iniciar escena
           </Button>
         </div>
-      ) : (
+      ) : currentScene ? (
         <>
           <div className="chat-log">
-            <ChatLog messages={scene.scene_state.chat_buffer} emptyMessage="Aún no hay mensajes en la escena." />
+            <ChatLog
+              messages={currentScene.scene_state.chat_buffer}
+              emptyMessage="Aún no hay mensajes en la escena."
+            />
           </div>
 
           <ChatForm
@@ -105,6 +145,14 @@ export function ChatPage() {
 
           <DiceRoller expression={dice} onExpressionChange={setDice} onRoll={handleRoll} disabled={loading} />
         </>
+      ) : isError ? (
+        <ErrorBanner message={error instanceof Error ? error.message : "No se pudo cargar la escena"} />
+      ) : null}
+
+      {!isLoading && !noActiveScene && !currentScene && (
+        <Button onClick={() => refetch()} disabled={loading}>
+          Reintentar carga
+        </Button>
       )}
     </Panel>
   );

@@ -4,29 +4,27 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { MasterAssistResponse } from "../api/types";
 import { Button, ErrorBanner, Panel, PanelHeader } from "../components/ui";
+import { useActiveSceneQuery } from "../hooks/queries/useSceneQueries";
 
 export function MasterPanelPage() {
   const { campaignId = "" } = useParams();
-  const [sceneId, setSceneId] = useState<string | null>(null);
+  const { data: activeScene, isLoading: sceneLoading } = useActiveSceneQuery(campaignId);
   const [query, setQuery] = useState("¿Qué complicación encaja con la escena actual?");
   const [response, setResponse] = useState<MasterAssistResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function ensureSceneId(): Promise<string> {
-    if (sceneId) return sceneId;
-    const scene = await api.createScene(campaignId, "Escena para asistencia del Máster");
-    setSceneId(scene.id);
-    return scene.id;
-  }
-
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!activeScene) {
+      setError("No hay escena activa. Inicia una desde el chat primero.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const activeSceneId = await ensureSceneId();
-      const result = await api.masterAssist(campaignId, activeSceneId, query.trim());
+      const result = await api.masterAssist(campaignId, activeScene.id, query.trim());
       setResponse(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo consultar al Shadow Master");
@@ -47,9 +45,14 @@ export function MasterPanelPage() {
         }
       />
 
+      {sceneLoading && <p className="muted">Buscando escena activa...</p>}
+      {!sceneLoading && !activeScene && (
+        <ErrorBanner message="No hay escena activa. Ve al chat e inicia una escena antes de pedir asistencia." />
+      )}
+
       <form className="master-form" onSubmit={handleSubmit}>
         <textarea value={query} onChange={(event) => setQuery(event.target.value)} rows={4} disabled={loading} />
-        <Button type="submit" disabled={loading || !query.trim()}>
+        <Button type="submit" disabled={loading || !query.trim() || !activeScene}>
           Pedir sugerencias
         </Button>
       </form>

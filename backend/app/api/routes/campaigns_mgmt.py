@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, parse_uuid, require_campaign_member, require_campaign_master
 from app.core.database import get_db
 from app.models.campaign import Campaign
 from app.models.user import User
@@ -15,6 +15,8 @@ from app.schemas.campaign_mgmt import (
     CampaignMemberResponse,
     CampaignResponse,
 )
+from app.schemas.scene import SceneResponse
+from app.services.scenes import SceneServiceError, get_active_scene, list_campaign_scenes, scene_to_response
 from app.services.campaigns import (
     CampaignServiceError,
     add_campaign_member,
@@ -103,3 +105,30 @@ async def post_member(
     except CampaignServiceError as exc:
         status = 404 if "not found" in str(exc).lower() else 400
         raise HTTPException(status_code=status, detail=str(exc)) from exc
+
+
+@router.get("/{campaign_id}/scenes", response_model=list[SceneResponse])
+async def get_campaign_scenes(
+    campaign_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> list[SceneResponse]:
+    campaign_uuid = parse_uuid(campaign_id, "campaign_id")
+    await require_campaign_member(db, current_user, campaign_uuid)
+    return await list_campaign_scenes(db, campaign_uuid)
+
+
+@router.get("/{campaign_id}/scenes/active", response_model=SceneResponse)
+async def get_active_campaign_scene(
+    campaign_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> SceneResponse:
+    campaign_uuid = parse_uuid(campaign_id, "campaign_id")
+    await require_campaign_member(db, current_user, campaign_uuid)
+
+    scene = await get_active_scene(db, campaign_uuid)
+    if scene is None:
+        raise HTTPException(status_code=404, detail="No active scene")
+
+    return scene_to_response(scene)
