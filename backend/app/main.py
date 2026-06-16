@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.models import campaign  # noqa: F401
+from app.models import campaign  # noqa: F401 — registers ORM models with Base.metadata
 
 
 @asynccontextmanager

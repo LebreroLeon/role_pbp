@@ -43,10 +43,11 @@
     },
     "memory_settings": {
       "type": "object",
-      "required": ["max_chat_buffer_size", "rag_top_k_matches"],
+      "required": ["max_chat_buffer_size", "rag_top_k_matches", "max_player_lore_queries_per_scene"],
       "properties": {
         "max_chat_buffer_size": { "type": "integer", "minimum": 5, "maximum": 50, "default": 20 },
-        "rag_top_k_matches": { "type": "integer", "minimum": 1, "maximum": 10, "default": 3 }
+        "rag_top_k_matches": { "type": "integer", "minimum": 1, "maximum": 10, "default": 3 },
+        "max_player_lore_queries_per_scene": { "type": "integer", "minimum": 0, "maximum": 10, "default": 3 }
       },
       "additionalProperties": false
     },
@@ -61,10 +62,11 @@
     },
     "state_flags": {
       "type": "object",
-      "required": ["conflict_mode_active", "ai_alert_triggered"],
+      "required": ["conflict_mode_active", "ai_alert_triggered", "remaining_player_lore_tokens"],
       "properties": {
         "conflict_mode_active": { "type": "boolean" },
-        "ai_alert_triggered": { "type": "boolean" }
+        "ai_alert_triggered": { "type": "boolean" },
+        "remaining_player_lore_tokens": { "type": "integer", "minimum": 0, "default": 3 }
       },
       "additionalProperties": false
     }
@@ -114,7 +116,8 @@
       },
       "memory_settings": {
         "max_chat_buffer_size": 20,
-        "rag_top_k_matches": 3
+        "rag_top_k_matches": 3,
+        "max_player_lore_queries_per_scene": 3
       },
       "chat_buffer": [
         {
@@ -135,7 +138,8 @@
       ],
       "state_flags": {
         "conflict_mode_active": false,
-        "ai_alert_triggered": false
+        "ai_alert_triggered": false,
+        "remaining_player_lore_tokens": 3
       }
     }
   ]
