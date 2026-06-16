@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.campaign import Campaign, Scene
 from app.schemas.scene import (
+    ChatMessage,
     DiceRollRequest,
     PostMessageRequest,
     SceneCreate,
@@ -15,13 +16,40 @@ from app.services.dice import roll_dice as roll_dice_expression
 from app.services.master import utc_now_iso
 from app.services.rag import rag_service
 
+ALLOWED_MESSAGE_TYPES = {"SPEAK", "ACTION", "CONTEXT", "MASTER", "NARRATIVE", "DICE_ROLL"}
+
 
 class SceneServiceError(ValueError):
     pass
 
 
+def normalize_message_type(message_type: str) -> str:
+    normalized = message_type.upper()
+    if normalized == "NARRATIVE":
+        return "ACTION"
+    if normalized not in ALLOWED_MESSAGE_TYPES:
+        raise SceneServiceError(f"Invalid message type: {message_type}")
+    return normalized
+
+
+def normalize_chat_buffer(buffer: list) -> list[dict]:
+    normalized: list[dict] = []
+    for index, item in enumerate(buffer):
+        data = item if isinstance(item, dict) else item.model_dump()
+        entry = dict(data)
+        if not entry.get("id"):
+            entry["id"] = f"legacy-{index}-{entry.get('timestamp', '')}"
+        entry["read_by"] = list(entry.get("read_by") or [])
+        if entry.get("type") == "NARRATIVE":
+            entry["type"] = "ACTION"
+        normalized.append(entry)
+    return normalized
+
+
 def scene_to_response(scene: Scene) -> SceneResponse:
-    state = SceneState.model_validate(scene.scene_state)
+    state_data = dict(scene.scene_state)
+    state_data["chat_buffer"] = normalize_chat_buffer(state_data.get("chat_buffer", []))
+    state = SceneState.model_validate(state_data)
     return SceneResponse(
         id=str(scene.id),
         campaign_id=str(scene.campaign_id),
@@ -92,16 +120,28 @@ async def post_message(
     scene: Scene,
     sender_id: str,
     payload: PostMessageRequest,
+    *,
+    sender_role: str = "PLAYER",
 ) -> SceneResponse:
-    state = SceneState.model_validate(scene.scene_state)
+    msg_type = normalize_message_type(payload.type)
+    if msg_type == "MASTER" and sender_role != "MASTER":
+        raise SceneServiceError("Master messages require MASTER role")
+
+    state_data = dict(scene.scene_state)
+    state_data["chat_buffer"] = normalize_chat_buffer(state_data.get("chat_buffer", []))
+    state = SceneState.model_validate(state_data)
+
     message = {
+        "id": str(uuid.uuid4()),
         "timestamp": utc_now_iso(),
         "sender_id": sender_id,
-        "type": payload.type,
+        "type": msg_type,
         "text": payload.text,
+        "read_by": [sender_id],
     }
-    state.chat_buffer.append(message)
-    state.chat_buffer = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
+    state.chat_buffer.append(ChatMessage.model_validate(message))
+    trimmed = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
+    state.chat_buffer = trimmed
 
     scene.scene_state = state.model_dump()
     await db.commit()
@@ -109,9 +149,9 @@ async def post_message(
 
     rag_service.index_text(
         campaign_id=state.campaign_id,
-        document_id=f"{scene.id}:{len(state.chat_buffer)}",
+        document_id=message["id"],
         text=payload.text,
-        metadata={"scene_id": str(scene.id), "sender_id": sender_id},
+        metadata={"scene_id": str(scene.id), "sender_id": sender_id, "type": msg_type},
     )
     return scene_to_response(scene)
 
@@ -122,7 +162,9 @@ async def roll_scene_dice(
     sender_id: str,
     payload: DiceRollRequest,
 ) -> SceneResponse:
-    state = SceneState.model_validate(scene.scene_state)
+    state_data = dict(scene.scene_state)
+    state_data["chat_buffer"] = normalize_chat_buffer(state_data.get("chat_buffer", []))
+    state = SceneState.model_validate(state_data)
 
     try:
         result = roll_dice_expression(payload.dice_expression, payload.modifier)
@@ -130,6 +172,7 @@ async def roll_scene_dice(
         raise SceneServiceError(str(exc)) from exc
 
     message = {
+        "id": str(uuid.uuid4()),
         "timestamp": utc_now_iso(),
         "sender_id": sender_id,
         "type": "DICE_ROLL",
@@ -138,11 +181,48 @@ async def roll_scene_dice(
         "raw_result": result["raw_result"],
         "final_result": result["final_result"],
         "skill_checked": payload.skill_checked,
+        "read_by": [sender_id],
     }
-    state.chat_buffer.append(message)
+    state.chat_buffer.append(ChatMessage.model_validate(message))
     state.chat_buffer = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
 
     scene.scene_state = state.model_dump()
+    await db.commit()
+    await db.refresh(scene)
+    return scene_to_response(scene)
+
+
+async def mark_messages_read(
+    db: AsyncSession,
+    scene: Scene,
+    user_id: str,
+    message_ids: list[str] | None = None,
+) -> SceneResponse:
+    state_data = dict(scene.scene_state)
+    buffer = normalize_chat_buffer(state_data.get("chat_buffer", []))
+
+    for entry in buffer:
+        if message_ids is not None and entry["id"] not in message_ids:
+            continue
+        if user_id not in entry["read_by"]:
+            entry["read_by"].append(user_id)
+
+    state_data["chat_buffer"] = buffer
+    scene.scene_state = state_data
+    await db.commit()
+    await db.refresh(scene)
+    return scene_to_response(scene)
+
+
+async def update_scene_status(
+    db: AsyncSession,
+    scene: Scene,
+    status: str,
+) -> SceneResponse:
+    scene.status = status
+    state_data = dict(scene.scene_state)
+    state_data["status"] = status
+    scene.scene_state = state_data
     await db.commit()
     await db.refresh(scene)
     return scene_to_response(scene)

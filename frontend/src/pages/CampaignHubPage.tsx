@@ -37,7 +37,7 @@ export function CampaignHubPage() {
           </Link>
           {isMaster && (
             <Link className="button secondary" to={`/campaigns/${campaignId}/master`}>
-              Panel del Máster
+              Master Screen
             </Link>
           )}
         </div>

@@ -75,26 +75,40 @@
   "$defs": {
     "chatMessageNarrative": {
       "type": "object",
-      "required": ["timestamp", "sender_id", "type", "text"],
+      "required": ["id", "timestamp", "sender_id", "type", "text"],
       "properties": {
+        "id": { "type": "string", "format": "uuid" },
         "timestamp": { "type": "string", "format": "date-time" },
         "sender_id": { "type": "string", "format": "uuid" },
-        "type": { "const": "NARRATIVE" },
-        "text": { "type": "string", "minLength": 1 }
+        "type": {
+          "enum": ["SPEAK", "ACTION", "CONTEXT", "MASTER", "NARRATIVE"],
+          "description": "NARRATIVE se normaliza a ACTION en clientes nuevos."
+        },
+        "text": { "type": "string", "minLength": 1 },
+        "read_by": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "IDs de usuarios que han leído el mensaje (excluye al remitente en la UI)."
+        }
       },
       "additionalProperties": false
     },
     "chatMessageDiceRoll": {
       "type": "object",
-      "required": ["timestamp", "sender_id", "type", "dice_expression", "raw_result", "final_result", "skill_checked"],
+      "required": ["id", "timestamp", "sender_id", "type", "dice_expression", "raw_result", "final_result", "skill_checked"],
       "properties": {
+        "id": { "type": "string", "format": "uuid" },
         "timestamp": { "type": "string", "format": "date-time" },
         "sender_id": { "type": "string", "format": "uuid" },
         "type": { "const": "DICE_ROLL" },
         "dice_expression": { "type": "string" },
         "raw_result": { "type": "integer" },
         "final_result": { "type": "integer" },
-        "skill_checked": { "type": "string" }
+        "skill_checked": { "type": ["string", "null"] },
+        "read_by": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" }
+        }
       },
       "additionalProperties": false
     }
@@ -121,19 +135,23 @@
       },
       "chat_buffer": [
         {
+          "id": "00000000-0000-4000-8000-000000000050",
           "timestamp": "2026-06-13T18:00:00Z",
           "sender_id": "00000000-0000-4000-8000-000000000040",
-          "type": "NARRATIVE",
-          "text": "Descripción textual de la acción física, diálogo o intención declarada por el jugador."
+          "type": "ACTION",
+          "text": "Descripción textual de la acción física, diálogo o intención declarada por el jugador.",
+          "read_by": ["00000000-0000-4000-8000-000000000041"]
         },
         {
+          "id": "00000000-0000-4000-8000-000000000051",
           "timestamp": "2026-06-13T18:01:00Z",
           "sender_id": "00000000-0000-4000-8000-000000000040",
           "type": "DICE_ROLL",
           "dice_expression": "1d20+3",
           "raw_result": 15,
           "final_result": 18,
-          "skill_checked": "Perception"
+          "skill_checked": "Perception",
+          "read_by": []
         }
       ],
       "state_flags": {

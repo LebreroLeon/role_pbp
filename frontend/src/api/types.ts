@@ -20,12 +20,19 @@ export type CampaignMember = {
   role: "MASTER" | "PLAYER";
 };
 
+export type MessageType = "SPEAK" | "ACTION" | "CONTEXT" | "MASTER" | "DICE_ROLL" | "NARRATIVE";
+
 export type ChatMessage = {
+  id?: string;
   timestamp: string;
   sender_id: string;
-  type: string;
+  type: MessageType | string;
   text?: string;
+  dice_expression?: string;
+  raw_result?: number;
   final_result?: number;
+  skill_checked?: string | null;
+  read_by?: string[];
 };
 
 export type SceneState = {

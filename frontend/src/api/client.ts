@@ -63,15 +63,25 @@ export const api = {
       }),
     }),
   getScene: (sceneId: string) => http<Scene>(`/api/v1/scenes/${sceneId}`),
-  postMessage: (sceneId: string, text: string) =>
+  postMessage: (sceneId: string, text: string, type: string = "ACTION") =>
     http<Scene>(`/api/v1/scenes/${sceneId}/messages`, {
       method: "POST",
-      body: JSON.stringify({ type: "NARRATIVE", text }),
+      body: JSON.stringify({ type, text }),
     }),
   rollDice: (sceneId: string, diceExpression: string) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/dice`, {
       method: "POST",
       body: JSON.stringify({ dice_expression: diceExpression }),
+    }),
+  markSceneRead: (sceneId: string, messageIds?: string[]) =>
+    http<Scene>(`/api/v1/scenes/${sceneId}/read`, {
+      method: "POST",
+      body: JSON.stringify({ message_ids: messageIds ?? null }),
+    }),
+  updateSceneStatus: (sceneId: string, status: "ACTIVE" | "PAUSED") =>
+    http<Scene>(`/api/v1/scenes/${sceneId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
     }),
   masterAssist: (campaignId: string, sceneId: string, query: string) =>
     http<MasterAssistResponse>("/api/v1/master/assist", {
@@ -92,5 +102,5 @@ export const api = {
     http<void>(`/api/v1/entities/${entityId}`, { method: "DELETE" }),
 };
 
-export type { AuthResponse, Campaign, CampaignEntity, CampaignMember, ChatMessage, EntityType, MasterAssistResponse, Scene, SceneState } from "./types";
+export type { AuthResponse, Campaign, CampaignEntity, CampaignMember, ChatMessage, EntityType, MasterAssistResponse, MessageType, Scene, SceneState } from "./types";
 export type { AuthUser, MemberRole } from "../types/auth";

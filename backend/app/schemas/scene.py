@@ -1,4 +1,10 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+MessageType = Literal["SPEAK", "ACTION", "CONTEXT", "MASTER", "NARRATIVE", "DICE_ROLL"]
+PlayerMessageType = Literal["SPEAK", "ACTION", "CONTEXT"]
+SceneStatusType = Literal["ACTIVE", "PAUSED"]
 
 
 class MemorySettings(BaseModel):
@@ -7,6 +13,7 @@ class MemorySettings(BaseModel):
 
 
 class ChatMessage(BaseModel):
+    id: str | None = None
     timestamp: str
     sender_id: str
     type: str
@@ -15,6 +22,7 @@ class ChatMessage(BaseModel):
     raw_result: int | None = None
     final_result: int | None = None
     skill_checked: str | None = None
+    read_by: list[str] = Field(default_factory=list)
 
 
 class SceneState(BaseModel):
@@ -46,11 +54,19 @@ class SceneResponse(BaseModel):
 
 
 class PostMessageRequest(BaseModel):
-    type: str = "NARRATIVE"
-    text: str
+    type: str = "ACTION"
+    text: str = Field(min_length=1)
 
 
 class DiceRollRequest(BaseModel):
     dice_expression: str
     modifier: int = 0
     skill_checked: str | None = None
+
+
+class MarkReadRequest(BaseModel):
+    message_ids: list[str] | None = None
+
+
+class SceneStatusUpdate(BaseModel):
+    status: SceneStatusType

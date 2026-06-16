@@ -40,6 +40,7 @@ export function useSceneWebSocket({ sceneId, onSceneUpdate }: UseSceneWebSocketO
     socketRef.current = socket;
 
     socket.onopen = () => setConnected(true);
+    socket.onerror = () => setConnected(false);
     socket.onclose = () => {
       setConnected(false);
       if (socketRef.current === socket) {
@@ -62,7 +63,7 @@ export function useSceneWebSocket({ sceneId, onSceneUpdate }: UseSceneWebSocketO
     };
   }, [sceneId, token]);
 
-  const send = useCallback((payload: Record<string, string>) => {
+  const send = useCallback((payload: Record<string, unknown>) => {
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       return false;
@@ -72,7 +73,8 @@ export function useSceneWebSocket({ sceneId, onSceneUpdate }: UseSceneWebSocketO
   }, []);
 
   const sendMessage = useCallback(
-    (text: string) => send({ action: "message", text }),
+    (text: string, messageType: string) =>
+      send({ action: "message", text, message_type: messageType }),
     [send],
   );
 
@@ -81,5 +83,14 @@ export function useSceneWebSocket({ sceneId, onSceneUpdate }: UseSceneWebSocketO
     [send],
   );
 
-  return { connected, sendMessage, sendDiceRoll };
+  const markRead = useCallback(
+    (messageIds?: string[]) =>
+      send({
+        action: "mark_read",
+        message_ids: messageIds && messageIds.length > 0 ? messageIds : undefined,
+      }),
+    [send],
+  );
+
+  return { connected, sendMessage, sendDiceRoll, markRead };
 }

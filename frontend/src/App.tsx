@@ -9,7 +9,7 @@ import { ChatPage } from "./pages/ChatPage";
 import { EntitiesPage } from "./pages/EntitiesPage";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
-import { MasterPanelPage } from "./pages/MasterPanelPage";
+import { MasterScreenPage } from "./pages/MasterScreenPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import "./App.css";
 
@@ -33,7 +33,7 @@ export default function App() {
             path="campaigns/:campaignId/master"
             element={
               <RoleGate role="MASTER">
-                <MasterPanelPage />
+                <MasterScreenPage />
               </RoleGate>
             }
           />
