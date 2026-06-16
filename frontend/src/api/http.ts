@@ -26,8 +26,17 @@ export async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
 
   if (!response.ok) {
-    const detail = await response.text();
-    throw new ApiError(detail || `Request failed: ${response.status}`, response.status);
+    const text = await response.text();
+    let message = text || `Request failed: ${response.status}`;
+    try {
+      const json = JSON.parse(text) as { detail?: string };
+      if (typeof json.detail === "string") {
+        message = json.detail;
+      }
+    } catch {
+      // keep raw text
+    }
+    throw new ApiError(message, response.status);
   }
 
   return response.json() as Promise<T>;

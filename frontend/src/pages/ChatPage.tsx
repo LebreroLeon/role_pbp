@@ -1,11 +1,17 @@
 import { FormEvent, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+
 import { api } from "../api/client";
-import { Button, ErrorBanner, Panel, PanelHeader } from "../components/ui";
-import { DEV_PLACEHOLDERS } from "../config/constants";
-import { ChatForm, ChatLog, DiceRoller } from "../features/scene";
 import type { Scene } from "../api/types";
+import { Button, ErrorBanner, Panel, PanelHeader } from "../components/ui";
+import { ChatForm, ChatLog, DiceRoller } from "../features/scene";
+import { useAuthStore } from "../stores/authStore";
 
 export function ChatPage() {
+  const { campaignId = "" } = useParams();
+  const user = useAuthStore((state) => state.user);
+  const senderId = user?.id ?? "anonymous";
+
   const [scene, setScene] = useState<Scene | null>(null);
   const [message, setMessage] = useState("");
   const [dice, setDice] = useState("1d20");
@@ -14,7 +20,7 @@ export function ChatPage() {
 
   async function ensureScene() {
     if (scene) return scene;
-    const created = await api.createScene(DEV_PLACEHOLDERS.campaignId, "Escena inicial de prueba");
+    const created = await api.createScene(campaignId, "Escena inicial");
     setScene(created);
     return created;
   }
@@ -39,7 +45,7 @@ export function ChatPage() {
     setError(null);
     try {
       const current = await ensureScene();
-      const updated = await api.postMessage(current.id, DEV_PLACEHOLDERS.senderId, message.trim());
+      const updated = await api.postMessage(current.id, senderId, message.trim());
       setScene(updated);
       setMessage("");
     } catch (err) {
@@ -54,7 +60,7 @@ export function ChatPage() {
     setError(null);
     try {
       const current = await ensureScene();
-      const updated = await api.rollDice(current.id, DEV_PLACEHOLDERS.senderId, dice.trim());
+      const updated = await api.rollDice(current.id, senderId, dice.trim());
       setScene(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al tirar dados");
@@ -69,29 +75,37 @@ export function ChatPage() {
         title="Chat de escena"
         description="Turnos, narrativa y tiradas indexadas para memoria de campaña."
         actions={
-          !scene ? (
-            <Button onClick={handleStart} disabled={loading}>
-              Crear escena demo
-            </Button>
-          ) : undefined
+          <Link className="button secondary" to={`/campaigns/${campaignId}`}>
+            Volver al hub
+          </Link>
         }
       />
 
       {error && <ErrorBanner message={error} />}
 
-      <div className="chat-log">
-        <ChatLog messages={scene?.scene_state.chat_buffer ?? []} emptyMessage="Aún no hay mensajes en la escena." />
-      </div>
+      {!scene ? (
+        <div className="actions">
+          <Button onClick={handleStart} disabled={loading}>
+            Iniciar escena
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="chat-log">
+            <ChatLog messages={scene.scene_state.chat_buffer} emptyMessage="Aún no hay mensajes en la escena." />
+          </div>
 
-      <ChatForm
-        value={message}
-        onChange={setMessage}
-        onSubmit={handleSend}
-        placeholder="Describe la acción de tu personaje..."
-        disabled={loading}
-      />
+          <ChatForm
+            value={message}
+            onChange={setMessage}
+            onSubmit={handleSend}
+            placeholder="Describe la acción de tu personaje..."
+            disabled={loading}
+          />
 
-      <DiceRoller expression={dice} onExpressionChange={setDice} onRoll={handleRoll} disabled={loading} />
+          <DiceRoller expression={dice} onExpressionChange={setDice} onRoll={handleRoll} disabled={loading} />
+        </>
+      )}
     </Panel>
   );
 }

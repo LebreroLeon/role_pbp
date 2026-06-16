@@ -1,25 +1,32 @@
 import { FormEvent, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+
 import { api } from "../api/client";
 import type { MasterAssistResponse } from "../api/types";
 import { Button, ErrorBanner, Panel, PanelHeader } from "../components/ui";
-import { DEV_PLACEHOLDERS } from "../config/constants";
 
 export function MasterPanelPage() {
+  const { campaignId = "" } = useParams();
+  const [sceneId, setSceneId] = useState<string | null>(null);
   const [query, setQuery] = useState("¿Qué complicación encaja con la escena actual?");
   const [response, setResponse] = useState<MasterAssistResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function ensureSceneId(): Promise<string> {
+    if (sceneId) return sceneId;
+    const scene = await api.createScene(campaignId, "Escena para asistencia del Máster");
+    setSceneId(scene.id);
+    return scene.id;
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      const result = await api.masterAssist(
-        DEV_PLACEHOLDERS.campaignId,
-        DEV_PLACEHOLDERS.sceneId,
-        query.trim(),
-      );
+      const activeSceneId = await ensureSceneId();
+      const result = await api.masterAssist(campaignId, activeSceneId, query.trim());
       setResponse(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo consultar al Shadow Master");
@@ -33,6 +40,11 @@ export function MasterPanelPage() {
       <PanelHeader
         title="Panel del Máster"
         description="Canal privado de asistencia creativa con contexto RAG + estado relacional."
+        actions={
+          <Link className="button secondary" to={`/campaigns/${campaignId}`}>
+            Volver al hub
+          </Link>
+        }
       />
 
       <form className="master-form" onSubmit={handleSubmit}>

@@ -177,6 +177,90 @@ textarea {
   padding-left: 1.2rem;
 }
 
+.app-header h1 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.nav-user {
+  opacity: 0.85;
+  font-size: 0.9rem;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  opacity: 0.85;
+}
+
+.link-button:hover {
+  opacity: 1;
+  color: #e94560;
+}
+
+.auth-form,
+.campaigns-page,
+.campaign-hub {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.auth-footer {
+  margin-top: 1rem;
+}
+
+.form-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.form-field span {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.campaign-list,
+.member-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.campaign-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  text-decoration: none;
+  color: inherit;
+}
+
+.campaign-card:hover {
+  background: rgba(233, 69, 96, 0.12);
+}
+
+.member-list li {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.member-list li:last-child {
+  border-bottom: none;
+}
+
 @media (max-width: 720px) {
   .app-header {
     flex-direction: column;
@@ -186,4 +270,9 @@ textarea {
   .chat-form {
     grid-template-columns: 1fr;
   }
+
+  .member-list li {
+    grid-template-columns: 1fr;
+  }
 }
+

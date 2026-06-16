@@ -1,3 +1,25 @@
+import type { AuthUser } from "../types/auth";
+
+export type AuthResponse = {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+};
+
+export type Campaign = {
+  id: string;
+  name: string;
+  tone: string | null;
+  role: "MASTER" | "PLAYER";
+};
+
+export type CampaignMember = {
+  user_id: string;
+  email: string;
+  display_name: string;
+  role: "MASTER" | "PLAYER";
+};
+
 export type ChatMessage = {
   timestamp: string;
   sender_id: string;

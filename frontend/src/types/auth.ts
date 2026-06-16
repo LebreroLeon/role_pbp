@@ -1,7 +1,7 @@
 export type AuthUser = {
   id: string;
   email: string;
-  displayName: string;
+  display_name: string;
 };
 
 export type MemberRole = "MASTER" | "PLAYER";

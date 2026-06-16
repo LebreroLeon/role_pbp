@@ -9,7 +9,7 @@ from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import engine
 from app.core.logging import setup_logging
-from app.models import campaign  # noqa: F401 — registers ORM models with Alembic metadata
+from app.models import campaign, user  # noqa: F401 — registers ORM models with Alembic metadata
 
 logger = logging.getLogger(__name__)
 
