@@ -7,8 +7,5 @@ if (-not (Test-Path ".venv")) {
   .\.venv\Scripts\pip install -r requirements.txt
 }
 
-Write-Host "Applying migrations..."
 .\.venv\Scripts\python -m app.core.migrate
-
-Write-Host "Starting backend..."
-.\.venv\Scripts\uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+Write-Host "Migrations applied."

@@ -1,8 +1,8 @@
 import { FormEvent, useState } from "react";
-import { api, MasterAssistResponse } from "../api/client";
-
-const DEFAULT_CAMPAIGN = "00000000-0000-4000-8000-000000000001";
-const DEFAULT_SCENE = "00000000-0000-4000-8000-000000000002";
+import { api } from "../api/client";
+import type { MasterAssistResponse } from "../api/types";
+import { Button, ErrorBanner, Panel, PanelHeader } from "../components/ui";
+import { DEV_PLACEHOLDERS } from "../config/constants";
 
 export function MasterPanelPage() {
   const [query, setQuery] = useState("¿Qué complicación encaja con la escena actual?");
@@ -15,7 +15,11 @@ export function MasterPanelPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await api.masterAssist(DEFAULT_CAMPAIGN, DEFAULT_SCENE, query.trim());
+      const result = await api.masterAssist(
+        DEV_PLACEHOLDERS.campaignId,
+        DEV_PLACEHOLDERS.sceneId,
+        query.trim(),
+      );
       setResponse(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo consultar al Shadow Master");
@@ -25,27 +29,20 @@ export function MasterPanelPage() {
   }
 
   return (
-    <section className="panel">
-      <header className="panel-header">
-        <div>
-          <h2>Panel del Máster</h2>
-          <p>Canal privado de asistencia creativa con contexto RAG + estado relacional.</p>
-        </div>
-      </header>
+    <Panel>
+      <PanelHeader
+        title="Panel del Máster"
+        description="Canal privado de asistencia creativa con contexto RAG + estado relacional."
+      />
 
       <form className="master-form" onSubmit={handleSubmit}>
-        <textarea
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          rows={4}
-          disabled={loading}
-        />
-        <button className="button" type="submit" disabled={loading || !query.trim()}>
+        <textarea value={query} onChange={(event) => setQuery(event.target.value)} rows={4} disabled={loading} />
+        <Button type="submit" disabled={loading || !query.trim()}>
           Pedir sugerencias
-        </button>
+        </Button>
       </form>
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorBanner message={error} />}
 
       {response && (
         <div className="master-result">
@@ -60,6 +57,6 @@ export function MasterPanelPage() {
           <p className="muted">{response.note}</p>
         </div>
       )}
-    </section>
+    </Panel>
   );
 }

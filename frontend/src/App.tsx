@@ -1,5 +1,5 @@
 import { Route, Routes } from "react-router-dom";
-import { Layout } from "./components/Layout";
+import { Layout } from "./components/layout/Layout";
 import { ChatPage } from "./pages/ChatPage";
 import { HomePage } from "./pages/HomePage";
 import { MasterPanelPage } from "./pages/MasterPanelPage";

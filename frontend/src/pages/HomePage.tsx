@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { Panel, StatusBadge } from "../components/ui";
 
 export function HomePage() {
   const [status, setStatus] = useState<string>("checking...");
@@ -12,16 +13,13 @@ export function HomePage() {
   }, []);
 
   return (
-    <section className="panel hero">
+    <Panel className="hero">
       <h2>Gestor de rol por turnos asistido por IA</h2>
       <p>
-        Estructura inicial del monorepo: backend FastAPI, frontend PWA y pipeline RAG preparado
-        según la documentación del repositorio.
+        Estructura inicial del monorepo: backend FastAPI, frontend PWA y pipeline RAG preparado según la
+        documentación del repositorio.
       </p>
-      <div className="status-row">
-        <span>API</span>
-        <strong className={status === "ok" ? "ok" : "warn"}>{status}</strong>
-      </div>
+      <StatusBadge label="API" value={status} ok={status === "ok"} />
       <div className="actions">
         <Link className="button" to="/chat">
           Abrir chat de escena
@@ -30,6 +28,6 @@ export function HomePage() {
           Panel del Máster
         </Link>
       </div>
-    </section>
+    </Panel>
   );
 }

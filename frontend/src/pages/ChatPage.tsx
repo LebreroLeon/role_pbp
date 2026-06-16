@@ -1,7 +1,9 @@
 import { FormEvent, useState } from "react";
-import { api, Scene } from "../api/client";
-
-const DEFAULT_CAMPAIGN = "00000000-0000-4000-8000-000000000001";
+import { api } from "../api/client";
+import { Button, ErrorBanner, Panel, PanelHeader } from "../components/ui";
+import { DEV_PLACEHOLDERS } from "../config/constants";
+import { ChatForm, ChatLog, DiceRoller } from "../features/scene";
+import type { Scene } from "../api/types";
 
 export function ChatPage() {
   const [scene, setScene] = useState<Scene | null>(null);
@@ -12,7 +14,7 @@ export function ChatPage() {
 
   async function ensureScene() {
     if (scene) return scene;
-    const created = await api.createScene(DEFAULT_CAMPAIGN, "Escena inicial de prueba");
+    const created = await api.createScene(DEV_PLACEHOLDERS.campaignId, "Escena inicial de prueba");
     setScene(created);
     return created;
   }
@@ -37,7 +39,7 @@ export function ChatPage() {
     setError(null);
     try {
       const current = await ensureScene();
-      const updated = await api.postMessage(current.id, "player_1", message.trim());
+      const updated = await api.postMessage(current.id, DEV_PLACEHOLDERS.senderId, message.trim());
       setScene(updated);
       setMessage("");
     } catch (err) {
@@ -52,7 +54,7 @@ export function ChatPage() {
     setError(null);
     try {
       const current = await ensureScene();
-      const updated = await api.rollDice(current.id, "player_1", dice.trim());
+      const updated = await api.rollDice(current.id, DEV_PLACEHOLDERS.senderId, dice.trim());
       setScene(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al tirar dados");
@@ -62,55 +64,34 @@ export function ChatPage() {
   }
 
   return (
-    <section className="panel chat-panel">
-      <header className="panel-header">
-        <div>
-          <h2>Chat de escena</h2>
-          <p>Turnos, narrativa y tiradas indexadas para memoria de campaña.</p>
-        </div>
-        {!scene && (
-          <button className="button" onClick={handleStart} disabled={loading}>
-            Crear escena demo
-          </button>
-        )}
-      </header>
+    <Panel className="chat-panel">
+      <PanelHeader
+        title="Chat de escena"
+        description="Turnos, narrativa y tiradas indexadas para memoria de campaña."
+        actions={
+          !scene ? (
+            <Button onClick={handleStart} disabled={loading}>
+              Crear escena demo
+            </Button>
+          ) : undefined
+        }
+      />
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorBanner message={error} />}
 
       <div className="chat-log">
-        {scene?.scene_state.chat_buffer.length ? (
-          scene.scene_state.chat_buffer.map((entry, index) => (
-            <article key={`${entry.timestamp}-${index}`} className="chat-entry">
-              <header>
-                <strong>{entry.sender_id}</strong>
-                <span>{entry.type}</span>
-              </header>
-              <p>{entry.text}</p>
-            </article>
-          ))
-        ) : (
-          <p className="muted">Aún no hay mensajes en la escena.</p>
-        )}
+        <ChatLog messages={scene?.scene_state.chat_buffer ?? []} emptyMessage="Aún no hay mensajes en la escena." />
       </div>
 
-      <form className="chat-form" onSubmit={handleSend}>
-        <input
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          placeholder="Describe la acción de tu personaje..."
-          disabled={loading}
-        />
-        <button className="button" type="submit" disabled={loading || !message.trim()}>
-          Enviar
-        </button>
-      </form>
+      <ChatForm
+        value={message}
+        onChange={setMessage}
+        onSubmit={handleSend}
+        placeholder="Describe la acción de tu personaje..."
+        disabled={loading}
+      />
 
-      <div className="dice-row">
-        <input value={dice} onChange={(event) => setDice(event.target.value)} disabled={loading} />
-        <button className="button secondary" type="button" onClick={handleRoll} disabled={loading}>
-          Tirar dados
-        </button>
-      </div>
-    </section>
+      <DiceRoller expression={dice} onExpressionChange={setDice} onRoll={handleRoll} disabled={loading} />
+    </Panel>
   );
 }

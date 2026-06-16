@@ -117,12 +117,77 @@ El gasto de tokens es un recurso escaso de los jugadores. Diseña con mentalidad
 ### 2.6 Qué NO hacer
 
 - No eliminar archivos sin confirmación explícita.
-- No modificar esquemas de base de datos sin plan de migración.
+- No modificar esquemas de base de datos sin plan de migración Alembic.
 - No añadir dependencias sin revisar `requirements.txt` / `package.json` existentes.
 - No conectar jugadores directamente a OpenAI/Anthropic.
 - No saltarse la aprobación del plan.
 - No commitear sin que el usuario lo pida.
 - No usar el tipo `any` en TypeScript ni omitir tipado en Python.
+- **No hardcodear** UUIDs, URLs de API, credenciales, textos repetidos ni estilos inline en `pages/`.
+- **No duplicar UI** — si un patrón JSX aparece dos veces, extraer componente antes de continuar.
+- **No mezclar capas** — lógica de negocio fuera de `pages/` y `components/ui/`.
+
+### 2.7 Arquitectura escalable (NO monolito spaghetti)
+
+RolePBP es un **modular monolith** preparado para escalar en equipo y tráfico, no un script gigante.
+
+**Principios globales:**
+1. **Una responsabilidad por módulo** — cada archivo hace una cosa clara.
+2. **Contratos explícitos** — Pydantic (backend), TypeScript types (frontend), JSON Schema (docs).
+3. **Configuración centralizada** — variables en `.env`, constantes en `config/`, nunca dispersas.
+4. **Buscar antes de crear** — antes de un componente, hook, servicio o utilidad nueva, revisar si ya existe.
+
+**Backend — capas estrictas (de arriba a abajo):**
+
+```text
+api/routes/     → HTTP: parse request, auth check, llamar service, devolver response
+services/       → Lógica de negocio, orquestación, filtrado de secretos
+models/         → SQLAlchemy ORM (solo persistencia)
+schemas/        → Pydantic (validación entrada/salida)
+core/           → Config, DB, logging, migrate
+```
+
+- Las rutas **nunca** contienen lógica de negocio ni queries SQL directas.
+- Los servicios **nunca** importan `Request`/`Response` de FastAPI.
+- Cada cambio de esquema = **nueva migración Alembic** (`alembic revision`).
+
+**Frontend — componentes por capas:**
+
+```text
+frontend/src/
+├── api/              # Cliente HTTP + types (sin JSX)
+├── config/           # Constantes y env (única fuente de config)
+├── components/
+│   ├── ui/           # Primitivos reutilizables: Button, Panel, ErrorBanner…
+│   └── layout/       # Shell, navegación, wrappers de página
+├── features/         # Componentes de dominio por feature
+│   ├── scene/        # ChatLog, ChatForm, DiceRoller
+│   ├── campaign/     # (futuro) CampaignCard, CampaignList
+│   └── auth/         # (futuro) LoginForm, RegisterForm
+├── hooks/            # Custom hooks (useCampaign, useAuth…)
+├── pages/            # Solo composición: ensamblan features + ui, mínima lógica
+└── utils/            # Funciones puras sin React
+```
+
+**Regla de oro del frontend — Search → Reuse → Extend → Create:**
+
+Antes de escribir JSX en una `page/`:
+1. **Search:** ¿Existe en `components/ui/`, `features/*/` o `hooks/`?
+2. **Reuse:** Usar el componente/hook existente con props.
+3. **Extend:** Si casi sirve, añadir props opcionales al componente existente (no copiar).
+4. **Create:** Solo si no hay nada reutilizable — colocarlo en la carpeta correcta (`ui/` vs `features/`).
+
+| Tipo de componente | Ubicación | Criterio |
+|---|---|---|
+| Genérico (botón, panel, input) | `components/ui/` | Sin conocimiento de campaña/rol |
+| Específico de feature (chat, ficha PC) | `features/{feature}/` | Conoce dominio pero reutilizable |
+| Pantalla completa | `pages/` | Solo ensambla componentes + hooks |
+
+**Prohibido en `pages/`:**
+- Bloques JSX >15 líneas que podrían ser componente.
+- Strings mágicos (UUIDs, IDs de jugador) — usar `config/`, route params o API.
+- Llamadas `fetch` directas — siempre vía `api/client.ts`.
+- Estilos inline — usar clases CSS existentes o extraer a componente.
 
 ---
 
@@ -196,12 +261,15 @@ Objetivo: `campaign_memory` con pgvector (`docs/04_data_persistence.md`). Protot
 
 ```text
 role_pbp/
+├── docker/
+│   └── postgres/init.sql                # CREATE EXTENSION vector
 ├── docs/
 │   ├── 01_architecture_overview.md      # Arquitectura global + multiplataforma
 │   ├── 02_data_models/                  # JSON Schema canónicos + README
 │   ├── 03_ai_engine/rag_pipeline.md     # Pipeline RAG + rate limit + cache
 │   └── 04_data_persistence.md           # Modelo relacional PostgreSQL
 ├── backend/
+│   ├── Dockerfile
 │   ├── app/
 │   │   ├── api/routes/                  # Endpoints REST
 │   │   ├── core/                        # Config, database
@@ -210,36 +278,60 @@ role_pbp/
 │   │   └── services/                    # Lógica de negocio, RAG, dados
 │   └── requirements.txt
 ├── frontend/
-│   └── src/                             # React pages y API client
+│   ├── Dockerfile
+│   └── src/
+│       ├── api/                 # client.ts + types.ts
+│       ├── config/              # constants.ts (sin hardcode en pages)
+│       ├── components/
+│       │   ├── ui/              # Primitivos reutilizables
+│       │   └── layout/          # Layout, nav
+│       ├── features/            # Componentes por dominio (scene, campaign, auth…)
+│       ├── hooks/               # Custom hooks
+│       ├── pages/               # Solo composición
+│       └── utils/
 ├── scripts/
-│   ├── dev-backend.ps1
-│   └── dev-frontend.ps1
-├── docker-compose.yml                   # PostgreSQL 16 + pgvector
+│   ├── dev.ps1                          # docker compose up --build (recomendado)
+│   ├── dev-down.ps1
+│   ├── dev-backend.ps1                  # solo backend local (sin Docker)
+│   └── dev-frontend.ps1                 # solo frontend local (sin Docker)
+├── docker-compose.yml                   # postgres + backend + frontend
 └── .env.example
 ```
 
 ### 3.6 Convenciones de código
 
-- **Backend:** lógica de negocio en `services/`, no en `routes/`. Rutas solo orquestan request/response.
-- **Schemas:** un archivo Pydantic por esquema JSON de `docs/02_data_models/`.
-- **Async:** toda I/O de base de datos y llamadas externas con `async/await`.
-- **Frontend:** cliente API centralizado en `frontend/src/api/client.ts`.
-- **Idioma del código:** inglés (nombres de variables, funciones, tipos). Documentación de usuario en español.
+**Backend:**
+- Lógica de negocio en `services/`, no en `routes/`. Rutas solo orquestan request/response.
+- Schemas Pydantic derivados de `docs/02_data_models/` (un archivo por esquema JSON).
+- Async: toda I/O con `async/await`.
+- Migraciones: Alembic obligatorio; prohibido `create_all` en producción.
+
+**Frontend:**
+- Cliente API centralizado en `api/client.ts`; tipos en `api/types.ts`.
+- **Search → Reuse → Extend → Create** antes de cualquier JSX nuevo (ver §2.7).
+- `pages/` solo compone; UI reutilizable en `components/ui/` y `features/`.
+- Constantes y config en `config/`; prohibido hardcodear UUIDs/URLs en pages.
+- Idioma del código: inglés (variables, funciones, tipos). UI en español.
+
+**General:**
+- Idioma del código: inglés. Documentación de usuario en español.
 
 ### 3.7 Comandos de desarrollo
 
 ```powershell
-# Infraestructura
-docker compose up -d
+# Recomendado: stack completo en Docker (postgres + backend + frontend)
+.\scripts\dev.ps1
 
-# Backend (puerto 8000)
-.\scripts\dev-backend.ps1
+# Parar contenedores
+.\scripts\dev-down.ps1
 
-# Frontend (puerto 5173)
-.\scripts\dev-frontend.ps1
+# Alternativa híbrida (solo BD en Docker, app en local)
+docker compose up -d postgres
+.\scripts\dev-backend.ps1    # terminal 1
+.\scripts\dev-frontend.ps1   # terminal 2
 ```
 
-Variables de entorno: copiar `.env.example` → `.env` (API keys, `DATABASE_URL`, `CORS_ORIGINS`).
+URLs: frontend `http://localhost:5173` · API docs `http://localhost:8000/docs`
 
 ### 3.8 Áreas protegidas (requieren aprobación explícita)
 

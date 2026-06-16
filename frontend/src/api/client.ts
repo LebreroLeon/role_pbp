@@ -1,33 +1,6 @@
+import type { MasterAssistResponse, Scene } from "./types";
+
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
-
-export type ChatMessage = {
-  timestamp: string;
-  sender_id: string;
-  type: string;
-  text?: string;
-  final_result?: number;
-};
-
-export type SceneState = {
-  campaign_id: string;
-  status: string;
-  scene_objective?: string;
-  chat_buffer: ChatMessage[];
-};
-
-export type Scene = {
-  id: string;
-  campaign_id: string;
-  status: string;
-  scene_state: SceneState;
-};
-
-export type MasterAssistResponse = {
-  query: string;
-  context_summary: string;
-  suggestions: string[];
-  note: string;
-};
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -71,3 +44,5 @@ export const api = {
       body: JSON.stringify({ campaign_id: campaignId, scene_id: sceneId, query }),
     }),
 };
+
+export type { ChatMessage, MasterAssistResponse, Scene, SceneState } from "./types";
