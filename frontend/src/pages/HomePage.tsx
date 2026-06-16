@@ -1,16 +1,10 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api/client";
 import { Panel, StatusBadge } from "../components/ui";
+import { useHealthQuery } from "../hooks/queries/useHealthQuery";
 
 export function HomePage() {
-  const [status, setStatus] = useState<string>("checking...");
-
-  useEffect(() => {
-    api.health()
-      .then((result) => setStatus(result.status))
-      .catch(() => setStatus("offline"));
-  }, []);
+  const { data, isLoading, isError } = useHealthQuery();
+  const status = isLoading ? "checking..." : isError ? "offline" : (data?.status ?? "offline");
 
   return (
     <Panel className="hero">

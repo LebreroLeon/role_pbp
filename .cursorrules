@@ -226,7 +226,10 @@ Antes de escribir JSX en una `page/`:
 
 | Capa | Tecnología | Rol |
 |---|---|---|
-| UI | React, Vite, TypeScript, Capacitor | Mobile-first; Android APK vía Capacitor |
+| UI | React 19, Vite, TypeScript, Capacitor | Mobile-first; Android APK vía Capacitor |
+| Estado servidor | TanStack Query | Caché, refetch, mutations async |
+| Estado cliente | Zustand | Sesión auth, UI global |
+| Formularios | React Hook Form + Zod | Validación tipada |
 | API | FastAPI, Uvicorn, Pydantic v2 | Orquestación, validación, RAG |
 | Estado + Vectores | PostgreSQL 16 + JSONB + pgvector | Verdad relacional + memoria semántica |
 | Tiempo real | WebSockets | Sincronización de escena y chat |
@@ -280,13 +283,19 @@ role_pbp/
 ├── frontend/
 │   ├── Dockerfile
 │   └── src/
-│       ├── api/                 # client.ts + types.ts
+│       ├── api/                 # client.ts, http.ts, types.ts, queryKeys.ts
 │       ├── config/              # constants.ts (sin hardcode en pages)
+│       ├── lib/                 # queryClient.ts
+│       ├── providers/           # AppProviders (QueryClient, futuro: Theme)
+│       ├── stores/              # Zustand (authStore…)
+│       ├── schemas/             # Zod (validación formularios)
 │       ├── components/
 │       │   ├── ui/              # Primitivos reutilizables
 │       │   └── layout/          # Layout, nav
 │       ├── features/            # Componentes por dominio (scene, campaign, auth…)
-│       ├── hooks/               # Custom hooks
+│       ├── hooks/
+│       │   ├── queries/         # TanStack Query hooks (useHealthQuery…)
+│       │   └── mutations/       # TanStack Mutation hooks (useLogin…)
 │       ├── pages/               # Solo composición
 │       └── utils/
 ├── scripts/
@@ -307,11 +316,14 @@ role_pbp/
 - Migraciones: Alembic obligatorio; prohibido `create_all` en producción.
 
 **Frontend:**
-- Cliente API centralizado en `api/client.ts`; tipos en `api/types.ts`.
+- Cliente API centralizado en `api/client.ts`; tipos en `api/types.ts`; HTTP base en `api/http.ts` (inyecta JWT).
+- **TanStack Query** para todo estado de servidor (`hooks/queries/`, `hooks/mutations/`). Prohibido `useEffect` + `fetch` en pages.
+- **Zustand** (`stores/`) para estado de cliente: sesión auth, UI global. Persistido en localStorage.
+- **React Hook Form + Zod** (`schemas/`) para todos los formularios. Validación en schema, no inline.
+- Query keys centralizadas en `api/queryKeys.ts`.
 - **Search → Reuse → Extend → Create** antes de cualquier JSX nuevo (ver §2.7).
 - `pages/` solo compone; UI reutilizable en `components/ui/` y `features/`.
 - Constantes y config en `config/`; prohibido hardcodear UUIDs/URLs en pages.
-- Idioma del código: inglés (variables, funciones, tipos). UI en español.
 
 **General:**
 - Idioma del código: inglés. Documentación de usuario en español.
