@@ -1,38 +1,114 @@
 {
-  "$id": "entity_npc_schema",
-  "metadata": {
-    "type": "NPC",
-    "system_agnostic": true,
-    "version": "2.0.0"
-  },
-  "identity": {
-    "name": "Generic_NPC_Name",
-    "concept": "Breve arquetipo o rol del personaje en el entorno",
-    "faction_id": "faction_unique_id",
-    "current_location_id": "location_unique_id"
-  },
-  "ai_narrative_profile": {
-    "public_description": "Aspecto físico, ropa y rasgos visibles para cualquier jugador que entre a la escena.",
-    "secret_lore_master": "Información confidencial, objetivos ocultos, trasfondo secreto y motivaciones que solo conoce el Máster.",
-    "personality_traits": ["Rasgo_1", "Rasgo_2"],
-    "voice_and_tone": "Directrices de estilo de habla, vocabulario preferido, muletillas o acentos para la IA."
-  },
-  "system_mechanics": {
-    "system_name": "Generic_System_Name",
-    "power_scale": "Standard_Scale_Value", 
-    "stats_summary": {
-      "key_attribute_1": "value_1",
-      "key_attribute_2": "value_2"
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rolepbp.local/schemas/entity_npc.schema.json",
+  "title": "EntityNPC",
+  "description": "Ficha de NPC agnóstica de sistema de juego. Instancia almacenada en campaign_entities.",
+  "type": "object",
+  "required": ["metadata", "identity", "ai_narrative_profile", "system_mechanics", "state_flags"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["type", "system_agnostic", "version"],
+      "properties": {
+        "type": { "const": "NPC" },
+        "system_agnostic": { "type": "boolean", "const": true },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }
+      },
+      "additionalProperties": false
     },
-    "notable_features": [
-      "Habilidad_Clave_O_Equipamiento_1",
-      "Habilidad_Clave_O_Equipamiento_2"
-    ]
+    "identity": {
+      "type": "object",
+      "required": ["name", "concept", "faction_id", "current_location_id"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "concept": { "type": "string" },
+        "faction_id": { "type": "string", "format": "uuid" },
+        "current_location_id": { "type": "string", "format": "uuid" }
+      },
+      "additionalProperties": false
+    },
+    "ai_narrative_profile": {
+      "type": "object",
+      "required": ["public_description", "secret_lore_master", "personality_traits", "voice_and_tone"],
+      "properties": {
+        "public_description": { "type": "string" },
+        "secret_lore_master": { "type": "string" },
+        "personality_traits": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "voice_and_tone": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "system_mechanics": {
+      "type": "object",
+      "required": ["system_name", "power_scale", "stats_summary", "notable_features"],
+      "properties": {
+        "system_name": { "type": "string" },
+        "power_scale": { "type": "string" },
+        "stats_summary": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "notable_features": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "state_flags": {
+      "type": "object",
+      "required": ["is_dead", "is_present_in_scene", "attitude_towards_party", "has_met_party"],
+      "properties": {
+        "is_dead": { "type": "boolean" },
+        "is_present_in_scene": { "type": "boolean" },
+        "attitude_towards_party": { "type": "string" },
+        "has_met_party": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
   },
-  "state_flags": {
-    "is_dead": false,
-    "is_present_in_scene": true,
-    "attitude_towards_party": "Neutral_Or_Enum_Value",
-    "has_met_party": false
-  }
+  "additionalProperties": false,
+  "examples": [
+    {
+      "metadata": {
+        "type": "NPC",
+        "system_agnostic": true,
+        "version": "2.0.0"
+      },
+      "identity": {
+        "name": "Generic_NPC_Name",
+        "concept": "Breve arquetipo o rol del personaje en el entorno",
+        "faction_id": "00000000-0000-4000-8000-000000000010",
+        "current_location_id": "00000000-0000-4000-8000-000000000020"
+      },
+      "ai_narrative_profile": {
+        "public_description": "Aspecto físico, ropa y rasgos visibles para cualquier jugador que entre a la escena.",
+        "secret_lore_master": "Información confidencial, objetivos ocultos, trasfondo secreto y motivaciones que solo conoce el Máster.",
+        "personality_traits": ["Rasgo_1", "Rasgo_2"],
+        "voice_and_tone": "Directrices de estilo de habla, vocabulario preferido, muletillas o acentos para la IA."
+      },
+      "system_mechanics": {
+        "system_name": "Generic_System_Name",
+        "power_scale": "Standard_Scale_Value",
+        "stats_summary": {
+          "key_attribute_1": "value_1",
+          "key_attribute_2": "value_2"
+        },
+        "notable_features": [
+          "Habilidad_Clave_O_Equipamiento_1",
+          "Habilidad_Clave_O_Equipamiento_2"
+        ]
+      },
+      "state_flags": {
+        "is_dead": false,
+        "is_present_in_scene": true,
+        "attitude_towards_party": "Neutral",
+        "has_met_party": false
+      }
+    }
+  ]
 }

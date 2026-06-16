@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rolepbp.local/schemas/entity_pc.schema.json",
+  "title": "EntityPC",
+  "description": "Ficha de Personaje Jugador (PC). Instancia almacenada en campaign_entities.",
+  "type": "object",
+  "required": ["metadata", "identity", "player_binding", "system_mechanics", "state_flags"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["type", "system_agnostic", "version"],
+      "properties": {
+        "type": { "const": "PC" },
+        "system_agnostic": { "type": "boolean", "const": true },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }
+      },
+      "additionalProperties": false
+    },
+    "identity": {
+      "type": "object",
+      "required": ["name", "concept", "faction_id", "current_location_id"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "concept": { "type": "string" },
+        "faction_id": { "type": ["string", "null"], "format": "uuid" },
+        "current_location_id": { "type": "string", "format": "uuid" }
+      },
+      "additionalProperties": false
+    },
+    "player_binding": {
+      "type": "object",
+      "required": ["user_id", "is_active_in_campaign"],
+      "properties": {
+        "user_id": { "type": "string", "format": "uuid" },
+        "is_active_in_campaign": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "public_profile": {
+      "type": "object",
+      "required": ["description", "personality_traits"],
+      "properties": {
+        "description": { "type": "string" },
+        "personality_traits": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "system_mechanics": {
+      "type": "object",
+      "required": ["system_name", "stats_summary"],
+      "properties": {
+        "system_name": { "type": "string" },
+        "stats_summary": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "notable_features": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "state_flags": {
+      "type": "object",
+      "required": ["is_present_in_scene", "is_incapacitated"],
+      "properties": {
+        "is_present_in_scene": { "type": "boolean" },
+        "is_incapacitated": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "metadata": {
+        "type": "PC",
+        "system_agnostic": true,
+        "version": "1.0.0"
+      },
+      "identity": {
+        "name": "Kaelen Vorr",
+        "concept": "Explorador cauteloso con pasado militar",
+        "faction_id": null,
+        "current_location_id": "00000000-0000-4000-8000-000000000020"
+      },
+      "player_binding": {
+        "user_id": "00000000-0000-4000-8000-000000000030",
+        "is_active_in_campaign": true
+      },
+      "public_profile": {
+        "description": "Humano de complexión media, capa gastada y mirada alerta.",
+        "personality_traits": ["Cauteloso", "Leal"]
+      },
+      "system_mechanics": {
+        "system_name": "Generic_System_Name",
+        "stats_summary": {
+          "key_attribute_1": "value_1"
+        },
+        "notable_features": ["Kit de supervivencia"]
+      },
+      "state_flags": {
+        "is_present_in_scene": true,
+        "is_incapacitated": false
+      }
+    }
+  ]
+}

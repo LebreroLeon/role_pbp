@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rolepbp.local/schemas/entity_faction.schema.json",
+  "title": "EntityFaction",
+  "description": "Facción, gremio u organización del mundo. Instancia almacenada en campaign_entities.",
+  "type": "object",
+  "required": ["metadata", "identity", "narrative_profile", "state_flags"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["type", "version"],
+      "properties": {
+        "type": { "const": "FACTION" },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }
+      },
+      "additionalProperties": false
+    },
+    "identity": {
+      "type": "object",
+      "required": ["name", "faction_type"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "faction_type": {
+          "type": "string",
+          "description": "Ej: Gremio, Nobleza, Culto, Milicia, Corporación"
+        },
+        "headquarters_location_id": { "type": ["string", "null"], "format": "uuid" }
+      },
+      "additionalProperties": false
+    },
+    "narrative_profile": {
+      "type": "object",
+      "required": ["public_description", "secret_lore_master", "goals"],
+      "properties": {
+        "public_description": { "type": "string" },
+        "secret_lore_master": { "type": "string" },
+        "goals": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "state_flags": {
+      "type": "object",
+      "required": ["attitude_towards_party", "influence_level", "is_active"],
+      "properties": {
+        "attitude_towards_party": { "type": "string" },
+        "influence_level": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "is_active": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "metadata": {
+        "type": "FACTION",
+        "version": "1.0.0"
+      },
+      "identity": {
+        "name": "Gremio de Comerciantes del Puerto",
+        "faction_type": "Gremio",
+        "headquarters_location_id": "00000000-0000-4000-8000-000000000020"
+      },
+      "narrative_profile": {
+        "public_description": "Asociación de mercaderes que controla las rutas marítimas locales.",
+        "secret_lore_master": "Financian contrabando de artefactos arcanos bajo identidades de carga legal.",
+        "goals": ["Monopolizar rutas de importación", "Infiltrar el consejo municipal"]
+      },
+      "state_flags": {
+        "attitude_towards_party": "Suspicious",
+        "influence_level": 6,
+        "is_active": true
+      }
+    }
+  ]
+}

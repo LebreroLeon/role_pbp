@@ -1,41 +1,142 @@
 {
-  "$id": "scene_state_schema",
-  "metadata": {
-    "campaign_id": "campaign_unique_id",
-    "status": "ACTIVE" 
-  },
-  "context": {
-    "location_id": "location_unique_id",
-    "active_npc_ids": ["entity_npc_unique_id"],
-    "scene_objective": "Meta a corto plazo o conflicto principal que define la escena actual."
-  },
-  "turn_management": {
-    "current_turn_player_id": "character_unique_id",
-    "turn_order": ["character_id_1", "character_id_2", "master"]
-  },
-  "memory_settings": {
-    "max_chat_buffer_size": 20,
-    "rag_top_k_matches": 3
-  },
-  "chat_buffer": [
-    {
-      "timestamp": "2026-06-13T18:00:00Z",
-      "sender_id": "character_unique_id",
-      "type": "NARRATIVE",
-      "text": "Descripción textual de la acción física, diálogo o intención declarada por el jugador."
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rolepbp.local/schemas/scene_state.schema.json",
+  "title": "SceneState",
+  "description": "Estado de una escena activa. Almacenado en la columna scenes.scene_state (JSONB).",
+  "type": "object",
+  "required": ["metadata", "context", "turn_management", "memory_settings", "chat_buffer", "state_flags"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["campaign_id", "status"],
+      "properties": {
+        "campaign_id": { "type": "string", "format": "uuid" },
+        "status": { "enum": ["ACTIVE", "PAUSED", "CLOSED"] }
+      },
+      "additionalProperties": false
     },
-    {
-      "timestamp": "2026-06-13T18:01:00Z",
-      "sender_id": "character_unique_id",
-      "type": "DICE_ROLL",
-      "dice_expression": "XdY + Z",
-      "raw_result": 0,
-      "final_result": 0,
-      "skill_checked": "Generic_Skill_Or_Attribute_Name"
+    "context": {
+      "type": "object",
+      "required": ["location_id", "active_npc_ids", "scene_objective"],
+      "properties": {
+        "location_id": { "type": "string", "format": "uuid" },
+        "active_npc_ids": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" }
+        },
+        "scene_objective": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "turn_management": {
+      "type": "object",
+      "required": ["current_turn_player_id", "turn_order"],
+      "properties": {
+        "current_turn_player_id": { "type": ["string", "null"], "format": "uuid" },
+        "turn_order": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "memory_settings": {
+      "type": "object",
+      "required": ["max_chat_buffer_size", "rag_top_k_matches"],
+      "properties": {
+        "max_chat_buffer_size": { "type": "integer", "minimum": 5, "maximum": 50, "default": 20 },
+        "rag_top_k_matches": { "type": "integer", "minimum": 1, "maximum": 10, "default": 3 }
+      },
+      "additionalProperties": false
+    },
+    "chat_buffer": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/chatMessageNarrative" },
+          { "$ref": "#/$defs/chatMessageDiceRoll" }
+        ]
+      }
+    },
+    "state_flags": {
+      "type": "object",
+      "required": ["conflict_mode_active", "ai_alert_triggered"],
+      "properties": {
+        "conflict_mode_active": { "type": "boolean" },
+        "ai_alert_triggered": { "type": "boolean" }
+      },
+      "additionalProperties": false
     }
-  ],
-  "state_flags": {
-    "conflict_mode_active": false,
-    "ai_alert_triggered": false
-  }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "chatMessageNarrative": {
+      "type": "object",
+      "required": ["timestamp", "sender_id", "type", "text"],
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "sender_id": { "type": "string", "format": "uuid" },
+        "type": { "const": "NARRATIVE" },
+        "text": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "chatMessageDiceRoll": {
+      "type": "object",
+      "required": ["timestamp", "sender_id", "type", "dice_expression", "raw_result", "final_result", "skill_checked"],
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "sender_id": { "type": "string", "format": "uuid" },
+        "type": { "const": "DICE_ROLL" },
+        "dice_expression": { "type": "string" },
+        "raw_result": { "type": "integer" },
+        "final_result": { "type": "integer" },
+        "skill_checked": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "examples": [
+    {
+      "metadata": {
+        "campaign_id": "00000000-0000-4000-8000-000000000001",
+        "status": "ACTIVE"
+      },
+      "context": {
+        "location_id": "00000000-0000-4000-8000-000000000020",
+        "active_npc_ids": ["00000000-0000-4000-8000-000000000011"],
+        "scene_objective": "Meta a corto plazo o conflicto principal que define la escena actual."
+      },
+      "turn_management": {
+        "current_turn_player_id": "00000000-0000-4000-8000-000000000040",
+        "turn_order": ["00000000-0000-4000-8000-000000000040", "00000000-0000-4000-8000-000000000041", "master"]
+      },
+      "memory_settings": {
+        "max_chat_buffer_size": 20,
+        "rag_top_k_matches": 3
+      },
+      "chat_buffer": [
+        {
+          "timestamp": "2026-06-13T18:00:00Z",
+          "sender_id": "00000000-0000-4000-8000-000000000040",
+          "type": "NARRATIVE",
+          "text": "Descripción textual de la acción física, diálogo o intención declarada por el jugador."
+        },
+        {
+          "timestamp": "2026-06-13T18:01:00Z",
+          "sender_id": "00000000-0000-4000-8000-000000000040",
+          "type": "DICE_ROLL",
+          "dice_expression": "1d20+3",
+          "raw_result": 15,
+          "final_result": 18,
+          "skill_checked": "Perception"
+        }
+      ],
+      "state_flags": {
+        "conflict_mode_active": false,
+        "ai_alert_triggered": false
+      }
+    }
+  ]
 }

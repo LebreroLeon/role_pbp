@@ -1,32 +1,103 @@
 {
-  "$id": "arc_manifest_schema",
-  "metadata": {
-    "type": "ARC_MANIFEST"
-  },
-  "plot_line": {
-    "title": "Título del Arco Argumental Activo",
-    "global_summary": "Macrotrama, conflicto central de la campaña y meta final a largo plazo.",
-    "current_act": 1,
-    "narrative_tone": "Estilo descriptivo global (ej: Heroico, Terror, Épico, Intriga)."
-  },
-  "active_quests": [
-    {
-      "quest_id": "quest_unique_id",
-      "title": "Nombre de la Misión Secundaria o Activa",
-      "description": "Objetivo detallado que el grupo de jugadores intenta resolver en este bloque.",
-      "required_triggers": ["trigger_flag_1", "trigger_flag_2"],
-      "secret_dm_notes": "Grosor de la trama oculto, giros de guion preparados y condiciones de fallo que solo maneja el Máster."
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rolepbp.local/schemas/arc_manifest.schema.json",
+  "title": "ArcManifest",
+  "description": "Macrotrama y misiones activas de la campaña. Un documento por campaña en campaign_entities.",
+  "type": "object",
+  "required": ["metadata", "plot_line", "active_quests", "completed_milestones", "state_flags"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "ARC_MANIFEST" }
+      },
+      "additionalProperties": false
+    },
+    "plot_line": {
+      "type": "object",
+      "required": ["title", "global_summary", "current_act", "narrative_tone"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "global_summary": { "type": "string" },
+        "current_act": { "type": "integer", "minimum": 1 },
+        "narrative_tone": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "active_quests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["quest_id", "title", "description", "required_triggers", "secret_dm_notes"],
+        "properties": {
+          "quest_id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "required_triggers": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "secret_dm_notes": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "completed_milestones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["milestone_id", "description", "resolved_at"],
+        "properties": {
+          "milestone_id": { "type": "string", "format": "uuid" },
+          "description": { "type": "string" },
+          "resolved_at": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "state_flags": {
+      "type": "object",
+      "required": ["is_main_plot_derailed", "world_threat_level"],
+      "properties": {
+        "is_main_plot_derailed": { "type": "boolean" },
+        "world_threat_level": { "type": "integer", "minimum": 0, "maximum": 10 }
+      },
+      "additionalProperties": false
     }
-  ],
-  "completed_milestones": [
+  },
+  "additionalProperties": false,
+  "examples": [
     {
-      "milestone_id": "milestone_unique_id",
-      "description": "Hito o evento crucial ya resuelto por el grupo que altera el mundo permanentemente.",
-      "resolved_at": "2026-06-13T12:00:00Z"
+      "metadata": {
+        "type": "ARC_MANIFEST"
+      },
+      "plot_line": {
+        "title": "Título del Arco Argumental Activo",
+        "global_summary": "Macrotrama, conflicto central de la campaña y meta final a largo plazo.",
+        "current_act": 1,
+        "narrative_tone": "Intriga"
+      },
+      "active_quests": [
+        {
+          "quest_id": "00000000-0000-4000-8000-000000000050",
+          "title": "Nombre de la Misión Secundaria o Activa",
+          "description": "Objetivo detallado que el grupo de jugadores intenta resolver en este bloque.",
+          "required_triggers": ["trigger_flag_1", "trigger_flag_2"],
+          "secret_dm_notes": "Grosor de la trama oculto, giros de guion preparados y condiciones de fallo que solo maneja el Máster."
+        }
+      ],
+      "completed_milestones": [
+        {
+          "milestone_id": "00000000-0000-4000-8000-000000000051",
+          "description": "Hito o evento crucial ya resuelto por el grupo que altera el mundo permanentemente.",
+          "resolved_at": "2026-06-13T12:00:00Z"
+        }
+      ],
+      "state_flags": {
+        "is_main_plot_derailed": false,
+        "world_threat_level": 1
+      }
     }
-  ],
-  "state_flags": {
-    "is_main_plot_derailed": false,
-    "world_threat_level": 1
-  }
+  ]
 }

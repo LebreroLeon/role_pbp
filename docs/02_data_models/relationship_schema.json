@@ -1,27 +1,88 @@
 {
-  "$id": "rel_001",
-  "metadata": {
-    "type": "RELATIONSHIP",
-    "created_at": "2026-06-12T17:00:00Z",
-    "last_updated": "2026-06-12T17:00:00Z"
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rolepbp.local/schemas/relationship.schema.json",
+  "title": "Relationship",
+  "description": "Vínculo narrativo entre dos entidades (NPC, PC, Faction). Instancia en campaign_entities.",
+  "type": "object",
+  "required": ["metadata", "connection", "narrative_bond", "ai_behavior_guidelines", "state_flags"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["type", "created_at", "last_updated"],
+      "properties": {
+        "type": { "const": "RELATIONSHIP" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "last_updated": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "connection": {
+      "type": "object",
+      "required": ["source_id", "target_id", "is_bidirectional"],
+      "properties": {
+        "source_id": { "type": "string", "format": "uuid" },
+        "target_id": { "type": "string", "format": "uuid" },
+        "is_bidirectional": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "narrative_bond": {
+      "type": "object",
+      "required": ["bond_type", "public_status", "secret_nuance", "tension_level"],
+      "properties": {
+        "bond_type": { "type": "string" },
+        "public_status": { "type": "string" },
+        "secret_nuance": { "type": "string" },
+        "tension_level": { "type": "integer", "minimum": 0, "maximum": 10 }
+      },
+      "additionalProperties": false
+    },
+    "ai_behavior_guidelines": {
+      "type": "object",
+      "required": ["if_source_acts", "if_target_acts"],
+      "properties": {
+        "if_source_acts": { "type": "string" },
+        "if_target_acts": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "state_flags": {
+      "type": "object",
+      "required": ["is_secret_discovered_by_party", "is_active"],
+      "properties": {
+        "is_secret_discovered_by_party": { "type": "boolean" },
+        "is_active": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
   },
-  "connection": {
-    "source_id": "entity_npc_001", 
-    "target_id": "char_player_04", 
-    "is_bidirectional": false
-  },
-  "narrative_bond": {
-    "bond_type": "Deuda de Vida / Chantaje / Rivalidad",
-    "public_status": "Aparentan ser socios comerciales legítimos ante el resto del grupo.",
-    "secret_nuance": "El target_id descubrió que el source_id es un informante infiltrado. Ahora lo chantajea para obtener pases de seguridad.",
-    "tension_level": 8
-  },
-  "ai_behavior_guidelines": {
-    "if_source_acts": "Debe mostrarse sumiso y nervioso cuando el target esté presente en la escena.",
-    "if_target_acts": "Puede usar sutiles amenazas veladas en el chat de juego para recordar su posición de poder."
-  },
-  "state_flags": {
-    "is_secret_discovered_by_party": false,
-    "is_active": true
-  }
+  "additionalProperties": false,
+  "examples": [
+    {
+      "metadata": {
+        "type": "RELATIONSHIP",
+        "created_at": "2026-06-12T17:00:00Z",
+        "last_updated": "2026-06-12T17:00:00Z"
+      },
+      "connection": {
+        "source_id": "00000000-0000-4000-8000-000000000011",
+        "target_id": "00000000-0000-4000-8000-000000000040",
+        "is_bidirectional": false
+      },
+      "narrative_bond": {
+        "bond_type": "Chantaje",
+        "public_status": "Aparentan ser socios comerciales legítimos ante el resto del grupo.",
+        "secret_nuance": "El target_id descubrió que el source_id es un informante infiltrado. Ahora lo chantajea para obtener pases de seguridad.",
+        "tension_level": 8
+      },
+      "ai_behavior_guidelines": {
+        "if_source_acts": "Debe mostrarse sumiso y nervioso cuando el target esté presente en la escena.",
+        "if_target_acts": "Puede usar sutiles amenazas veladas en el chat de juego para recordar su posición de poder."
+      },
+      "state_flags": {
+        "is_secret_discovered_by_party": false,
+        "is_active": true
+      }
+    }
+  ]
 }

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rolepbp.local/schemas/entity_location.schema.json",
+  "title": "EntityLocation",
+  "description": "Ubicación del mundo de campaña. Instancia almacenada en campaign_entities.",
+  "type": "object",
+  "required": ["metadata", "identity", "narrative_profile", "state_flags"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["type", "version"],
+      "properties": {
+        "type": { "const": "LOCATION" },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }
+      },
+      "additionalProperties": false
+    },
+    "identity": {
+      "type": "object",
+      "required": ["name", "location_type"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "location_type": {
+          "type": "string",
+          "description": "Ej: Ciudad, Mazmorra, Taberna, Nave, Región"
+        },
+        "parent_location_id": { "type": ["string", "null"], "format": "uuid" }
+      },
+      "additionalProperties": false
+    },
+    "narrative_profile": {
+      "type": "object",
+      "required": ["public_description", "secret_lore_master"],
+      "properties": {
+        "public_description": { "type": "string" },
+        "secret_lore_master": { "type": "string" },
+        "ambient_tone": { "type": "string" },
+        "notable_features": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "state_flags": {
+      "type": "object",
+      "required": ["is_accessible_to_party", "danger_level"],
+      "properties": {
+        "is_accessible_to_party": { "type": "boolean" },
+        "danger_level": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "is_destroyed": { "type": "boolean", "default": false }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "metadata": {
+        "type": "LOCATION",
+        "version": "1.0.0"
+      },
+      "identity": {
+        "name": "Puerto de Brumah",
+        "location_type": "Ciudad",
+        "parent_location_id": null
+      },
+      "narrative_profile": {
+        "public_description": "Ciudad portuaria con niebla perpetua y muelles abarrotados.",
+        "secret_lore_master": "Bajo el muelle 7 hay un túnel hacia un santuario prohibido.",
+        "ambient_tone": "Intriga y humedad",
+        "notable_features": ["Faro apagado", "Mercado nocturno"]
+      },
+      "state_flags": {
+        "is_accessible_to_party": true,
+        "danger_level": 3,
+        "is_destroyed": false
+      }
+    }
+  ]
+}
