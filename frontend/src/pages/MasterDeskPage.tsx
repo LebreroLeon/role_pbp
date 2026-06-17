@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -8,7 +8,7 @@ import { queryKeys } from "../api/queryKeys";
 import { RoleGate } from "../components/auth/RoleGate";
 import { DESK_TAB_ICONS, SECTION_ICONS } from "../components/icons";
 import { Button, ButtonLink, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
-import { CampaignMemberList, InviteMemberForm } from "../features/campaign";
+import { CampaignMemberList, formatSceneLabel, InviteMemberForm } from "../features/campaign";
 import { gameSystemLabel } from "../features/campaign/gameSystems";
 import { getChatBuffer, getSceneObjective } from "../features/scene/sceneState";
 import {
@@ -35,10 +35,22 @@ export function MasterDeskPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [freezing, setFreezing] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [displayNameDraft, setDisplayNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
   const { data: activeScene } = useActiveSceneQuery(campaignId);
+
+  useEffect(() => {
+    setDisplayNameDraft(activeScene?.display_name ?? "");
+  }, [activeScene?.id, activeScene?.display_name]);
+
+  async function invalidateSceneQueries() {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.activeScene(campaignId) });
+  }
 
   async function handleAssist(event: FormEvent) {
     event.preventDefault();
@@ -70,6 +82,39 @@ export function MasterDeskPage() {
       setError(err instanceof Error ? err.message : "No se pudo cambiar el estado");
     } finally {
       setFreezing(false);
+    }
+  }
+
+  async function handleCloseScene() {
+    if (!activeScene) return;
+    if (!window.confirm("¿Cerrar esta escena? Se generará un resumen para el historial.")) return;
+    setClosing(true);
+    setError(null);
+    try {
+      await api.closeScene(activeScene.id);
+      queryClient.removeQueries({ queryKey: queryKeys.campaigns.activeScene(campaignId) });
+      await invalidateSceneQueries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cerrar la escena");
+    } finally {
+      setClosing(false);
+    }
+  }
+
+  async function handleSaveDisplayName(event: FormEvent) {
+    event.preventDefault();
+    if (!activeScene) return;
+    setSavingName(true);
+    setError(null);
+    try {
+      const trimmed = displayNameDraft.trim();
+      const updated = await api.updateSceneDisplayName(activeScene.id, trimmed || null);
+      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), updated);
+      await invalidateSceneQueries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar el nombre");
+    } finally {
+      setSavingName(false);
     }
   }
 
@@ -109,6 +154,9 @@ export function MasterDeskPage() {
               <h3>Escena activa</h3>
               {activeScene ? (
                 <>
+                  <p className="muted">
+                    <strong>{formatSceneLabel(activeScene)}</strong>
+                  </p>
                   <p className="muted">{getSceneObjective(activeScene.scene_state) ?? "Sin objetivo definido"}</p>
                   <div className="status-row">
                     <StatusBadge label="Estado" value={activeScene.status} ok={activeScene.status === "ACTIVE"} />
@@ -118,6 +166,23 @@ export function MasterDeskPage() {
                       ok
                     />
                   </div>
+                  <form className="master-form" onSubmit={handleSaveDisplayName}>
+                    <label className="field-label" htmlFor="scene-display-name">
+                      Nombre de escena
+                    </label>
+                    <input
+                      id="scene-display-name"
+                      type="text"
+                      value={displayNameDraft}
+                      onChange={(event) => setDisplayNameDraft(event.target.value)}
+                      placeholder='Ej. "La taberna del Grifo"'
+                      maxLength={200}
+                      disabled={savingName}
+                    />
+                    <Button type="submit" variant="secondary" disabled={savingName}>
+                      Guardar nombre
+                    </Button>
+                  </form>
                   <div className="actions">
                     <ButtonLink to={`/campaigns/${campaignId}/chat`}>
                       Ir a Jugar
@@ -125,11 +190,15 @@ export function MasterDeskPage() {
                     <Button variant="secondary" onClick={handleFreeze} disabled={freezing}>
                       {activeScene.status === "PAUSED" ? "Reanudar escena" : "Congelar escena"}
                     </Button>
+                    <Button variant="secondary" onClick={handleCloseScene} disabled={closing}>
+                      Cerrar escena
+                    </Button>
                   </div>
                 </>
               ) : (
                 <p className="muted">
-                  No hay escena activa. Ve a <Link to={`/campaigns/${campaignId}/chat`}>Jugar</Link> para iniciar una.
+                  No hay escena activa. Ve a <Link to={`/campaigns/${campaignId}/chat`}>Jugar</Link> para iniciar una
+                  (podrás asignar nombre al crearla).
                 </p>
               )}
             </section>

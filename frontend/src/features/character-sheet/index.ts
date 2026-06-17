@@ -1,4 +1,6 @@
 export { CharacterSheetPage } from "./CharacterSheetPage";
+export { CampaignSheetsPage } from "./CampaignSheetsPage";
+export { EntitySheetEditor } from "./EntitySheetEditor";
 export {
   buildPcDocumentWithSheet,
   buildCharacterSheetUpsert,

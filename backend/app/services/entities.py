@@ -36,6 +36,54 @@ def _format_validation_error(exc: ValidationError, *, prefix: str = "") -> str:
     return "; ".join(parts) if parts else str(exc)
 
 
+def _is_typed_system_mechanics(mechanics: object) -> bool:
+    return isinstance(mechanics, dict) and "system_id" in mechanics
+
+
+def normalize_entity_document_for_campaign(
+    *,
+    campaign_game_system: str | None,
+    entity_type: EntityType,
+    document: dict,
+) -> dict:
+    """Validate typed sheets against the campaign rule plugin before Pydantic."""
+    normalized = deepcopy(document)
+
+    mechanics = normalized.get("system_mechanics")
+    if not _is_typed_system_mechanics(mechanics):
+        return normalized
+
+    typed = TypedSystemMechanics.model_validate(mechanics)
+
+    if entity_type == EntityType.PC:
+        validated_sheet = validate_pc_sheet_for_campaign(campaign_game_system, typed)
+    elif entity_type == EntityType.NPC:
+        power_scale = "medium"
+        if isinstance(mechanics, dict) and isinstance(mechanics.get("power_scale"), str):
+            power_scale = mechanics["power_scale"]
+        elif isinstance(mechanics, dict) and isinstance(mechanics.get("system_name"), str):
+            power_scale = mechanics["system_name"]
+        validated_sheet = validate_npc_sheet_for_campaign(
+            campaign_game_system,
+            typed,
+            power_scale=power_scale,
+        )
+    else:
+        return normalized
+
+    normalized["system_mechanics"] = {
+        "system_id": typed.system_id,
+        "schema_version": typed.schema_version,
+        "sheet": validated_sheet,
+    }
+    metadata = normalized.get("metadata")
+    if isinstance(metadata, dict):
+        metadata["system_agnostic"] = False
+        metadata["mechanics_enabled"] = True
+
+    return normalized
+
+
 def validate_entity_document(entity_type: EntityType, document: dict) -> BaseModel:
     model_cls = ENTITY_DOCUMENT_MODELS[entity_type]
     try:
@@ -50,6 +98,41 @@ def validate_entity_document(entity_type: EntityType, document: dict) -> BaseMod
         )
 
     return validated
+
+
+def validate_npc_sheet_for_campaign(
+    campaign_game_system: str | None,
+    system_mechanics: TypedSystemMechanics,
+    *,
+    power_scale: str = "medium",
+) -> dict[str, Any]:
+    plugin = get_plugin(campaign_game_system)
+    expected_system_id = plugin.system_id if campaign_game_system else "generic"
+
+    if system_mechanics.system_id != expected_system_id:
+        raise EntityValidationError(
+            f"system_mechanics.system_id ({system_mechanics.system_id!r}) "
+            f"must match campaign game system ({expected_system_id!r})"
+        )
+
+    sheet = system_mechanics.sheet
+    if not sheet:
+        sheet = plugin.default_npc_sheet(power_scale)
+
+    try:
+        validated = plugin.validate_npc_sheet(sheet)
+    except ValidationError as exc:
+        raise EntityValidationError(
+            _format_validation_error(exc, prefix="system_mechanics.sheet.")
+        ) from exc
+    except ValueError as exc:
+        raise EntityValidationError(str(exc)) from exc
+
+    if isinstance(validated, BaseModel):
+        return validated.model_dump(mode="json")
+    if isinstance(validated, dict):
+        return validated
+    raise EntityValidationError("validate_npc_sheet must return a dict or BaseModel")
 
 
 def validate_pc_sheet_for_campaign(
@@ -170,6 +253,8 @@ def mask_hidden_npc_document(document: dict) -> dict:
 
     mechanics = sanitized.get("system_mechanics")
     if isinstance(mechanics, dict):
+        if "sheet" in mechanics:
+            mechanics["sheet"] = {}
         mechanics["stats_summary"] = {}
         mechanics["notable_features"] = []
 

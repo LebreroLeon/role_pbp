@@ -43,8 +43,9 @@ class TypedSystemMechanics(BaseModel):
 
 class NPCMetadata(BaseModel):
     type: Literal["NPC"] = "NPC"
-    system_agnostic: Literal[True]
-    version: str
+    system_agnostic: bool = True
+    version: str = "2.0.0"
+    mechanics_enabled: bool | None = None
 
 
 class NPCIdentity(BaseModel):
@@ -72,7 +73,7 @@ class EntityNPCDocument(BaseModel):
     metadata: NPCMetadata
     identity: NPCIdentity
     ai_narrative_profile: AINarrativeProfile
-    system_mechanics: SystemMechanics
+    system_mechanics: TypedSystemMechanics | SystemMechanics
     state_flags: NPCStateFlags
 
 

@@ -238,6 +238,8 @@ export type SceneMetadata = {
 
   status: SceneStatusType;
 
+  closure_summary?: string | null;
+
 };
 
 
@@ -372,7 +374,13 @@ export type Scene = {
 
   campaign_id: string;
 
+  scene_number: number;
+
+  display_name?: string | null;
+
   status: string;
+
+  summary?: string | null;
 
   scene_state: SceneState;
 

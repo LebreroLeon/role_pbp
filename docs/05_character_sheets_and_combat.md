@@ -463,27 +463,35 @@ Al aplicar daño, **`PUT /entities/{id}`** interno (servicio, no UI) actualiza s
 
 ## 8. Panel del jugador (frontend)
 
-### 8.1 Ruta y navegación
+### 8.1 Ruta y navegación (jun 2026)
 
-- Ruta: `/campaigns/:campaignId/ficha`
-- Añadir a `PLAYER_LINKS` y `MASTER_LINKS` en `CampaignLayout.tsx`.
-- `PlayerSheetPage`: si no hay PC, wizard de creación con plantilla del `campaign.game_system`.
-- Si hay PC pero `player_binding.user_id !== currentUser` → solo lectura (Máster viendo ficha ajena desde Mundo).
+| Rol | Ruta | Nav | Descripción |
+|---|---|---|---|
+| **Jugador** | `/campaigns/:id/ficha` | Mi ficha | Crea/edita **solo su** PC (`PUT /campaigns/{id}/my-sheet`) |
+| **Máster** | `/campaigns/:id/fichas` | Fichas | Lista todos los PCs (`GET /campaigns/{id}/sheets`, incluye secretos); edición completa vía `PUT /entities/{id}` |
+| **Máster** | *(sin `/ficha`)* | — | El Máster no tiene "Mi ficha"; gestiona PJs desde **Fichas** |
+
+- `CharacterSheetPage` protegida con `RoleGate role="PLAYER"`.
+- `CampaignSheetsPage`: picker de PJs + `EntitySheetEditor` con vista Máster (stats, lore, secretos).
+- Crear PJ para jugador sin ficha: botón opcional en Fichas (`POST /entities` con `buildPcDocumentForGameSystem`).
+
+### 8.3 Separación Mundo vs Fichas (jun 2026)
+
+| Vista | Quién | Contenido | API |
+|---|---|---|---|
+| **Fichas** (`CampaignSheetsPage`) | Solo Máster | Todos los **PCs**: narrativo + ficha mecánica + secretos | `GET /campaigns/{id}/sheets`, `PUT /entities/{id}` |
+| **Mi ficha** (`CharacterSheetPage`) | Solo jugador | Su PC; tiradas desde formulario | `GET/PUT /campaigns/{id}/my-sheet`, `POST …/roll` |
+| **Mundo** (`WorldPage`) | Máster: NPCs/ubicaciones; jugador: filtrado | Máster edita **NPCs** (lore + `secret_lore_master` + ficha mecánica D&D/RED/V5). Jugadores ven solo `public_description` y stats públicos (`strip_master_secrets` + NPCs ocultos en escena) | `GET /entities`, `PUT /entities/{id}` (Máster) |
+| **Mesa** (`MasterDeskPage`) | Máster | Escena, jugadores, asistente — sin edición de fichas | — |
+
+**Decisión UX:** PCs viven en **Fichas** (control total del Máster sobre jugadores). NPCs viven en **Mundo** (lore, presencia en escena, stats de combate). Evita duplicar la lista de entidades y mantiene el flujo narrativo del mundo separado de la gestión de mesa.
 
 ### 8.2 Edición
 
-- React Hook Form + Zod generados por perfil de sistema.
-- Autoguardado con debounce → `PUT /entities/{id}`.
-- Secciones colapsables mobile-first (atributos, combate, equipo).
-- Botones de tirada deshabilitados si no hay escena activa o escena PAUSED.
-
-### 8.3 Separación Mundo vs Ficha
-
-| Vista | Quién | Contenido |
-|---|---|---|
-| Mundo (`WorldPage`) | Máster crea entidades; jugador lista filtrada | Narrativo + entidades conocidas |
-| Ficha (`PlayerSheetPage`) | Jugador edita mecánicas | Hoja completa del sistema |
-| Mesa (`MasterDeskPage`) | Máster | Iniciativa, NPCs en escena, daño manual |
+- React Hook Form + Zod por sistema (`Dnd5eSheetForm`, `CyberpunkSheetForm`, `VtmSheetForm`).
+- Jugador: guardado explícito → `PUT /campaigns/{id}/my-sheet`.
+- Máster: `EntitySheetEditor` compartido (Fichas + Mundo NPC) → `PUT /entities/{id}` con validación de plugin por `game_system`.
+- Botones de tirada en ficha del jugador; escena activa recomendada para publicar en chat.
 
 ### 8.4 UX de combate (implementado jun 2026)
 

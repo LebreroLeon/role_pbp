@@ -19,6 +19,7 @@ def _make_scene(campaign_id: uuid.UUID | None = None) -> Scene:
     return Scene(
         id=uuid.uuid4(),
         campaign_id=campaign_id,
+        scene_number=1,
         status="ACTIVE",
         scene_state={},
     )

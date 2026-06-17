@@ -14,3 +14,13 @@ export function useActiveSceneQuery(campaignId: string) {
     retry: false,
   });
 }
+
+export function useCampaignScenesQuery(campaignId: string) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated());
+
+  return useQuery({
+    queryKey: queryKeys.campaigns.scenes(campaignId),
+    queryFn: () => api.listCampaignScenes(campaignId),
+    enabled: isAuthenticated && Boolean(campaignId),
+  });
+}

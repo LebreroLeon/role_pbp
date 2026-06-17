@@ -1,10 +1,10 @@
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.campaign import Campaign, CampaignEntity, Scene
+from app.models.campaign import Campaign, CampaignEntity, MemoryDocumentType, Scene
 from app.schemas.scene import (
     ChatMessage,
     CombatState,
@@ -27,6 +27,7 @@ from app.services.dice import roll_dice as roll_dice_expression
 from app.services.combat_parser import try_parse_combat_command
 from app.services.combat_resolver import CombatResolverError, entity_display_name, execute_combat_command
 from app.services.entities import CharacterSheetError, get_campaign_or_error
+from app.services.llm import LLMError, LLMNotConfiguredError, chat_completion
 from app.services.master import utc_now_iso
 from app.services.rag import rag_service
 
@@ -290,11 +291,107 @@ def default_scene_state(
 
 def scene_to_response(scene: Scene) -> SceneResponse:
     state = load_scene_state(scene)
+    summary = state.metadata.closure_summary if scene.status == "CLOSED" else None
     return SceneResponse(
         id=str(scene.id),
         campaign_id=str(scene.campaign_id),
+        scene_number=scene.scene_number,
+        display_name=scene.display_name,
         status=scene.status,
+        summary=summary,
         scene_state=state,
+    )
+
+
+async def _next_scene_number(db: AsyncSession, campaign_id: uuid.UUID) -> int:
+    current_max = await db.scalar(
+        select(func.coalesce(func.max(Scene.scene_number), 0)).where(Scene.campaign_id == campaign_id)
+    )
+    return int(current_max or 0) + 1
+
+
+def _normalize_display_name(display_name: str | None) -> str | None:
+    if display_name is None:
+        return None
+    trimmed = display_name.strip()
+    return trimmed or None
+
+
+def _build_narrative_text(state: SceneState) -> str:
+    lines: list[str] = []
+    for message in state.chat_buffer:
+        if message.type not in NARRATIVE_MESSAGE_TYPES:
+            continue
+        text = (message.text or "").strip()
+        if text:
+            lines.append(text)
+    return "\n".join(lines)
+
+
+def _placeholder_scene_summary(
+    narrative: str,
+    *,
+    scene_number: int,
+    display_name: str | None,
+) -> str:
+    title = f"Escena {scene_number}"
+    if display_name:
+        title = f"{title}: {display_name}"
+    if not narrative.strip():
+        return f"{title} — cerrada sin mensajes narrativos registrados."
+    truncated = narrative[:500].rstrip()
+    if len(narrative) > 500:
+        truncated = f"{truncated}..."
+    return f"{title}\n\n{truncated}"
+
+
+async def generate_scene_closure_summary(
+    state: SceneState,
+    *,
+    scene_number: int,
+    display_name: str | None,
+) -> str:
+    narrative = _build_narrative_text(state)
+    if not narrative.strip():
+        return _placeholder_scene_summary(
+            narrative,
+            scene_number=scene_number,
+            display_name=display_name,
+        )
+
+    scene_label = f"Escena {scene_number}"
+    if display_name:
+        scene_label = f"{scene_label} ({display_name})"
+
+    try:
+        summary = await chat_completion(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "Eres un cronista de rol. Resume la escena en español en 2-4 frases claras, "
+                        "sin inventar eventos que no aparezcan en el chat."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"Resume lo ocurrido en {scene_label}:\n\n{narrative[:8000]}",
+                },
+            ],
+            temperature=0.3,
+            max_tokens=400,
+        )
+        if summary.strip():
+            return summary.strip()
+    except LLMNotConfiguredError:
+        pass
+    except LLMError:
+        pass
+
+    return _placeholder_scene_summary(
+        narrative,
+        scene_number=scene_number,
+        display_name=display_name,
     )
 
 
@@ -303,7 +400,7 @@ async def list_campaign_scenes(db: AsyncSession, campaign_id: uuid.UUID) -> list
         await db.scalars(
             select(Scene)
             .where(Scene.campaign_id == campaign_id)
-            .order_by(Scene.updated_at.desc())
+            .order_by(Scene.scene_number.asc())
         )
     ).all()
     return [scene_to_response(scene) for scene in scenes]
@@ -342,9 +439,13 @@ async def create_scene(
         turn_order=turn_order,
         scene_objective=payload.scene_objective,
     )
+    scene_number = await _next_scene_number(db, campaign_id)
+    display_name = _normalize_display_name(payload.display_name)
 
     scene = Scene(
         campaign_id=campaign_id,
+        scene_number=scene_number,
+        display_name=display_name,
         status="ACTIVE",
         scene_state=scene_state.model_dump(),
     )
@@ -522,6 +623,48 @@ async def update_scene_status(
     save_scene_state(scene, state)
     await db.commit()
     await db.refresh(scene)
+    return scene_to_response(scene)
+
+
+async def update_scene_display_name(
+    db: AsyncSession,
+    scene: Scene,
+    display_name: str | None,
+) -> SceneResponse:
+    scene.display_name = _normalize_display_name(display_name)
+    await db.commit()
+    await db.refresh(scene)
+    return scene_to_response(scene)
+
+
+async def close_scene(db: AsyncSession, scene: Scene) -> SceneResponse:
+    if scene.status == "CLOSED":
+        raise SceneServiceError("Scene is already closed")
+
+    state = load_scene_state(scene)
+    summary = await generate_scene_closure_summary(
+        state,
+        scene_number=scene.scene_number,
+        display_name=scene.display_name,
+    )
+    state.metadata.closure_summary = summary
+    state.metadata.status = "CLOSED"
+    save_scene_state(scene, state)
+    await db.commit()
+    await db.refresh(scene)
+
+    await rag_service.index_message(
+        db,
+        campaign_id=str(scene.campaign_id),
+        document_id=str(scene.id),
+        text=summary,
+        metadata={
+            "scene_id": str(scene.id),
+            "scene_number": scene.scene_number,
+            "display_name": scene.display_name,
+        },
+        document_type=MemoryDocumentType.SCENE_SUMMARY,
+    )
     return scene_to_response(scene)
 
 

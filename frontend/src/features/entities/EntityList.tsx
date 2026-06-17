@@ -5,11 +5,13 @@ import { Button } from "../../components/ui";
 type EntityListProps = {
   entities: CampaignEntity[];
   isMaster: boolean;
+  onEdit?: (entity: CampaignEntity) => void;
+  editingId?: string | null;
   onDelete?: (entityId: string) => void;
   deletingId?: string | null;
 };
 
-export function EntityList({ entities, isMaster, onDelete, deletingId }: EntityListProps) {
+export function EntityList({ entities, isMaster, onEdit, editingId, onDelete, deletingId }: EntityListProps) {
   if (entities.length === 0) {
     return <p className="muted">El mundo está vacío. Crea o importa NPCs y ubicaciones.</p>;
   }
@@ -30,19 +32,28 @@ export function EntityList({ entities, isMaster, onDelete, deletingId }: EntityL
           <h3>{ENTITY_TYPE_LABELS[type as EntityType]}</h3>
           <ul className="entity-list">
             {items.map((entity) => (
-              <li key={entity.id} className="entity-card">
+              <li key={entity.id} className={`entity-card ${editingId === entity.id ? "is-editing" : ""}`}>
                 <div>
                   <strong>{getEntityDisplayName(entity)}</strong>
                   <p className="muted entity-summary">{summarizeEntity(entity)}</p>
                 </div>
-                {isMaster && onDelete && (
-                  <Button
-                    className="secondary"
-                    disabled={deletingId === entity.id}
-                    onClick={() => onDelete(entity.id)}
-                  >
-                    {deletingId === entity.id ? "..." : "Eliminar"}
-                  </Button>
+                {isMaster && (
+                  <div className="entity-card__actions">
+                    {onEdit && entity.entity_type === "NPC" && (
+                      <Button className="secondary" onClick={() => onEdit(entity)}>
+                        {editingId === entity.id ? "Editando" : "Editar ficha"}
+                      </Button>
+                    )}
+                    {onDelete && (
+                      <Button
+                        className="secondary"
+                        disabled={deletingId === entity.id}
+                        onClick={() => onDelete(entity.id)}
+                      >
+                        {deletingId === entity.id ? "..." : "Eliminar"}
+                      </Button>
+                    )}
+                  </div>
                 )}
               </li>
             ))}

@@ -21,7 +21,9 @@ from app.services.entities import (
     CharacterSheetError,
     EntityValidationError,
     get_active_scene_hidden_npc_ids,
+    get_campaign_or_error,
     mask_hidden_npc_document,
+    normalize_entity_document_for_campaign,
     set_pc_present_in_scene,
     strip_master_secrets,
     validate_entity_document,
@@ -64,9 +66,16 @@ async def create_entity(
 ) -> EntityResponse:
     campaign_id = parse_uuid(payload.campaign_id, "campaign_id")
     await require_campaign_master(db, current_user, campaign_id)
+    campaign = await get_campaign_or_error(db, campaign_id)
+
+    document = normalize_entity_document_for_campaign(
+        campaign_game_system=campaign.game_system,
+        entity_type=payload.entity_type,
+        document=payload.document,
+    )
 
     try:
-        validated = validate_entity_document(payload.entity_type, payload.document)
+        validated = validate_entity_document(payload.entity_type, document)
     except EntityValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -141,11 +150,17 @@ async def import_entities(
 ) -> EntityImportResponse:
     campaign_uuid = parse_uuid(payload.campaign_id, "campaign_id")
     await require_campaign_master(db, current_user, campaign_uuid)
+    campaign = await get_campaign_or_error(db, campaign_uuid)
 
     created_entities: list[CampaignEntity] = []
     for item in payload.entities:
+        document = normalize_entity_document_for_campaign(
+            campaign_game_system=campaign.game_system,
+            entity_type=item.entity_type,
+            document=item.document,
+        )
         try:
-            validated = validate_entity_document(item.entity_type, item.document)
+            validated = validate_entity_document(item.entity_type, document)
         except EntityValidationError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -225,9 +240,16 @@ async def update_entity(
 ) -> EntityResponse:
     entity = await _get_entity_or_404(entity_id, db)
     await require_campaign_master(db, current_user, entity.campaign_id)
+    campaign = await get_campaign_or_error(db, entity.campaign_id)
+
+    document = normalize_entity_document_for_campaign(
+        campaign_game_system=campaign.game_system,
+        entity_type=EntityType(entity.entity_type),
+        document=payload.document,
+    )
 
     try:
-        validated = validate_entity_document(EntityType(entity.entity_type), payload.document)
+        validated = validate_entity_document(EntityType(entity.entity_type), document)
     except EntityValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

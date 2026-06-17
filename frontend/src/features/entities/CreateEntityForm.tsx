@@ -4,22 +4,32 @@ import type { CampaignMember } from "../../api/types";
 import { ApiError } from "../../api/http";
 import { MapPin } from "../../components/icons";
 import { Button, ErrorBanner, Input, Panel, PanelHeader } from "../../components/ui";
+import { hasSheetTemplate } from "../campaign/gameSystems";
 import { useCreateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 import {
   buildLocationDocument,
   buildNpcDocument,
   buildPcDocument,
+  type CampaignEntity,
   type EntityType,
 } from "./entityDefaults";
+import { buildNpcDocumentForGameSystem } from "./npcDocument";
 
 const CREATABLE_TYPES: EntityType[] = ["NPC", "LOCATION", "PC"];
 
 type CreateEntityFormProps = {
   campaignId: string;
   members: CampaignMember[];
+  gameSystem?: string;
+  onNpcCreated?: (entity: CampaignEntity) => void;
 };
 
-export function CreateEntityForm({ campaignId, members }: CreateEntityFormProps) {
+export function CreateEntityForm({
+  campaignId,
+  members,
+  gameSystem = "generic",
+  onNpcCreated,
+}: CreateEntityFormProps) {
   const [entityType, setEntityType] = useState<EntityType>("NPC");
   const [name, setName] = useState("");
   const [concept, setConcept] = useState("");
@@ -50,14 +60,24 @@ export function CreateEntityForm({ campaignId, members }: CreateEntityFormProps)
 
     let document: Record<string, unknown>;
     if (entityType === "NPC") {
-      document = buildNpcDocument({
-        name,
-        concept,
-        publicDescription: publicText,
-        secretLore,
-        voiceAndTone,
-        personalityTraits,
-      });
+      document = hasSheetTemplate(gameSystem)
+        ? buildNpcDocumentForGameSystem({
+            name,
+            concept,
+            publicDescription: publicText,
+            secretLore,
+            voiceAndTone,
+            personalityTraits,
+            systemId: gameSystem,
+          })
+        : buildNpcDocument({
+            name,
+            concept,
+            publicDescription: publicText,
+            secretLore,
+            voiceAndTone,
+            personalityTraits,
+          });
     } else if (entityType === "LOCATION") {
       document = buildLocationDocument({
         name,
@@ -78,7 +98,14 @@ export function CreateEntityForm({ campaignId, members }: CreateEntityFormProps)
 
     mutation.mutate(
       { entity_type: entityType, document },
-      { onSuccess: () => resetForm() },
+      {
+        onSuccess: (created) => {
+          resetForm();
+          if (entityType === "NPC") {
+            onNpcCreated?.(created);
+          }
+        },
+      },
     );
   }
 

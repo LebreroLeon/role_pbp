@@ -1,0 +1,263 @@
+import { FormEvent, useMemo, useState } from "react";
+
+import { ApiError } from "../../api/http";
+import type { CampaignMember } from "../../api/types";
+import { Button, ErrorBanner, Input } from "../../components/ui";
+import { gameSystemLabel, hasSheetTemplate } from "../campaign/gameSystems";
+import { useUpdateEntityMutation } from "../../hooks/mutations/useEntityMutations";
+import {
+  extractSheetFromEntity,
+  mergeSheetIntoDocument,
+  type GameSheet,
+} from "./pcDocument";
+import { CyberpunkSheetForm } from "./systems/cyberpunk_red/CyberpunkSheetForm";
+import { parseCyberpunkRedSheet } from "./systems/cyberpunk_red/schema";
+import { Dnd5eSheetForm } from "./systems/dnd5e/Dnd5eSheetForm";
+import { parseDnd5eSheet } from "./systems/dnd5e/schema";
+import { VtmSheetForm } from "./systems/vtm_v5/VtmSheetForm";
+import { parseVtmV5Sheet } from "./systems/vtm_v5/schema";
+import type { CampaignEntity } from "../entities/entityDefaults";
+import { ensureNpcTypedMechanics, mergeNpcSheetIntoDocument } from "../entities/npcDocument";
+
+type EntitySheetEditorProps = {
+  campaignId: string;
+  entity: CampaignEntity;
+  gameSystem: string;
+  members?: CampaignMember[];
+  onSaved?: () => void;
+  onCancel?: () => void;
+};
+
+function parseSheetForSystem(systemId: string, raw: unknown): GameSheet {
+  switch (systemId) {
+    case "dnd5e":
+      return parseDnd5eSheet(raw);
+    case "cyberpunk_red":
+      return parseCyberpunkRedSheet(raw);
+    case "vtm_v5":
+      return parseVtmV5Sheet(raw);
+    default:
+      return {};
+  }
+}
+
+function playerLabel(members: CampaignMember[] | undefined, userId: string | undefined): string {
+  if (!userId) return "Sin jugador";
+  const member = members?.find((item) => item.user_id === userId);
+  return member ? `${member.display_name} (${member.email})` : userId.slice(0, 8);
+}
+
+export function EntitySheetEditor({
+  campaignId,
+  entity,
+  gameSystem,
+  members,
+  onSaved,
+  onCancel,
+}: EntitySheetEditorProps) {
+  const updateMutation = useUpdateEntityMutation(campaignId);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const workingDocument = useMemo(() => {
+    if (entity.entity_type === "NPC" && hasSheetTemplate(gameSystem)) {
+      return ensureNpcTypedMechanics(entity.document, gameSystem);
+    }
+    return entity.document;
+  }, [entity.document, entity.entity_type, gameSystem]);
+
+  const identity = workingDocument.identity as {
+    name?: string;
+    concept?: string;
+  };
+  const [name, setName] = useState(identity?.name ?? "");
+  const [concept, setConcept] = useState(identity?.concept ?? "");
+
+  const publicProfile = workingDocument.public_profile as { description?: string } | undefined;
+  const narrativeProfile = workingDocument.ai_narrative_profile as
+    | {
+        public_description?: string;
+        secret_lore_master?: string;
+        voice_and_tone?: string;
+        personality_traits?: string[];
+      }
+    | undefined;
+
+  const [publicDescription, setPublicDescription] = useState(
+    entity.entity_type === "PC"
+      ? (publicProfile?.description ?? "")
+      : (narrativeProfile?.public_description ?? ""),
+  );
+  const [secretLore, setSecretLore] = useState(narrativeProfile?.secret_lore_master ?? "");
+  const [voiceAndTone, setVoiceAndTone] = useState(narrativeProfile?.voice_and_tone ?? "");
+  const [personalityTraits, setPersonalityTraits] = useState(
+    (narrativeProfile?.personality_traits ?? []).join(", "),
+  );
+
+  const supportsSheet = hasSheetTemplate(gameSystem);
+  const hasSheetEditor = supportsSheet && gameSystem !== "generic";
+  const extracted = extractSheetFromEntity(workingDocument);
+  const sheetDefaults = parseSheetForSystem(gameSystem, extracted?.sheet);
+
+  const boundUserId =
+    entity.entity_type === "PC"
+      ? (workingDocument.player_binding as { user_id?: string } | undefined)?.user_id
+      : undefined;
+
+  async function persistDocument(document: Record<string, unknown>) {
+    setFormError(null);
+    try {
+      await updateMutation.mutateAsync({ entityId: entity.id, document });
+      onSaved?.();
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "No se pudo guardar la entidad");
+    }
+  }
+
+  function buildBaseDocument(): Record<string, unknown> {
+    const traits = personalityTraits
+      .split(",")
+      .map((trait) => trait.trim())
+      .filter(Boolean);
+
+    if (entity.entity_type === "PC") {
+      return {
+        ...workingDocument,
+        identity: {
+          ...(workingDocument.identity as Record<string, unknown>),
+          name: name.trim(),
+          concept: concept.trim(),
+        },
+        public_profile: {
+          ...(workingDocument.public_profile as Record<string, unknown> | undefined),
+          description: publicDescription.trim(),
+        },
+      };
+    }
+
+    return {
+      ...workingDocument,
+      identity: {
+        ...(workingDocument.identity as Record<string, unknown>),
+        name: name.trim(),
+        concept: concept.trim(),
+      },
+      ai_narrative_profile: {
+        ...(workingDocument.ai_narrative_profile as Record<string, unknown>),
+        public_description: publicDescription.trim(),
+        secret_lore_master: secretLore.trim(),
+        voice_and_tone: voiceAndTone.trim() || "Neutral",
+        personality_traits: traits.length > 0 ? traits : ["misterioso"],
+      },
+    };
+  }
+
+  async function handleNarrativeSubmit(event: FormEvent) {
+    event.preventDefault();
+    await persistDocument(buildBaseDocument());
+  }
+
+  async function handleSaveSheet(sheet: GameSheet) {
+    let document = buildBaseDocument();
+    if (entity.entity_type === "PC") {
+      document = mergeSheetIntoDocument(document, gameSystem, sheet as Record<string, unknown>);
+    } else {
+      document = mergeNpcSheetIntoDocument(document, gameSystem, sheet as Record<string, unknown>);
+    }
+    await persistDocument(document);
+  }
+
+  return (
+    <div className="entity-sheet-editor">
+      {formError && <ErrorBanner message={formError} />}
+
+      <form className="auth-form sheet-narrative-form" onSubmit={handleNarrativeSubmit}>
+        <Input label="Nombre" value={name} onChange={(event) => setName(event.target.value)} required />
+        <Input label="Concepto" value={concept} onChange={(event) => setConcept(event.target.value)} />
+
+        {entity.entity_type === "PC" && (
+          <p className="muted sheet-bound-player">
+            Jugador vinculado: <strong>{playerLabel(members, boundUserId)}</strong>
+          </p>
+        )}
+
+        <label className="form-field">
+          <span>{entity.entity_type === "PC" ? "Descripción pública" : "Descripción pública (lo que ven los jugadores)"}</span>
+          <textarea
+            value={publicDescription}
+            onChange={(event) => setPublicDescription(event.target.value)}
+            rows={3}
+          />
+        </label>
+
+        {entity.entity_type === "NPC" && (
+          <>
+            <Input
+              label="Rasgos de personalidad (separados por coma)"
+              value={personalityTraits}
+              onChange={(event) => setPersonalityTraits(event.target.value)}
+            />
+            <Input
+              label="Voz y tono"
+              value={voiceAndTone}
+              onChange={(event) => setVoiceAndTone(event.target.value)}
+            />
+            <label className="form-field sheet-secret-field">
+              <span>Lore secreto (solo Máster)</span>
+              <textarea
+                value={secretLore}
+                onChange={(event) => setSecretLore(event.target.value)}
+                rows={4}
+              />
+            </label>
+          </>
+        )}
+
+        <div className="actions">
+          <Button type="submit" disabled={updateMutation.isPending || !name.trim()}>
+            {updateMutation.isPending ? "Guardando..." : "Guardar datos narrativos"}
+          </Button>
+          {onCancel && (
+            <Button type="button" variant="secondary" onClick={onCancel}>
+              Cerrar
+            </Button>
+          )}
+        </div>
+      </form>
+
+      {hasSheetEditor ? (
+        <section className="sheet-mechanics-section">
+          <h3>Ficha mecánica — {gameSystemLabel(gameSystem)}</h3>
+          <p className="muted">Vista Máster: stats, PV, ataques y secretos mecánicos visibles.</p>
+          {gameSystem === "dnd5e" && (
+            <Dnd5eSheetForm
+              key={entity.updated_at}
+              defaultValues={sheetDefaults as ReturnType<typeof parseDnd5eSheet>}
+              onSubmit={handleSaveSheet}
+              isSaving={updateMutation.isPending}
+            />
+          )}
+          {gameSystem === "cyberpunk_red" && (
+            <CyberpunkSheetForm
+              key={entity.updated_at}
+              defaultValues={sheetDefaults as ReturnType<typeof parseCyberpunkRedSheet>}
+              onSubmit={handleSaveSheet}
+              isSaving={updateMutation.isPending}
+            />
+          )}
+          {gameSystem === "vtm_v5" && (
+            <VtmSheetForm
+              key={entity.updated_at}
+              defaultValues={sheetDefaults as ReturnType<typeof parseVtmV5Sheet>}
+              onSubmit={handleSaveSheet}
+              isSaving={updateMutation.isPending}
+            />
+          )}
+        </section>
+      ) : (
+        <p className="muted">
+          Esta campaña usa un sistema sin plantilla mecánica ({gameSystemLabel(gameSystem)}).
+        </p>
+      )}
+    </div>
+  );
+}

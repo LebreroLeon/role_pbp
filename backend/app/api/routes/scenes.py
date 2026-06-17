@@ -23,12 +23,14 @@ from app.schemas.scene import (
     ScenePresenceUpdate,
     SceneResponse,
     SceneStatusUpdate,
+    SceneUpdate,
 )
 from app.services.combat_resolver import CombatResolverError, execute_attack, execute_initiative
 from app.services.entities import CharacterSheetError, get_campaign_or_error
 from app.services.scene_ws import scene_ws_manager
 from app.services.scenes import (
     SceneServiceError,
+    close_scene,
     create_scene,
     ensure_player_pc_present_in_scene,
     load_scene_state,
@@ -37,6 +39,7 @@ from app.services.scenes import (
     roll_scene_dice,
     save_scene_state,
     scene_to_response,
+    update_scene_display_name,
     update_scene_npc_presence,
     update_scene_status,
 )
@@ -147,7 +150,46 @@ async def patch_scene_status_route(
 ) -> SceneResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_campaign_master(db, current_user, scene.campaign_id)
+    if payload.status == "CLOSED":
+        raise scene_service_error_to_http(SceneServiceError("Use POST /scenes/{id}/close to close a scene"))
     response = await update_scene_status(db, scene, payload.status)
+    await scene_ws_manager.broadcast(
+        scene_id,
+        {"event": "scene_update", "scene": response.model_dump(mode="json")},
+    )
+    return response
+
+
+@router.patch("/{scene_id}", response_model=SceneResponse)
+async def patch_scene_route(
+    scene_id: str,
+    payload: SceneUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> SceneResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_campaign_master(db, current_user, scene.campaign_id)
+    response = await update_scene_display_name(db, scene, payload.display_name)
+    await scene_ws_manager.broadcast(
+        scene_id,
+        {"event": "scene_update", "scene": response.model_dump(mode="json")},
+    )
+    return response
+
+
+@router.post("/{scene_id}/close", response_model=SceneResponse)
+async def close_scene_route(
+    scene_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> SceneResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_campaign_master(db, current_user, scene.campaign_id)
+    try:
+        response = await close_scene(db, scene)
+    except SceneServiceError as exc:
+        raise scene_service_error_to_http(exc) from exc
+
     await scene_ws_manager.broadcast(
         scene_id,
         {"event": "scene_update", "scene": response.model_dump(mode="json")},

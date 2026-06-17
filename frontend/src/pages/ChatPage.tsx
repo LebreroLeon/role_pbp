@@ -9,6 +9,7 @@ import type { MessageType, Scene } from "../api/types";
 import { SECTION_ICONS } from "../components/icons";
 import { Button, ButtonLink, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
 import { ChatComposer, ChatLog, DiceRoller, getChatBuffer, type MemberLookup } from "../features/scene";
+import { formatSceneLabel } from "../features/campaign";
 import { buildMentionOptions } from "../features/scene/mentionOptions";
 import {
   buildSpeakerOptions,
@@ -41,6 +42,7 @@ export function ChatPage() {
   const [dice, setDice] = useState("1d20");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [newSceneName, setNewSceneName] = useState("");
 
   const currentScene = scene ?? activeScene ?? null;
   const isMaster = campaign?.role === "MASTER";
@@ -101,9 +103,13 @@ export function ChatPage() {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const created = await api.createScene(campaignId, "Escena inicial");
+      const created = await api.createScene(campaignId, {
+        sceneObjective: "Escena inicial",
+        displayName: newSceneName.trim() || undefined,
+      });
       setScene(created);
       queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), created);
+      queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "No se pudo crear la escena");
     } finally {
@@ -218,13 +224,32 @@ export function ChatPage() {
         {isLoading && <p className="muted">Cargando escena...</p>}
 
         {noActiveScene ? (
-          <div className="actions">
-            <Button onClick={handleStart} disabled={loading}>
-              Iniciar escena
-            </Button>
+          <div className="chat-start">
+            {isMaster && (
+              <label className="field-label" htmlFor="new-scene-name">
+                Nombre de la escena
+              </label>
+            )}
+            {isMaster && (
+              <input
+                id="new-scene-name"
+                type="text"
+                value={newSceneName}
+                onChange={(event) => setNewSceneName(event.target.value)}
+                placeholder='Ej. "La taberna del Grifo"'
+                maxLength={200}
+                disabled={loading}
+              />
+            )}
+            <div className="actions">
+              <Button onClick={handleStart} disabled={loading}>
+                Iniciar escena
+              </Button>
+            </div>
           </div>
         ) : currentScene ? (
           <>
+            <p className="muted chat-scene-label">{formatSceneLabel(currentScene)}</p>
             <ChatLog
               messages={getChatBuffer(currentScene.scene_state)}
               members={memberLookup}

@@ -208,6 +208,7 @@ class TestUpdateSceneNpcPresence:
         scene = Scene(
             id=uuid.uuid4(),
             campaign_id=campaign_id,
+            scene_number=1,
             status="ACTIVE",
             scene_state=SceneState(
                 metadata=SceneMetadata(campaign_id=str(campaign_id), status="ACTIVE"),

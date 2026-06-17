@@ -37,6 +37,7 @@ class ChatMessage(BaseModel):
 class SceneMetadata(BaseModel):
     campaign_id: str
     status: SceneStatusType = "ACTIVE"
+    closure_summary: str | None = None
 
 
 class SceneContext(BaseModel):
@@ -85,14 +86,22 @@ class SceneState(BaseModel):
 
 class SceneCreate(BaseModel):
     campaign_id: str
+    display_name: str | None = Field(default=None, max_length=200)
     scene_objective: str | None = None
     turn_order: list[str] = Field(default_factory=list)
+
+
+class SceneUpdate(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class SceneResponse(BaseModel):
     id: str
     campaign_id: str
+    scene_number: int
+    display_name: str | None = None
     status: str
+    summary: str | None = None
     scene_state: SceneState
 
     model_config = {"from_attributes": True}

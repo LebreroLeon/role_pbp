@@ -67,12 +67,14 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   getActiveScene: (campaignId: string) => http<Scene>(`/api/v1/campaigns/${campaignId}/scenes/active`),
-  createScene: (campaignId: string, sceneObjective?: string) =>
+  listCampaignScenes: (campaignId: string) => http<Scene[]>(`/api/v1/campaigns/${campaignId}/scenes`),
+  createScene: (campaignId: string, options?: { sceneObjective?: string; displayName?: string }) =>
     http<Scene>("/api/v1/scenes", {
       method: "POST",
       body: JSON.stringify({
         campaign_id: campaignId,
-        scene_objective: sceneObjective,
+        scene_objective: options?.sceneObjective,
+        display_name: options?.displayName,
       }),
     }),
   getScene: (sceneId: string) => http<Scene>(`/api/v1/scenes/${sceneId}`),
@@ -108,6 +110,15 @@ export const api = {
     http<Scene>(`/api/v1/scenes/${sceneId}/status`, {
       method: "PATCH",
       body: JSON.stringify({ status }),
+    }),
+  updateSceneDisplayName: (sceneId: string, displayName: string | null) =>
+    http<Scene>(`/api/v1/scenes/${sceneId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ display_name: displayName }),
+    }),
+  closeScene: (sceneId: string) =>
+    http<Scene>(`/api/v1/scenes/${sceneId}/close`, {
+      method: "POST",
     }),
   rollCombatInitiative: (sceneId: string) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/combat/initiative`, {
