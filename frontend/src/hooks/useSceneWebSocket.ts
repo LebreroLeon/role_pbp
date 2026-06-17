@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Scene } from "../api/types";
+import { normalizeScene } from "../features/scene/sceneState";
 import { useAuthStore } from "../stores/authStore";
 
 type SceneWsEvent =
@@ -11,6 +12,7 @@ type SceneWsEvent =
 type UseSceneWebSocketOptions = {
   sceneId: string | null;
   onSceneUpdate: (scene: Scene) => void;
+  onError?: (message: string) => void;
 };
 
 function buildWsUrl(sceneId: string, token: string): string {
@@ -20,15 +22,20 @@ function buildWsUrl(sceneId: string, token: string): string {
   return `${protocol}//${host}/api/v1/ws/scenes/${sceneId}?${params.toString()}`;
 }
 
-export function useSceneWebSocket({ sceneId, onSceneUpdate }: UseSceneWebSocketOptions) {
+export function useSceneWebSocket({ sceneId, onSceneUpdate, onError }: UseSceneWebSocketOptions) {
   const token = useAuthStore((state) => state.token);
   const socketRef = useRef<WebSocket | null>(null);
   const onSceneUpdateRef = useRef(onSceneUpdate);
+  const onErrorRef = useRef(onError);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
     onSceneUpdateRef.current = onSceneUpdate;
   }, [onSceneUpdate]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   useEffect(() => {
     if (!sceneId || !token) {
@@ -50,7 +57,9 @@ export function useSceneWebSocket({ sceneId, onSceneUpdate }: UseSceneWebSocketO
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data) as SceneWsEvent;
       if (data.event === "scene_snapshot" || data.event === "scene_update") {
-        onSceneUpdateRef.current(data.scene);
+        onSceneUpdateRef.current(normalizeScene(data.scene));
+      } else if (data.event === "error" && data.detail) {
+        onErrorRef.current?.(data.detail);
       }
     };
 
@@ -73,8 +82,21 @@ export function useSceneWebSocket({ sceneId, onSceneUpdate }: UseSceneWebSocketO
   }, []);
 
   const sendMessage = useCallback(
-    (text: string, messageType: string) =>
-      send({ action: "message", text, message_type: messageType }),
+    (
+      text: string,
+      messageType: string,
+      speaker?: {
+        speaker_type: string;
+        speaker_entity_id?: string;
+        speaker_display_name: string;
+      },
+    ) =>
+      send({
+        action: "message",
+        text,
+        message_type: messageType,
+        ...(speaker ?? {}),
+      }),
     [send],
   );
 

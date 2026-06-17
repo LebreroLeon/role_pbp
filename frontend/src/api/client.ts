@@ -5,6 +5,11 @@ import type {
   CampaignDocument,
   CampaignEntity,
   CampaignMember,
+  CharacterSheetUpsert,
+  CombatAttackRequest,
+  ScenePresenceUpdate,
+  SheetRollRequest,
+  SheetRollResponse,
   DocumentType,
   EntityExportBundle,
   EntityType,
@@ -39,6 +44,10 @@ export type CreateEntityPayload = {
   document: Record<string, unknown>;
 };
 
+export type UpdateEntityPayload = {
+  document: Record<string, unknown>;
+};
+
 export const api = {
   health: () => http<{ status: string }>("/api/v1/health"),
   register: (payload: RegisterPayload) =>
@@ -67,10 +76,23 @@ export const api = {
       }),
     }),
   getScene: (sceneId: string) => http<Scene>(`/api/v1/scenes/${sceneId}`),
-  postMessage: (sceneId: string, text: string, type: string = "ACTION") =>
+  postMessage: (
+    sceneId: string,
+    text: string,
+    type: string = "ACTION",
+    speaker?: {
+      speaker_type: string;
+      speaker_entity_id?: string;
+      speaker_display_name: string;
+    },
+  ) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/messages`, {
       method: "POST",
-      body: JSON.stringify({ type, text }),
+      body: JSON.stringify({
+        type,
+        text,
+        ...(speaker ?? {}),
+      }),
     }),
   rollDice: (sceneId: string, diceExpression: string) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/dice`, {
@@ -87,6 +109,21 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
+  rollCombatInitiative: (sceneId: string) =>
+    http<Scene>(`/api/v1/scenes/${sceneId}/combat/initiative`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+  combatAttack: (sceneId: string, payload: CombatAttackRequest) =>
+    http<Scene>(`/api/v1/scenes/${sceneId}/combat/attack`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateScenePresence: (sceneId: string, payload: ScenePresenceUpdate) =>
+    http<Scene>(`/api/v1/scenes/${sceneId}/presence`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
   masterAssist: (campaignId: string, sceneId: string, query: string) =>
     http<MasterAssistResponse>("/api/v1/master/assist", {
       method: "POST",
@@ -101,6 +138,25 @@ export const api = {
     http<CampaignEntity>("/api/v1/entities", {
       method: "POST",
       body: JSON.stringify({ campaign_id: campaignId, ...payload }),
+    }),
+  getMySheet: (campaignId: string) =>
+    http<CampaignEntity>(`/api/v1/campaigns/${campaignId}/my-sheet`),
+  upsertMySheet: (campaignId: string, payload: CharacterSheetUpsert) =>
+    http<CampaignEntity>(`/api/v1/campaigns/${campaignId}/my-sheet`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  rollFromMySheet: (campaignId: string, payload: SheetRollRequest) =>
+    http<SheetRollResponse>(`/api/v1/campaigns/${campaignId}/my-sheet/roll`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  listCampaignSheets: (campaignId: string) =>
+    http<CampaignEntity[]>(`/api/v1/campaigns/${campaignId}/sheets`),
+  updateEntity: (entityId: string, payload: UpdateEntityPayload) =>
+    http<CampaignEntity>(`/api/v1/entities/${entityId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
     }),
   deleteEntity: (entityId: string) =>
     http<void>(`/api/v1/entities/${entityId}`, { method: "DELETE" }),
@@ -125,5 +181,5 @@ export const api = {
   documentDownloadUrl: (documentId: string) => `${import.meta.env.VITE_API_URL ?? ""}/api/v1/documents/${documentId}/download`,
 };
 
-export type { AuthResponse, Campaign, CampaignDocument, CampaignEntity, CampaignMember, ChatMessage, DocumentType, EntityExportBundle, EntityType, MasterAssistResponse, MessageType, Scene, SceneState } from "./types";
+export type { AuthResponse, Campaign, CampaignDocument, CampaignEntity, CampaignMember, CharacterSheetUpsert, ChatMessage, Dnd5eRollType, DocumentType, EntityExportBundle, EntityType, MasterAssistResponse, MessageType, PcIdentity, PublicProfile, PcStateFlags, Scene, SceneState, SheetRollContext, SheetRollRequest, SheetRollResponse, TypedSystemMechanics } from "./types";
 export type { AuthUser, MemberRole } from "../types/auth";

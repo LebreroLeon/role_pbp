@@ -1,4 +1,4 @@
-export type MessageType = "SPEAK" | "ACTION" | "CONTEXT" | "MASTER" | "DICE_ROLL" | "NARRATIVE";
+export type MessageType = "SPEAK" | "ACTION" | "CONTEXT" | "MASTER" | "DICE_ROLL" | "NARRATIVE" | "COMBAT";
 
 export type ChatMessage = {
   id?: string;
@@ -46,6 +46,11 @@ export const MESSAGE_TYPE_META: Record<
     label: "Acción",
     color: "action",
     placeholder: "¿Qué hace tu personaje?",
+  },
+  COMBAT: {
+    label: "Combate",
+    color: "combat",
+    placeholder: "",
   },
 };
 

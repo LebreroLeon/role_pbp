@@ -73,11 +73,24 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
                             await websocket.send_json({"event": "error", "detail": "Empty message"})
                             continue
                         msg_type = str(data.get("message_type", "ACTION")).upper()
+                        speaker_entity_id = data.get("speaker_entity_id")
+                        speaker_display_name = data.get("speaker_display_name")
+                        speaker_type = data.get("speaker_type")
                         response = await post_message(
                             db,
                             scene,
                             str(user.id),
-                            PostMessageRequest(type=msg_type, text=text),
+                            PostMessageRequest(
+                                type=msg_type,
+                                text=text,
+                                speaker_entity_id=(
+                                    str(speaker_entity_id) if speaker_entity_id else None
+                                ),
+                                speaker_display_name=(
+                                    str(speaker_display_name) if speaker_display_name else None
+                                ),
+                                speaker_type=speaker_type,
+                            ),
                             sender_role=role,
                         )
                     elif action == "dice":

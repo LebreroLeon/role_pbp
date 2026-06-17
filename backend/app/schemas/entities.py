@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -25,9 +25,17 @@ class SystemMechanics(BaseModel):
 
 
 class PCSystemMechanics(BaseModel):
+    """Legacy agnostic block (stats_summary)."""
+
     system_name: str
     stats_summary: dict[str, str] = Field(default_factory=dict)
     notable_features: list[str] = Field(default_factory=list)
+
+
+class TypedSystemMechanics(BaseModel):
+    system_id: str
+    schema_version: str
+    sheet: dict[str, Any] = Field(default_factory=dict)
 
 
 # --- NPC ---
@@ -72,8 +80,8 @@ class EntityNPCDocument(BaseModel):
 
 
 class PCMetadata(BaseModel):
-    type: Literal["PC"]
-    system_agnostic: Literal[True]
+    type: Literal["PC"] = "PC"
+    system_agnostic: bool
     version: str
 
 
@@ -104,7 +112,7 @@ class EntityPCDocument(BaseModel):
     identity: PCIdentity
     player_binding: PlayerBinding
     public_profile: PublicProfile | None = None
-    system_mechanics: PCSystemMechanics
+    system_mechanics: TypedSystemMechanics | PCSystemMechanics
     state_flags: PCStateFlags
 
 
@@ -307,3 +315,21 @@ class EntityExportResponse(BaseModel):
     campaign_id: str
     exported_at: datetime
     entities: list[EntityImportItem]
+
+
+class CharacterSheetUpsert(BaseModel):
+    identity: PCIdentity
+    public_profile: PublicProfile | None = None
+    system_mechanics: TypedSystemMechanics
+    state_flags: PCStateFlags | None = None
+
+
+class ContextualRollRequest(BaseModel):
+    roll_type: str = Field(min_length=1)
+    dice_expression: str = "1d20"
+    modifier: int = 0
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
+class EntityPresencePatch(BaseModel):
+    is_present_in_scene: bool

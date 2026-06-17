@@ -8,6 +8,7 @@ import { queryKeys } from "../api/queryKeys";
 import { Button, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
 import { CreateEntityForm, EntityList } from "../features/entities";
 import { InviteMemberForm } from "../features/campaign";
+import { getChatBuffer, getSceneObjective } from "../features/scene/sceneState";
 import { useDeleteEntityMutation } from "../hooks/mutations/useEntityMutations";
 import {
   useCampaignMembersQuery,
@@ -118,12 +119,12 @@ export function MasterScreenPage() {
             <h3>Escena activa</h3>
             {activeScene ? (
               <>
-                <p className="muted">{activeScene.scene_state.scene_objective ?? "Sin objetivo definido"}</p>
+                <p className="muted">{getSceneObjective(activeScene.scene_state) ?? "Sin objetivo definido"}</p>
                 <div className="status-row">
                   <StatusBadge label="Estado" value={activeScene.status} ok={activeScene.status === "ACTIVE"} />
                   <StatusBadge
                     label="Mensajes"
-                    value={String(activeScene.scene_state.chat_buffer.length)}
+                    value={String(getChatBuffer(activeScene.scene_state).length)}
                     ok
                   />
                 </div>

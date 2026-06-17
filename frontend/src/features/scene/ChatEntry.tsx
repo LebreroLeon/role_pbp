@@ -1,5 +1,7 @@
 import type { CampaignMember } from "../../api/types";
 import type { ChatMessage } from "../../api/types";
+import { CombatEntry } from "../combat/CombatEntry";
+import { shouldRenderCombatEntry } from "../combat/combatMessage";
 import { Eye } from "../../components/icons";
 import {
   formatChatTimestamp,
@@ -21,8 +23,32 @@ type ChatEntryProps = {
   memberCount: number;
 };
 
+function resolveSpeakerPresentation(
+  message: ChatMessage,
+  members: MemberLookup,
+  type: string,
+): { displayName: string; isMasterVoice: boolean } {
+  if (message.speaker_display_name) {
+    const isMasterVoice =
+      message.speaker_type === "NARRATOR" ||
+      message.speaker_type === "MASTER" ||
+      type === "MASTER";
+    return { displayName: message.speaker_display_name, isMasterVoice };
+  }
+
+  const sender = members[message.sender_id];
+  return {
+    displayName: sender?.display_name ?? "Desconocido",
+    isMasterVoice: sender?.role === "MASTER" || type === "MASTER",
+  };
+}
+
 export function ChatEntry({ message, members, currentUserId, memberCount }: ChatEntryProps) {
   const type = normalizeMessageType(message.type);
+
+  if (shouldRenderCombatEntry(message)) {
+    return <CombatEntry message={message} members={members} currentUserId={currentUserId} />;
+  }
 
   if (type === "DICE_ROLL") {
     return (
@@ -35,9 +61,8 @@ export function ChatEntry({ message, members, currentUserId, memberCount }: Chat
     );
   }
 
-  const sender = members[message.sender_id];
   const isOwn = message.sender_id === currentUserId;
-  const isMaster = sender?.role === "MASTER" || type === "MASTER";
+  const { displayName, isMasterVoice } = resolveSpeakerPresentation(message, members, type);
   const meta = MESSAGE_TYPE_META[type] ?? MESSAGE_TYPE_META.ACTION;
   const readBy = message.read_by ?? [];
   const readersExcludingSender = readBy.filter((id) => id !== message.sender_id);
@@ -45,15 +70,15 @@ export function ChatEntry({ message, members, currentUserId, memberCount }: Chat
 
   return (
     <article
-      className={`chat-card ${isOwn ? "chat-card--own" : ""} ${isMaster ? "chat-card--master" : ""} chat-card--${meta.color}`}
+      className={`chat-card ${isOwn ? "chat-card--own" : ""} ${isMasterVoice ? "chat-card--master" : ""} chat-card--${meta.color}`}
     >
       <header className="chat-card__header">
         <div className="chat-card__identity">
           <span className="chat-card__avatar" aria-hidden>
-            {getInitials(sender?.display_name ?? "?")}
+            {getInitials(displayName)}
           </span>
           <div>
-            <strong>{sender?.display_name ?? "Desconocido"}</strong>
+            <strong>{displayName}</strong>
             <span className={`chat-card__type chat-card__type--${meta.color}`}>{meta.label}</span>
           </div>
         </div>

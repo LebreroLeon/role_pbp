@@ -1,3 +1,5 @@
+import { buildPcDocumentWithSheet, defaultSheetForGameSystem } from "../character-sheet/pcDocument";
+
 export type EntityType = "NPC" | "PC" | "FACTION" | "LOCATION" | "RELATIONSHIP" | "ARC_MANIFEST";
 
 export type CampaignEntity = {
@@ -128,4 +130,17 @@ export function buildPcDocument(input: {
       is_incapacitated: false,
     },
   };
+}
+
+export function buildPcDocumentForGameSystem(input: {
+  name: string;
+  concept: string;
+  description: string;
+  userId: string;
+  systemId: string;
+}): Record<string, unknown> {
+  return buildPcDocumentWithSheet({
+    ...input,
+    sheet: defaultSheetForGameSystem(input.systemId),
+  });
 }

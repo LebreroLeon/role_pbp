@@ -16,16 +16,35 @@ from app.models.campaign import CampaignEntity
 from app.models.user import User
 from datetime import UTC, datetime
 
-from app.schemas.entities import EntityCreate, EntityImportItem, EntityImportRequest, EntityImportResponse, EntityResponse, EntityType, EntityUpdate, EntityExportResponse
-from app.services.entities import EntityValidationError, strip_master_secrets, validate_entity_document
+from app.schemas.entities import EntityCreate, EntityImportItem, EntityImportRequest, EntityImportResponse, EntityPresencePatch, EntityResponse, EntityType, EntityUpdate, EntityExportResponse
+from app.services.entities import (
+    CharacterSheetError,
+    EntityValidationError,
+    get_active_scene_hidden_npc_ids,
+    mask_hidden_npc_document,
+    set_pc_present_in_scene,
+    strip_master_secrets,
+    validate_entity_document,
+)
 
 router = APIRouter(prefix="/entities", tags=["entities"])
 
 
-def _entity_to_response(entity: CampaignEntity, *, include_secrets: bool) -> EntityResponse:
+def _entity_to_response(
+    entity: CampaignEntity,
+    *,
+    include_secrets: bool,
+    hidden_npc_ids: set[str] | None = None,
+) -> EntityResponse:
     document = entity.document
     if not include_secrets:
         document = strip_master_secrets(document, EntityType(entity.entity_type))
+        if (
+            hidden_npc_ids
+            and entity.entity_type == EntityType.NPC.value
+            and str(entity.id) in hidden_npc_ids
+        ):
+            document = mask_hidden_npc_document(document)
 
     return EntityResponse(
         id=str(entity.id),
@@ -72,13 +91,19 @@ async def list_entities(
     campaign_uuid = parse_uuid(campaign_id, "campaign_id")
     role = await require_campaign_member(db, current_user, campaign_uuid)
     include_secrets = role == "MASTER"
+    hidden_npc_ids: set[str] = set()
+    if not include_secrets:
+        hidden_npc_ids = await get_active_scene_hidden_npc_ids(db, campaign_uuid)
 
     query = select(CampaignEntity).where(CampaignEntity.campaign_id == campaign_uuid)
     if entity_type is not None:
         query = query.where(CampaignEntity.entity_type == entity_type.value)
 
     entities = (await db.scalars(query.order_by(CampaignEntity.created_at))).all()
-    return [_entity_to_response(entity, include_secrets=include_secrets) for entity in entities]
+    return [
+        _entity_to_response(entity, include_secrets=include_secrets, hidden_npc_ids=hidden_npc_ids)
+        for entity in entities
+    ]
 
 
 @router.get("/export", response_model=EntityExportResponse)
@@ -150,7 +175,45 @@ async def get_entity(
 ) -> EntityResponse:
     entity = await _get_entity_or_404(entity_id, db)
     role = await require_campaign_member(db, current_user, entity.campaign_id)
-    return _entity_to_response(entity, include_secrets=role == "MASTER")
+    include_secrets = role == "MASTER"
+    hidden_npc_ids: set[str] = set()
+    if not include_secrets:
+        hidden_npc_ids = await get_active_scene_hidden_npc_ids(db, entity.campaign_id)
+    return _entity_to_response(
+        entity,
+        include_secrets=include_secrets,
+        hidden_npc_ids=hidden_npc_ids,
+    )
+
+
+@router.patch("/{entity_id}/presence", response_model=EntityResponse)
+async def patch_entity_presence(
+    entity_id: str,
+    payload: EntityPresencePatch,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> EntityResponse:
+    entity = await _get_entity_or_404(entity_id, db)
+    role = await require_campaign_member(db, current_user, entity.campaign_id)
+
+    if entity.entity_type != EntityType.PC.value:
+        raise HTTPException(status_code=400, detail="Only player characters support scene presence")
+
+    if role != "MASTER":
+        binding = entity.document.get("player_binding", {})
+        if not isinstance(binding, dict) or binding.get("user_id") != str(current_user.id):
+            raise HTTPException(status_code=403, detail="You can only update your own character presence")
+
+    try:
+        updated = await set_pc_present_in_scene(
+            db,
+            entity,
+            present=payload.is_present_in_scene,
+        )
+    except CharacterSheetError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return _entity_to_response(updated, include_secrets=role == "MASTER")
 
 
 @router.put("/{entity_id}", response_model=EntityResponse)

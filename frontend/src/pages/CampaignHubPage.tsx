@@ -1,9 +1,9 @@
 import { Link, useParams } from "react-router-dom";
 
-import { Activity, Crown, LayoutDashboard, SECTION_ICONS, UserPlus } from "../components/icons";
+import { Activity, Crown, LayoutDashboard, SECTION_ICONS, UserPlus, Users } from "../components/icons";
 import { Panel, PanelHeader, StatusBadge } from "../components/ui";
 import { CampaignNavCard } from "../components/navigation/CampaignNavCard";
-import { InviteMemberForm } from "../features/campaign";
+import { CampaignMemberList, InviteMemberForm } from "../features/campaign";
 import { gameSystemLabel } from "../features/campaign/gameSystems";
 import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
 import { useActiveSceneQuery } from "../hooks/queries/useSceneQueries";
@@ -92,6 +92,20 @@ export function CampaignHubPage() {
             )}
           </p>
         )}
+      </Panel>
+
+      <Panel>
+        <PanelHeader
+          icon={Users}
+          iconTone="violet"
+          title="Personas en la campaña"
+          description={
+            isMaster
+              ? "Máster y jugadores con acceso a esta partida."
+              : "Quién participa en la mesa."
+          }
+        />
+        <CampaignMemberList members={members} showEmails={isMaster} />
       </Panel>
 
       {isMaster && (

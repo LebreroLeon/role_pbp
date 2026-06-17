@@ -8,8 +8,17 @@ import { queryKeys } from "../api/queryKeys";
 import type { MessageType, Scene } from "../api/types";
 import { SECTION_ICONS } from "../components/icons";
 import { Button, ButtonLink, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
-import { ChatComposer, ChatLog, DiceRoller, type MemberLookup } from "../features/scene";
+import { ChatComposer, ChatLog, DiceRoller, getChatBuffer, type MemberLookup } from "../features/scene";
+import { buildMentionOptions } from "../features/scene/mentionOptions";
+import {
+  buildSpeakerOptions,
+  DEFAULT_SPEAKER_OPTION_ID,
+  speakerOptionToPayload,
+  type SpeakerPayload,
+} from "../features/scene/speakerOptions";
+import { InitiativeOrderPanel, SceneRosterPanel } from "../features/combat";
 import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
+import { useEntitiesQuery } from "../hooks/queries/useEntityQueries";
 import { useActiveSceneQuery } from "../hooks/queries/useSceneQueries";
 import { useSceneWebSocket } from "../hooks/useSceneWebSocket";
 import { useAuthStore } from "../stores/authStore";
@@ -22,11 +31,13 @@ export function ChatPage() {
 
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
+  const { data: entities = [] } = useEntitiesQuery(campaignId);
   const { data: activeScene, isLoading, isError, error, refetch } = useActiveSceneQuery(campaignId);
 
   const [scene, setScene] = useState<Scene | null>(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<MessageType>("ACTION");
+  const [speakerId, setSpeakerId] = useState(DEFAULT_SPEAKER_OPTION_ID);
   const [dice, setDice] = useState("1d20");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -42,6 +53,19 @@ export function ChatPage() {
     return lookup;
   }, [members]);
 
+  const mentionOptions = useMemo(
+    () => buildMentionOptions(currentScene?.scene_state, entities),
+    [currentScene?.scene_state, entities],
+  );
+
+  const speakerOptions = useMemo(() => buildSpeakerOptions(entities), [entities]);
+
+  const selectedSpeakerPayload = useMemo((): SpeakerPayload | undefined => {
+    if (!isMaster) return undefined;
+    const option = speakerOptions.find((item) => item.id === speakerId);
+    return option ? speakerOptionToPayload(option) : undefined;
+  }, [isMaster, speakerId, speakerOptions]);
+
   const handleSceneUpdate = useCallback(
     (updated: Scene) => {
       setScene(updated);
@@ -53,12 +77,13 @@ export function ChatPage() {
   const { connected, sendMessage, sendDiceRoll, markRead } = useSceneWebSocket({
     sceneId: currentScene?.id ?? null,
     onSceneUpdate: handleSceneUpdate,
+    onError: setErrorMessage,
   });
 
   const handleMarkRead = useCallback(() => {
     if (!currentScene || !currentUserId) return;
 
-    const buffer = currentScene.scene_state.chat_buffer;
+    const buffer = getChatBuffer(currentScene.scene_state);
     const allRead = buffer.every(
       (message) => message.sender_id === currentUserId || (message.read_by ?? []).includes(currentUserId),
     );
@@ -96,14 +121,14 @@ export function ChatPage() {
     const type = messageType;
     setMessage("");
 
-    const sent = sendMessage(text, type);
+    const sent = sendMessage(text, type, selectedSpeakerPayload);
     if (sent) {
       setLoading(false);
       return;
     }
 
     try {
-      const updated = await api.postMessage(currentScene.id, text, type);
+      const updated = await api.postMessage(currentScene.id, text, type, selectedSpeakerPayload);
       handleSceneUpdate(updated);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Error al enviar mensaje");
@@ -137,6 +162,30 @@ export function ChatPage() {
 
   return (
     <div className="chat-page">
+      {currentScene && (
+        <aside className="chat-page__sidebar">
+          <SceneRosterPanel
+            sceneId={currentScene.id}
+            campaignId={campaignId}
+            gameSystem={campaign?.game_system}
+            sceneState={currentScene.scene_state}
+            entities={entities}
+            currentUserId={currentUserId}
+            isMaster={Boolean(isMaster)}
+            disabled={loading || currentScene.status === "PAUSED"}
+            onSceneUpdate={handleSceneUpdate}
+          />
+          <InitiativeOrderPanel
+            sceneId={currentScene.id}
+            campaignId={campaignId}
+            sceneState={currentScene.scene_state}
+            members={memberLookup}
+            isMaster={Boolean(isMaster)}
+            onSceneUpdate={handleSceneUpdate}
+          />
+        </aside>
+      )}
+
       <Panel className="chat-panel">
         <PanelHeader
           icon={SECTION_ICONS.chat}
@@ -177,7 +226,7 @@ export function ChatPage() {
         ) : currentScene ? (
           <>
             <ChatLog
-              messages={currentScene.scene_state.chat_buffer}
+              messages={getChatBuffer(currentScene.scene_state)}
               members={memberLookup}
               currentUserId={currentUserId}
               memberCount={members.length}
@@ -193,6 +242,10 @@ export function ChatPage() {
               onSubmit={handleSend}
               disabled={loading || currentScene.status === "PAUSED"}
               isMaster={Boolean(isMaster)}
+              mentionOptions={mentionOptions}
+              speakerOptions={speakerOptions}
+              speakerId={speakerId}
+              onSpeakerChange={setSpeakerId}
             />
 
             <DiceRoller

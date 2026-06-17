@@ -16,7 +16,13 @@ from app.schemas.campaign_mgmt import (
     CampaignResponse,
 )
 from app.schemas.scene import SceneResponse
-from app.services.scenes import SceneServiceError, get_active_scene, list_campaign_scenes, scene_to_response
+from app.services.scenes import (
+    SceneServiceError,
+    ensure_player_pc_present_in_scene,
+    get_active_scene,
+    list_campaign_scenes,
+    scene_to_response,
+)
 from app.services.campaigns import (
     CampaignServiceError,
     add_campaign_member,
@@ -136,5 +142,8 @@ async def get_active_campaign_scene(
     scene = await get_active_scene(db, campaign_uuid)
     if scene is None:
         raise HTTPException(status_code=404, detail="No active scene")
+
+    if scene.status == "ACTIVE":
+        await ensure_player_pc_present_in_scene(db, scene, current_user.id)
 
     return scene_to_response(scene)

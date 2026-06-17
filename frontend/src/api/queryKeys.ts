@@ -18,5 +18,6 @@ export const queryKeys = {
   entities: {
     all: (campaignId: string) => ["entities", campaignId] as const,
     detail: (id: string) => ["entities", id] as const,
+    mySheet: (campaignId: string) => ["entities", campaignId, "mine"] as const,
   },
 } as const;

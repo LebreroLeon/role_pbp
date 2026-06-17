@@ -4,7 +4,7 @@
   "title": "SceneState",
   "description": "Estado de una escena activa. Almacenado en la columna scenes.scene_state (JSONB).",
   "type": "object",
-  "required": ["metadata", "context", "turn_management", "memory_settings", "chat_buffer", "state_flags"],
+  "required": ["metadata", "context", "turn_management", "memory_settings", "chat_buffer", "state_flags", "combat"],
   "properties": {
     "metadata": {
       "type": "object",
@@ -69,10 +69,37 @@
         "remaining_player_lore_tokens": { "type": "integer", "minimum": 0, "default": 3 }
       },
       "additionalProperties": false
+    },
+    "combat": {
+      "type": "object",
+      "required": ["is_active", "round", "initiative_order", "current_turn_entity_id", "conflict_mode_active"],
+      "properties": {
+        "is_active": { "type": "boolean", "default": false },
+        "round": { "type": "integer", "minimum": 0, "default": 0 },
+        "initiative_order": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/initiativeEntry" }
+        },
+        "current_turn_entity_id": { "type": ["string", "null"], "format": "uuid" },
+        "conflict_mode_active": { "type": "boolean", "default": false }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false,
   "$defs": {
+    "initiativeEntry": {
+      "type": "object",
+      "required": ["entity_id"],
+      "properties": {
+        "entity_id": { "type": "string", "format": "uuid" },
+        "entity_type": { "type": "string", "enum": ["PC", "NPC"] },
+        "display_name": { "type": "string" },
+        "initiative_score": { "type": "integer" },
+        "is_active": { "type": "boolean", "default": true }
+      },
+      "additionalProperties": false
+    },
     "chatMessageNarrative": {
       "type": "object",
       "required": ["id", "timestamp", "sender_id", "type", "text"],
@@ -158,6 +185,13 @@
         "conflict_mode_active": false,
         "ai_alert_triggered": false,
         "remaining_player_lore_tokens": 3
+      },
+      "combat": {
+        "is_active": false,
+        "round": 0,
+        "initiative_order": [],
+        "current_turn_entity_id": null,
+        "conflict_mode_active": false
       }
     }
   ]

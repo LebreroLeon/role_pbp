@@ -5,6 +5,7 @@ import { RoleGate } from "./components/auth/RoleGate";
 import { CampaignLayout } from "./components/layout/CampaignLayout";
 import { Layout } from "./components/layout/Layout";
 import { CreateCampaignWizard } from "./features/campaign/CreateCampaignWizard";
+import { CharacterSheetPage } from "./features/character-sheet/CharacterSheetPage";
 import { CampaignHubPage } from "./pages/CampaignHubPage";
 import { CampaignsPage } from "./pages/CampaignsPage";
 import { ChatPage } from "./pages/ChatPage";
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="campaigns/:campaignId" element={<CampaignLayout />}>
             <Route index element={<CampaignHubPage />} />
             <Route path="chat" element={<ChatPage />} />
+            <Route path="ficha" element={<CharacterSheetPage />} />
             <Route path="mundo" element={<WorldPage />} />
             <Route
               path="biblioteca"

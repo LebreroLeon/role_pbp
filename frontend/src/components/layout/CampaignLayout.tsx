@@ -11,6 +11,7 @@ import { useActiveSceneQuery } from "../../hooks/queries/useSceneQueries";
 const MASTER_LINKS = [
   { to: "", label: "Inicio", hint: "Resumen de la campaña" },
   { to: "chat", label: "Jugar", hint: "Chat de escena" },
+  { to: "ficha", label: "Mi ficha", hint: "Hoja de personaje mecánica" },
   { to: "mundo", label: "Mundo", hint: "NPCs, lugares y PJ" },
   { to: "biblioteca", label: "Biblioteca", hint: "Manuales y aventuras" },
   { to: "mesa", label: "Mesa", hint: "Herramientas del Máster" },
@@ -19,6 +20,7 @@ const MASTER_LINKS = [
 const PLAYER_LINKS = [
   { to: "", label: "Inicio", hint: "Resumen de la campaña" },
   { to: "chat", label: "Jugar", hint: "Chat de escena" },
+  { to: "ficha", label: "Mi ficha", hint: "Hoja de personaje mecánica" },
   { to: "mundo", label: "Mundo", hint: "Lo que tu PJ conoce" },
 ] as const;
 

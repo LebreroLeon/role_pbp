@@ -12,4 +12,4 @@ class MasterAssistResponse(BaseModel):
     query: str
     context_summary: str
     suggestions: list[str]
-    note: str = "Stub response — connect LLM provider to enable Shadow Master."
+    note: str | None = None

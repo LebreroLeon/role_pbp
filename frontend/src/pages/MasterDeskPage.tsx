@@ -8,8 +8,9 @@ import { queryKeys } from "../api/queryKeys";
 import { RoleGate } from "../components/auth/RoleGate";
 import { DESK_TAB_ICONS, SECTION_ICONS } from "../components/icons";
 import { Button, ButtonLink, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
-import { InviteMemberForm } from "../features/campaign";
+import { CampaignMemberList, InviteMemberForm } from "../features/campaign";
 import { gameSystemLabel } from "../features/campaign/gameSystems";
+import { getChatBuffer, getSceneObjective } from "../features/scene/sceneState";
 import {
   useCampaignMembersQuery,
   useCampaignQuery,
@@ -108,12 +109,12 @@ export function MasterDeskPage() {
               <h3>Escena activa</h3>
               {activeScene ? (
                 <>
-                  <p className="muted">{activeScene.scene_state.scene_objective ?? "Sin objetivo definido"}</p>
+                  <p className="muted">{getSceneObjective(activeScene.scene_state) ?? "Sin objetivo definido"}</p>
                   <div className="status-row">
                     <StatusBadge label="Estado" value={activeScene.status} ok={activeScene.status === "ACTIVE"} />
                     <StatusBadge
                       label="Mensajes"
-                      value={String(activeScene.scene_state.chat_buffer.length)}
+                      value={String(getChatBuffer(activeScene.scene_state).length)}
                       ok
                     />
                   </div>
@@ -136,16 +137,7 @@ export function MasterDeskPage() {
 
           {tab === "players" && (
             <section className="master-tab-panel">
-              <h3>Jugadores en la mesa</h3>
-              <ul className="member-list">
-                {members.map((member) => (
-                  <li key={member.user_id}>
-                    <span>{member.display_name}</span>
-                    <span className="muted">{member.email}</span>
-                    <StatusBadge label="" value={member.role} ok={member.role === "MASTER"} />
-                  </li>
-                ))}
-              </ul>
+              <CampaignMemberList members={members} showEmails />
               <InviteMemberForm campaignId={campaignId} />
             </section>
           )}

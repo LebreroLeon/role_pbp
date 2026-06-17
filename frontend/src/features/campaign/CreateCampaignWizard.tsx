@@ -7,7 +7,11 @@ import { Sparkles } from "../../components/icons";
 import { Button, ErrorBanner, Input, Panel, PanelHeader, Section } from "../../components/ui";
 import { useCreateCampaignMutation } from "../../hooks/mutations/useCampaignMutations";
 import { useUploadDocumentMutation } from "../../hooks/queries/useDocumentQueries";
-import { GAME_SYSTEM_GROUPS } from "./gameSystems";
+import {
+  DICE_NOTATION_LABELS,
+  GAME_SYSTEM_GROUPS,
+  getGameSystemProfile,
+} from "./gameSystems";
 import { InviteMemberForm } from "./InviteMemberForm";
 
 type WizardStep = 1 | 2 | 3 | 4;
@@ -26,6 +30,7 @@ export function CreateCampaignWizard() {
 
   const createMutation = useCreateCampaignMutation();
   const uploadMutation = useUploadDocumentMutation(campaignId ?? "");
+  const selectedProfile = getGameSystemProfile(gameSystem);
 
   async function handleBasicSubmit(event: FormEvent) {
     event.preventDefault();
@@ -102,6 +107,23 @@ export function CreateCampaignWizard() {
                 ))}
               </select>
             </label>
+            {selectedProfile && (
+              <div className="game-system-preview" role="note">
+                <p className="game-system-preview__title">
+                  <strong>{selectedProfile.label}</strong> — {selectedProfile.previewSummary}
+                </p>
+                <ul className="game-system-preview__details">
+                  <li>Dados: {DICE_NOTATION_LABELS[selectedProfile.diceNotation]}</li>
+                  <li>Plantilla de ficha: {selectedProfile.sheetTemplateId}</li>
+                  <li>
+                    Combate automatizado: {selectedProfile.combatEnabled ? "sí" : "no"}
+                  </li>
+                  <li>
+                    Tiradas: {selectedProfile.supportedRollTypes.join(", ").replace(/_/g, " ")}
+                  </li>
+                </ul>
+              </div>
+            )}
             <Input
               label="Tono narrativo (opcional)"
               value={tone}

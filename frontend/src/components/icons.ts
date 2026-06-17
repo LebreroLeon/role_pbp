@@ -69,6 +69,7 @@ export type { LucideIcon };
 export const SECTION_ICONS = {
   hub: LayoutDashboard,
   chat: Swords,
+  ficha: Scroll,
   mundo: Map,
   biblioteca: Library,
   mesa: Crown,
@@ -77,6 +78,7 @@ export const SECTION_ICONS = {
 export const CAMPAIGN_NAV_ICONS = {
   "": SECTION_ICONS.hub,
   chat: SECTION_ICONS.chat,
+  ficha: SECTION_ICONS.ficha,
   mundo: SECTION_ICONS.mundo,
   biblioteca: SECTION_ICONS.biblioteca,
   mesa: SECTION_ICONS.mesa,

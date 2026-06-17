@@ -1,0 +1,1 @@
+﻿# Data fix: backfill `campaigns.game_system` to dnd5e and align PC `system_mechanics.system_id` (run: `docker cp backend/scripts/fix_campaign_game_system.py rolepbp-backend:/app/scripts/ && docker exec rolepbp-backend python /app/scripts/fix_campaign_game_system.py [--dry-run]`).

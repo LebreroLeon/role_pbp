@@ -1,7 +1,5 @@
-import uuid
 from typing import Annotated
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
@@ -15,21 +13,31 @@ from app.api.deps import (
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.scene import (
+    ChatMessage,
+    CombatAttackRequest,
+    CombatInitiativeRequest,
     DiceRollRequest,
     MarkReadRequest,
     PostMessageRequest,
     SceneCreate,
+    ScenePresenceUpdate,
     SceneResponse,
     SceneStatusUpdate,
 )
+from app.services.combat_resolver import CombatResolverError, execute_attack, execute_initiative
+from app.services.entities import CharacterSheetError, get_campaign_or_error
 from app.services.scene_ws import scene_ws_manager
 from app.services.scenes import (
     SceneServiceError,
     create_scene,
+    ensure_player_pc_present_in_scene,
+    load_scene_state,
     mark_messages_read,
     post_message,
     roll_scene_dice,
+    save_scene_state,
     scene_to_response,
+    update_scene_npc_presence,
     update_scene_status,
 )
 
@@ -63,6 +71,8 @@ async def get_scene_route(
     db: AsyncSession = Depends(get_db),
 ) -> SceneResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    if scene.status == "ACTIVE":
+        await ensure_player_pc_present_in_scene(db, scene, current_user.id)
     return scene_to_response(scene)
 
 
@@ -138,6 +148,143 @@ async def patch_scene_status_route(
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_campaign_master(db, current_user, scene.campaign_id)
     response = await update_scene_status(db, scene, payload.status)
+    await scene_ws_manager.broadcast(
+        scene_id,
+        {"event": "scene_update", "scene": response.model_dump(mode="json")},
+    )
+    return response
+
+
+async def _presence_route(
+    scene_id: str,
+    payload: ScenePresenceUpdate,
+    current_user: User,
+    db: AsyncSession,
+) -> SceneResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_campaign_master(db, current_user, scene.campaign_id)
+    try:
+        response = await update_scene_npc_presence(db, scene, payload)
+    except SceneServiceError as exc:
+        raise scene_service_error_to_http(exc) from exc
+
+    await scene_ws_manager.broadcast(
+        scene_id,
+        {"event": "scene_update", "scene": response.model_dump(mode="json")},
+    )
+    return response
+
+
+@router.post("/{scene_id}/presence", response_model=SceneResponse)
+async def post_scene_presence_route(
+    scene_id: str,
+    payload: ScenePresenceUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> SceneResponse:
+    return await _presence_route(scene_id, payload, current_user, db)
+
+
+@router.patch("/{scene_id}/presence", response_model=SceneResponse)
+async def patch_scene_presence_route(
+    scene_id: str,
+    payload: ScenePresenceUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> SceneResponse:
+    return await _presence_route(scene_id, payload, current_user, db)
+
+
+async def _append_combat_messages_and_save(
+    db: AsyncSession,
+    scene,
+    state,
+    sender_id: str,
+    combat_result,
+) -> SceneResponse:
+    for combat_message in combat_result.messages:
+        state.chat_buffer.append(ChatMessage.model_validate(combat_message))
+    state.chat_buffer = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
+    save_scene_state(scene, state)
+    await db.commit()
+    await db.refresh(scene)
+    return scene_to_response(scene)
+
+
+@router.post("/{scene_id}/combat/initiative", response_model=SceneResponse)
+async def roll_combat_initiative_route(
+    scene_id: str,
+    payload: CombatInitiativeRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> SceneResponse:
+    del payload
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    role = await require_campaign_member(db, current_user, scene.campaign_id)
+    if role != "MASTER":
+        raise scene_service_error_to_http(SceneServiceError("Master role required"))
+
+    try:
+        campaign = await get_campaign_or_error(db, scene.campaign_id)
+    except CharacterSheetError as exc:
+        raise scene_service_error_to_http(SceneServiceError(str(exc))) from exc
+
+    state = load_scene_state(scene)
+    try:
+        combat_result = await execute_initiative(
+            db,
+            campaign,
+            state,
+            sender_id=str(current_user.id),
+            sender_role=role,
+        )
+    except CombatResolverError as exc:
+        raise scene_service_error_to_http(SceneServiceError(str(exc))) from exc
+
+    response = await _append_combat_messages_and_save(
+        db, scene, state, str(current_user.id), combat_result
+    )
+    await scene_ws_manager.broadcast(
+        scene_id,
+        {"event": "scene_update", "scene": response.model_dump(mode="json")},
+    )
+    return response
+
+
+@router.post("/{scene_id}/combat/attack", response_model=SceneResponse)
+async def combat_attack_route(
+    scene_id: str,
+    payload: CombatAttackRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> SceneResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    role = await require_campaign_member(db, current_user, scene.campaign_id)
+
+    try:
+        campaign = await get_campaign_or_error(db, scene.campaign_id)
+    except CharacterSheetError as exc:
+        raise scene_service_error_to_http(SceneServiceError(str(exc))) from exc
+
+    state = load_scene_state(scene)
+    try:
+        combat_result = await execute_attack(
+            db,
+            campaign,
+            state,
+            sender_id=str(current_user.id),
+            sender_role=role,
+            attacker_ref=payload.attacker_ref,
+            defender_ref=payload.defender_ref,
+            weapon_name=payload.weapon_name,
+            attack_index=payload.attack_index,
+        )
+    except CombatResolverError as exc:
+        raise scene_service_error_to_http(SceneServiceError(str(exc))) from exc
+
+    response = await _append_combat_messages_and_save(
+        db, scene, state, str(current_user.id), combat_result
+    )
     await scene_ws_manager.broadcast(
         scene_id,
         {"event": "scene_update", "scene": response.model_dump(mode="json")},

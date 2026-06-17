@@ -15,11 +15,14 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_debug: bool = True
     database_url: str = "postgresql+asyncpg://rolepbp:rolepbp@localhost:5432/rolepbp"
-    chroma_persist_dir: str = str(PROJECT_ROOT / "chroma_data")
     upload_dir: str = str(PROJECT_ROOT / "campaign_uploads")
     max_upload_bytes: int = 20 * 1024 * 1024
     openai_api_key: str = ""
+    embedding_model: str = "text-embedding-3-small"
+    embedding_dimensions: int = 1536
     anthropic_api_key: str = ""
+    llm_model: str = "gpt-4o-mini"
+    anthropic_model: str = "claude-3-5-haiku-latest"
     cors_origins: str = "http://localhost:5173"
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
