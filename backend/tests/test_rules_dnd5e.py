@@ -25,6 +25,38 @@ class TestDnd5eSchema:
         assert validated.hp.max == 24
         assert len(validated.attacks) == 1
 
+    def test_validate_frontend_nested_sheet(self, plugin: Dnd5ePlugin):
+        sheet = {
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+            "proficiency": {
+                "bonus": 2,
+                "saving_throws": [],
+                "skills": [{"name": "Perception", "proficient": False, "expertise": False}],
+            },
+            "defense": {
+                "ac": 10,
+                "hp": {"max": 10, "current": 10, "temp": 0},
+                "hit_dice": "1d8",
+                "death_saves": {"successes": 0, "failures": 0},
+            },
+            "attacks": [
+                {
+                    "name": "Ataque desarmado",
+                    "ability": "str",
+                    "proficient": True,
+                    "damage": {"dice": "1d4", "type": "contundente"},
+                    "properties": [],
+                }
+            ],
+            "initiative": {"modifier": 0},
+            "conditions": [],
+        }
+        validated = plugin.validate_pc_sheet(sheet)
+        assert isinstance(validated, Dnd5eSheet)
+        assert validated.attacks[0].damage_dice == "1d4"
+        assert validated.attacks[0].damage_type == "contundente"
+        assert validated.attacks[0].to_hit_bonus == 2
+
     def test_ability_modifier(self):
         assert ability_modifier(10) == 0
         assert ability_modifier(14) == 2

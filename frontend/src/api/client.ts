@@ -106,6 +106,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message_ids: messageIds ?? null }),
     }),
+  activateScene: (campaignId: string, sceneId: string) =>
+    http<Scene>(`/api/v1/campaigns/${campaignId}/scenes/${sceneId}/activate`, {
+      method: "POST",
+    }),
   updateSceneStatus: (sceneId: string, status: "ACTIVE" | "PAUSED") =>
     http<Scene>(`/api/v1/scenes/${sceneId}/status`, {
       method: "PATCH",
@@ -119,6 +123,10 @@ export const api = {
   closeScene: (sceneId: string) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/close`, {
       method: "POST",
+    }),
+  deleteSceneMessage: (sceneId: string, messageId: string) =>
+    http<Scene>(`/api/v1/scenes/${sceneId}/messages/${messageId}`, {
+      method: "DELETE",
     }),
   rollCombatInitiative: (sceneId: string) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/combat/initiative`, {

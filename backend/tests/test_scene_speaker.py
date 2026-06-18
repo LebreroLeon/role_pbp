@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -30,6 +30,7 @@ def _make_entity(
     campaign_id: uuid.UUID,
     name: str,
     entity_type: str = "NPC",
+    user_id: uuid.UUID | None = None,
 ) -> CampaignEntity:
     document: dict = {
         "identity": {"name": name},
@@ -40,7 +41,7 @@ def _make_entity(
         },
     }
     if entity_type == "PC":
-        document["player_binding"] = {"user_id": str(uuid.uuid4())}
+        document["player_binding"] = {"user_id": str(user_id or uuid.uuid4())}
         document["state_flags"] = {"is_present_in_scene": True, "is_incapacitated": False}
 
     return CampaignEntity(
@@ -49,6 +50,15 @@ def _make_entity(
         entity_type=entity_type,
         document=document,
     )
+
+
+def _mock_db_with_pc(pc: CampaignEntity | None) -> AsyncMock:
+    db = AsyncMock()
+    scalars_result = MagicMock()
+    scalars_result.all.return_value = [pc] if pc is not None else []
+    db.scalars = AsyncMock(return_value=scalars_result)
+    db.scalar = AsyncMock(return_value=pc)
+    return db
 
 
 class TestResolveMessageSpeakerFields:
@@ -61,6 +71,7 @@ class TestResolveMessageSpeakerFields:
                 db,
                 scene,
                 PostMessageRequest(type="ACTION", text="La puerta cruje."),
+                sender_id=str(uuid.uuid4()),
                 sender_role="MASTER",
                 msg_type="ACTION",
             )
@@ -89,6 +100,7 @@ class TestResolveMessageSpeakerFields:
                     speaker_entity_id=str(npc.id),
                     speaker_display_name="Goblin",
                 ),
+                sender_id=str(uuid.uuid4()),
                 sender_role="MASTER",
                 msg_type="SPEAK",
             )
@@ -114,6 +126,7 @@ class TestResolveMessageSpeakerFields:
                     speaker_type="PC",
                     speaker_entity_id=str(pc.id),
                 ),
+                sender_id=str(uuid.uuid4()),
                 sender_role="MASTER",
                 msg_type="ACTION",
             )
@@ -138,20 +151,50 @@ class TestResolveMessageSpeakerFields:
                         speaker_type="NPC",
                         speaker_entity_id=str(uuid.uuid4()),
                     ),
+                    sender_id=str(uuid.uuid4()),
                     sender_role="PLAYER",
                     msg_type="SPEAK",
                 )
             )
 
-    def test_player_without_speaker_fields_returns_empty(self):
+    def test_player_auto_resolves_pc_speaker(self):
         scene = _make_scene()
-        db = AsyncMock()
+        user_id = uuid.uuid4()
+        pc = _make_entity(
+            campaign_id=scene.campaign_id,
+            name="Kaelen",
+            entity_type="PC",
+            user_id=user_id,
+        )
+        db = _mock_db_with_pc(pc)
 
         result = asyncio.run(
             resolve_message_speaker_fields(
                 db,
                 scene,
                 PostMessageRequest(type="SPEAK", text="Hola"),
+                sender_id=str(user_id),
+                sender_role="PLAYER",
+                msg_type="SPEAK",
+            )
+        )
+
+        assert result == {
+            "speaker_type": "PC",
+            "speaker_display_name": "Kaelen",
+            "speaker_entity_id": str(pc.id),
+        }
+
+    def test_player_without_pc_returns_empty(self):
+        scene = _make_scene()
+        db = _mock_db_with_pc(None)
+
+        result = asyncio.run(
+            resolve_message_speaker_fields(
+                db,
+                scene,
+                PostMessageRequest(type="SPEAK", text="Hola"),
+                sender_id=str(uuid.uuid4()),
                 sender_role="PLAYER",
                 msg_type="SPEAK",
             )
@@ -175,6 +218,7 @@ class TestResolveMessageSpeakerFields:
                         speaker_type="NPC",
                         speaker_entity_id=str(uuid.uuid4()),
                     ),
+                    sender_id=str(uuid.uuid4()),
                     sender_role="MASTER",
                     msg_type="SPEAK",
                 )
@@ -197,6 +241,7 @@ class TestResolveMessageSpeakerFields:
                         speaker_type="NPC",
                         speaker_entity_id=str(pc.id),
                     ),
+                    sender_id=str(uuid.uuid4()),
                     sender_role="MASTER",
                     msg_type="SPEAK",
                 )
@@ -217,6 +262,7 @@ class TestResolveMessageSpeakerFields:
                         speaker_type="NPC",
                         speaker_entity_id=str(uuid.uuid4()),
                     ),
+                    sender_id=str(uuid.uuid4()),
                     sender_role="MASTER",
                     msg_type="DICE_ROLL",
                 )

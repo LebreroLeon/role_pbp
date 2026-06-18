@@ -26,7 +26,7 @@ from app.schemas.scene import (
 from app.services.dice import roll_dice as roll_dice_expression
 from app.services.combat_parser import try_parse_combat_command
 from app.services.combat_resolver import CombatResolverError, entity_display_name, execute_combat_command
-from app.services.entities import CharacterSheetError, get_campaign_or_error
+from app.services.entities import CharacterSheetError, find_pc_by_user, get_campaign_or_error
 from app.services.llm import LLMError, LLMNotConfiguredError, chat_completion
 from app.services.master import utc_now_iso
 from app.services.rag import rag_service
@@ -36,6 +36,7 @@ NARRATIVE_MESSAGE_TYPES = {"SPEAK", "ACTION", "CONTEXT", "MASTER", "NARRATIVE"}
 ALLOWED_SPEAKER_TYPES = {"MASTER", "NPC", "PC", "NARRATOR"}
 DEFAULT_NARRATOR_DISPLAY_NAME = "Máster / Narrador"
 INTERACTIVE_SCENE_STATUSES = {"ACTIVE"}
+FALLBACK_SUMMARY_MESSAGE_COUNT = 5
 
 
 class SceneServiceError(ValueError):
@@ -190,6 +191,7 @@ async def resolve_message_speaker_fields(
     scene: Scene,
     payload: PostMessageRequest,
     *,
+    sender_id: str,
     sender_role: str,
     msg_type: str,
 ) -> dict[str, str | None]:
@@ -201,7 +203,18 @@ async def resolve_message_speaker_fields(
     if sender_role != "MASTER":
         if _speaker_fields_requested(payload):
             raise SceneServiceError("Only MASTER can set speaker identity")
-        return {}
+        try:
+            user_uuid = uuid.UUID(str(sender_id))
+        except ValueError:
+            return {}
+        pc = await find_pc_by_user(db, scene.campaign_id, user_uuid)
+        if pc is None:
+            return {}
+        return {
+            "speaker_type": "PC",
+            "speaker_display_name": entity_display_name(pc),
+            "speaker_entity_id": str(pc.id),
+        }
 
     speaker_type = (payload.speaker_type or "NARRATOR").upper()
     if speaker_type not in ALLOWED_SPEAKER_TYPES:
@@ -317,7 +330,7 @@ def _normalize_display_name(display_name: str | None) -> str | None:
     return trimmed or None
 
 
-def _build_narrative_text(state: SceneState) -> str:
+def _build_narrative_text(state: SceneState, *, last_n: int | None = None) -> str:
     lines: list[str] = []
     for message in state.chat_buffer:
         if message.type not in NARRATIVE_MESSAGE_TYPES:
@@ -325,6 +338,8 @@ def _build_narrative_text(state: SceneState) -> str:
         text = (message.text or "").strip()
         if text:
             lines.append(text)
+    if last_n is not None and last_n > 0:
+        lines = lines[-last_n:]
     return "\n".join(lines)
 
 
@@ -389,10 +404,34 @@ async def generate_scene_closure_summary(
         pass
 
     return _placeholder_scene_summary(
-        narrative,
+        _build_narrative_text(state, last_n=FALLBACK_SUMMARY_MESSAGE_COUNT),
         scene_number=scene_number,
         display_name=display_name,
     )
+
+
+async def delete_scene_message(
+    db: AsyncSession,
+    scene: Scene,
+    message_id: str,
+) -> SceneResponse:
+    if scene.status == "CLOSED":
+        raise SceneServiceError("Cannot delete messages from a closed scene")
+
+    trimmed_id = message_id.strip()
+    if not trimmed_id:
+        raise SceneServiceError("Message id is required")
+
+    state = load_scene_state(scene)
+    original_len = len(state.chat_buffer)
+    state.chat_buffer = [entry for entry in state.chat_buffer if entry.id != trimmed_id]
+    if len(state.chat_buffer) == original_len:
+        raise SceneServiceError("Message not found")
+
+    save_scene_state(scene, state)
+    await db.commit()
+    await db.refresh(scene)
+    return scene_to_response(scene)
 
 
 async def list_campaign_scenes(db: AsyncSession, campaign_id: uuid.UUID) -> list[SceneResponse]:
@@ -410,9 +449,30 @@ async def get_active_scene(db: AsyncSession, campaign_id: uuid.UUID) -> Scene | 
     return await db.scalar(
         select(Scene)
         .where(Scene.campaign_id == campaign_id, Scene.status == "ACTIVE")
-        .order_by(Scene.updated_at.desc())
+        .order_by(Scene.updated_at.desc(), Scene.created_at.desc())
         .limit(1)
     )
+
+
+async def pause_other_active_scenes(
+    db: AsyncSession,
+    campaign_id: uuid.UUID,
+    *,
+    except_scene_id: uuid.UUID | None = None,
+) -> list[Scene]:
+    query = select(Scene).where(
+        Scene.campaign_id == campaign_id,
+        Scene.status == "ACTIVE",
+    )
+    if except_scene_id is not None:
+        query = query.where(Scene.id != except_scene_id)
+
+    scenes = (await db.scalars(query)).all()
+    for other in scenes:
+        state = load_scene_state(other)
+        state.metadata.status = "PAUSED"
+        save_scene_state(other, state)
+    return list(scenes)
 
 
 async def get_scene_by_id(db: AsyncSession, scene_id: uuid.UUID) -> Scene | None:
@@ -429,9 +489,7 @@ async def create_scene(
     if campaign is None:
         raise SceneServiceError("Campaign not found")
 
-    existing = await get_active_scene(db, campaign_id)
-    if existing is not None:
-        raise SceneServiceError("An active scene already exists for this campaign")
+    await pause_other_active_scenes(db, campaign_id)
 
     turn_order = payload.turn_order or [str(creator_user_id)]
     scene_state = default_scene_state(
@@ -483,6 +541,7 @@ async def post_message(
         db,
         scene,
         payload,
+        sender_id=sender_id,
         sender_role=sender_role,
         msg_type=msg_type,
     )
@@ -618,12 +677,23 @@ async def update_scene_status(
     scene: Scene,
     status: SceneStatusType,
 ) -> SceneResponse:
+    if status == "ACTIVE":
+        await pause_other_active_scenes(db, scene.campaign_id, except_scene_id=scene.id)
+
     state = load_scene_state(scene)
     state.metadata.status = status
     save_scene_state(scene, state)
     await db.commit()
     await db.refresh(scene)
     return scene_to_response(scene)
+
+
+async def start_active_scene(db: AsyncSession, scene: Scene) -> SceneResponse:
+    if scene.status == "CLOSED":
+        raise SceneServiceError("Cannot activate a closed scene")
+    if scene.status == "ACTIVE":
+        return scene_to_response(scene)
+    return await update_scene_status(db, scene, "ACTIVE")
 
 
 async def update_scene_display_name(
@@ -649,6 +719,8 @@ async def close_scene(db: AsyncSession, scene: Scene) -> SceneResponse:
     )
     state.metadata.closure_summary = summary
     state.metadata.status = "CLOSED"
+    if state.combat.is_active or state.combat.conflict_mode_active or state.state_flags.conflict_mode_active:
+        set_combat_active(state, False)
     save_scene_state(scene, state)
     await db.commit()
     await db.refresh(scene)

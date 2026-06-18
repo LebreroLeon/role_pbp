@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../api/client";
@@ -7,7 +7,7 @@ import type { MasterAssistResponse } from "../api/types";
 import { queryKeys } from "../api/queryKeys";
 import { RoleGate } from "../components/auth/RoleGate";
 import { DESK_TAB_ICONS, SECTION_ICONS } from "../components/icons";
-import { Button, ButtonLink, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
+import { Button, ButtonLink, ConfirmDialog, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
 import { CampaignMemberList, formatSceneLabel, InviteMemberForm } from "../features/campaign";
 import { gameSystemLabel } from "../features/campaign/gameSystems";
 import { getChatBuffer, getSceneObjective } from "../features/scene/sceneState";
@@ -28,6 +28,7 @@ const TABS: { id: DeskTab; label: string; hint: string }[] = [
 
 export function MasterDeskPage() {
   const { campaignId = "" } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<DeskTab>("scene");
   const [query, setQuery] = useState("¿Qué complicación encaja con la escena actual?");
@@ -36,6 +37,7 @@ export function MasterDeskPage() {
   const [error, setError] = useState<string | null>(null);
   const [freezing, setFreezing] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [displayNameDraft, setDisplayNameDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
 
@@ -87,13 +89,14 @@ export function MasterDeskPage() {
 
   async function handleCloseScene() {
     if (!activeScene) return;
-    if (!window.confirm("¿Cerrar esta escena? Se generará un resumen para el historial.")) return;
     setClosing(true);
     setError(null);
     try {
       await api.closeScene(activeScene.id);
       queryClient.removeQueries({ queryKey: queryKeys.campaigns.activeScene(campaignId) });
       await invalidateSceneQueries();
+      setCloseDialogOpen(false);
+      navigate(`/campaigns/${campaignId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cerrar la escena");
     } finally {
@@ -159,7 +162,17 @@ export function MasterDeskPage() {
                   </p>
                   <p className="muted">{getSceneObjective(activeScene.scene_state) ?? "Sin objetivo definido"}</p>
                   <div className="status-row">
-                    <StatusBadge label="Estado" value={activeScene.status} ok={activeScene.status === "ACTIVE"} />
+                    <StatusBadge
+                      label="Estado"
+                      value={
+                        activeScene.status === "ACTIVE"
+                          ? "Activa (abierta)"
+                          : activeScene.status === "PAUSED"
+                            ? "Pausada (congelada)"
+                            : "Cerrada"
+                      }
+                      ok={activeScene.status === "ACTIVE"}
+                    />
                     <StatusBadge
                       label="Mensajes"
                       value={String(getChatBuffer(activeScene.scene_state).length)}
@@ -190,7 +203,7 @@ export function MasterDeskPage() {
                     <Button variant="secondary" onClick={handleFreeze} disabled={freezing}>
                       {activeScene.status === "PAUSED" ? "Reanudar escena" : "Congelar escena"}
                     </Button>
-                    <Button variant="secondary" onClick={handleCloseScene} disabled={closing}>
+                    <Button variant="secondary" onClick={() => setCloseDialogOpen(true)} disabled={closing}>
                       Cerrar escena
                     </Button>
                   </div>
@@ -268,6 +281,27 @@ export function MasterDeskPage() {
           )}
         </Panel>
       </div>
+
+      {closeDialogOpen && (
+        <ConfirmDialog
+          title="Cerrar escena"
+          description={
+            <>
+              <p>
+                Se enviará todo el chat de la escena a la IA para generar un resumen narrativo en español (WorldLog).
+              </p>
+              <p className="muted">
+                El resumen quedará en el historial de escenas y en la memoria de campaña. Esta acción no se puede
+                deshacer.
+              </p>
+            </>
+          }
+          confirmLabel="Cerrar y generar resumen"
+          onConfirm={handleCloseScene}
+          onCancel={() => setCloseDialogOpen(false)}
+          confirming={closing}
+        />
+      )}
     </RoleGate>
   );
 }

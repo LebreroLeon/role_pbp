@@ -82,9 +82,38 @@
 
 .chat-card__identity {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.65rem;
   min-width: 0;
+  flex: 1;
+}
+
+.chat-card__identity-text {
+  min-width: 0;
+}
+
+.chat-card__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.chat-card__delete {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.15rem;
+  border-radius: 0.35rem;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.chat-card__delete:hover {
+  color: var(--danger, #c0392b);
+  background: rgba(192, 57, 43, 0.08);
 }
 
 .chat-card__avatar {
@@ -101,14 +130,21 @@
   border: 1px solid rgba(139, 124, 248, 0.2);
 }
 
-.chat-card__identity strong {
+.chat-card__character {
   display: block;
   font-size: 0.95rem;
   line-height: 1.2;
 }
 
+.chat-card__player {
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0.75;
+  line-height: 1.2;
+}
+
 .chat-card__type {
-  display: inline-block;
+  display: block;
   margin-top: 0.15rem;
   font-size: 0.7rem;
   font-weight: 600;
@@ -134,7 +170,6 @@
 }
 
 .chat-card__time {
-  flex-shrink: 0;
   font-size: 0.75rem;
   opacity: 0.55;
   white-space: nowrap;
@@ -1081,6 +1116,17 @@
   gap: 0.65rem;
 }
 
+.confirm-dialog__body {
+  display: grid;
+  gap: 0.65rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.confirm-dialog__body p {
+  margin: 0;
+}
+
 .initiative-modal__note {
   margin: 0;
   font-size: 0.8rem;
@@ -1546,6 +1592,34 @@
   flex-wrap: wrap;
 }
 
+.scene-log__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.scene-log__current-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--accent-teal);
+  background: color-mix(in srgb, var(--accent-teal) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-teal) 35%, var(--border-subtle));
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+}
+
+.scene-log__actions {
+  margin-top: 0.65rem;
+}
+
+.scene-log__error {
+  margin: 0 0 0.65rem;
+  color: var(--accent-rose);
+}
+
 .scene-log__status {
   font-size: 0.85rem;
   color: var(--text-muted);
@@ -1708,6 +1782,36 @@
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .chat-card {
+    padding: 0.75rem 0.85rem 0.65rem;
+  }
+
+  .chat-card__header {
+    gap: 0.5rem;
+  }
+
+  .chat-card__avatar {
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.65rem;
+  }
+
+  .chat-card__character {
+    font-size: 0.88rem;
+  }
+
+  .chat-card__player {
+    font-size: 0.75rem;
+  }
+
+  .chat-card__type {
+    font-size: 0.65rem;
+  }
+
+  .chat-card__time {
+    font-size: 0.7rem;
+  }
 }
 
 /* —— Campaign sheets (master) —— */
@@ -1777,13 +1881,80 @@
   border-color: color-mix(in srgb, var(--accent-amber) 35%, var(--border-subtle));
 }
 
-.world-page__editor {
-  margin-top: 1rem;
+.slide-over-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.slide-over {
+  width: min(100%, 520px);
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 1.25rem 1.35rem 1.5rem;
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--border-subtle);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
+}
+
+.slide-over__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.slide-over__header h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.slide-over__description {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.slide-over__close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.15rem 0.35rem;
+}
+
+.slide-over__body {
+  padding-bottom: 1rem;
+}
+
+.toast {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 50;
+  max-width: min(100vw - 2rem, 360px);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent-teal) 18%, var(--bg-elevated));
+  border: 1px solid color-mix(in srgb, var(--accent-teal) 45%, var(--border-subtle));
+  color: var(--text-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 @media (max-width: 768px) {
   .campaign-sheets-layout {
     grid-template-columns: 1fr;
+  }
+
+  .slide-over {
+    width: 100%;
   }
 }
 

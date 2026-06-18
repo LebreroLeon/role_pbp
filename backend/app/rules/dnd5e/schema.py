@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class AbilityScores(BaseModel):
@@ -30,11 +32,115 @@ class HpBlock(BaseModel):
     temp: int = Field(default=0, ge=0)
 
 
+def _ability_modifier(score: int) -> int:
+    return (score - 10) // 2
+
+
+def _normalize_attack_entry(
+    attack: dict[str, Any],
+    *,
+    abilities: dict[str, Any],
+    proficiency_bonus: int,
+) -> dict[str, Any]:
+    if "damage_dice" in attack and "damage_type" in attack:
+        return attack
+
+    damage = attack.get("damage")
+    damage_dice = attack.get("damage_dice")
+    damage_type = attack.get("damage_type")
+    if damage_dice is None and isinstance(damage, dict):
+        damage_dice = damage.get("dice", "1d4")
+    if damage_type is None and isinstance(damage, dict):
+        damage_type = damage.get("type", "untyped")
+
+    ability = str(attack.get("ability", "str")).strip().lower()
+    proficient = bool(attack.get("proficient", False))
+    ability_score = abilities.get(ability, 10)
+    ability_mod = _ability_modifier(ability_score) if isinstance(ability_score, int) else 0
+    to_hit_bonus = attack.get("to_hit_bonus")
+    if to_hit_bonus is None:
+        to_hit_bonus = ability_mod + (proficiency_bonus if proficient else 0)
+
+    return {
+        "name": attack.get("name", "Attack"),
+        "to_hit_bonus": to_hit_bonus,
+        "damage_dice": damage_dice or "1d4",
+        "damage_type": damage_type or "untyped",
+    }
+
+
+def normalize_dnd5e_sheet_input(data: object) -> object:
+    """Accept frontend nested sheet shape and normalize to backend flat schema."""
+    if not isinstance(data, dict):
+        return data
+
+    abilities = data.get("abilities")
+    if not isinstance(abilities, dict):
+        abilities = {}
+
+    proficiency_bonus = data.get("proficiency_bonus", 2)
+    if isinstance(data.get("proficiency"), dict):
+        proficiency = data["proficiency"]
+        proficiency_bonus = proficiency.get("bonus", proficiency_bonus)
+        skills = proficiency.get("skills", data.get("skills", []))
+        saving_throws = proficiency.get("saving_throws", data.get("saving_throws", []))
+    else:
+        skills = data.get("skills", [])
+        saving_throws = data.get("saving_throws", [])
+
+    ac = data.get("ac", 10)
+    hp = data.get("hp", {"max": 10, "current": 10, "temp": 0})
+    if isinstance(data.get("defense"), dict):
+        defense = data["defense"]
+        ac = defense.get("ac", ac)
+        hp = defense.get("hp", hp)
+
+    raw_attacks = data.get("attacks", [])
+    attacks: list[dict[str, Any]] = []
+    if isinstance(raw_attacks, list):
+        for attack in raw_attacks:
+            if isinstance(attack, dict):
+                attacks.append(
+                    _normalize_attack_entry(
+                        attack,
+                        abilities=abilities,
+                        proficiency_bonus=proficiency_bonus if isinstance(proficiency_bonus, int) else 2,
+                    )
+                )
+
+    return {
+        "abilities": abilities,
+        "proficiency_bonus": proficiency_bonus,
+        "skills": skills,
+        "saving_throws": saving_throws,
+        "ac": ac,
+        "hp": hp,
+        "attacks": attacks,
+    }
+
+
 class AttackEntry(BaseModel):
     name: str
     to_hit_bonus: int = 0
     damage_dice: str
     damage_type: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_frontend_attack(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        if "damage_dice" in data and "damage_type" in data:
+            return data
+        damage = data.get("damage")
+        if isinstance(damage, dict):
+            return {
+                "name": data.get("name", "Attack"),
+                "to_hit_bonus": data.get("to_hit_bonus", 0),
+                "damage_dice": damage.get("dice", "1d4"),
+                "damage_type": damage.get("type", "untyped"),
+            }
+        return data
 
 
 class Dnd5eSheet(BaseModel):
@@ -45,6 +151,27 @@ class Dnd5eSheet(BaseModel):
     ac: int = Field(default=10, ge=0)
     hp: HpBlock = Field(default_factory=HpBlock)
     attacks: list[AttackEntry] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_frontend_sheet(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        if "proficiency" in data or "defense" in data:
+            return normalize_dnd5e_sheet_input(data)
+        if isinstance(data.get("attacks"), list):
+            attacks = data.get("attacks", [])
+            abilities = data.get("abilities", {})
+            if not isinstance(abilities, dict):
+                abilities = {}
+            prof_bonus = data.get("proficiency_bonus", 2)
+            normalized_attacks = [
+                _normalize_attack_entry(attack, abilities=abilities, proficiency_bonus=prof_bonus)
+                for attack in attacks
+                if isinstance(attack, dict)
+            ]
+            return {**data, "attacks": normalized_attacks}
+        return data
 
 
 SKILL_ABILITY_MAP: dict[str, str] = {

@@ -25,3 +25,7 @@ Thumbs.db
 chroma_data/
 campaign_uploads/
 *.db
+
+# System rulebooks (copyrighted — local / Docker volume only)
+data/manuals/**/*.pdf
+data/manuals/**/*.PDF

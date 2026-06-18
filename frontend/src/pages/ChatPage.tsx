@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../api/client";
@@ -7,7 +7,7 @@ import { ApiError } from "../api/http";
 import { queryKeys } from "../api/queryKeys";
 import type { MessageType, Scene } from "../api/types";
 import { SECTION_ICONS } from "../components/icons";
-import { Button, ButtonLink, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
+import { Button, ButtonLink, ConfirmDialog, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
 import { ChatComposer, ChatLog, DiceRoller, getChatBuffer, type MemberLookup } from "../features/scene";
 import { formatSceneLabel } from "../features/campaign";
 import { buildMentionOptions } from "../features/scene/mentionOptions";
@@ -26,6 +26,7 @@ import { useAuthStore } from "../stores/authStore";
 
 export function ChatPage() {
   const { campaignId = "" } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((state) => state.user);
   const currentUserId = currentUser?.id ?? "";
@@ -43,6 +44,8 @@ export function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [newSceneName, setNewSceneName] = useState("");
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
 
   const currentScene = scene ?? activeScene ?? null;
   const isMaster = campaign?.role === "MASTER";
@@ -166,6 +169,36 @@ export function ChatPage() {
     }
   }
 
+  async function handleDeleteMessage(messageId: string) {
+    if (!currentScene || !isMaster) return;
+
+    setErrorMessage(null);
+    try {
+      const updated = await api.deleteSceneMessage(currentScene.id, messageId);
+      handleSceneUpdate(updated);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "No se pudo borrar el mensaje");
+    }
+  }
+
+  async function handleCloseScene() {
+    if (!currentScene || !isMaster) return;
+
+    setClosing(true);
+    setErrorMessage(null);
+    try {
+      await api.closeScene(currentScene.id);
+      queryClient.removeQueries({ queryKey: queryKeys.campaigns.activeScene(campaignId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
+      setCloseDialogOpen(false);
+      navigate(`/campaigns/${campaignId}`);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "No se pudo cerrar la escena");
+    } finally {
+      setClosing(false);
+    }
+  }
+
   return (
     <div className="chat-page">
       {currentScene && (
@@ -206,6 +239,11 @@ export function ChatPage() {
                   value={connected ? "live" : "offline"}
                   ok={connected}
                 />
+              )}
+              {isMaster && currentScene && currentScene.status !== "CLOSED" && (
+                <Button variant="secondary" onClick={() => setCloseDialogOpen(true)} disabled={closing}>
+                  Cerrar escena
+                </Button>
               )}
               {isMaster && (
                 <ButtonLink variant="secondary" to={`/campaigns/${campaignId}/mesa`}>
@@ -257,6 +295,8 @@ export function ChatPage() {
               memberCount={members.length}
               emptyMessage="Aún no hay mensajes en la escena."
               onVisible={handleMarkRead}
+              isMaster={Boolean(isMaster)}
+              onDeleteMessage={isMaster ? handleDeleteMessage : undefined}
             />
 
             <ChatComposer
@@ -294,6 +334,27 @@ export function ChatPage() {
           </Button>
         )}
       </Panel>
+
+      {closeDialogOpen && (
+        <ConfirmDialog
+          title="Cerrar escena"
+          description={
+            <>
+              <p>
+                Se enviará todo el chat de la escena a la IA para generar un resumen narrativo en español (WorldLog).
+              </p>
+              <p className="muted">
+                El resumen quedará guardado en el historial de escenas y en la memoria de campaña. Esta acción no se
+                puede deshacer.
+              </p>
+            </>
+          }
+          confirmLabel="Cerrar y generar resumen"
+          onConfirm={handleCloseScene}
+          onCancel={() => setCloseDialogOpen(false)}
+          confirming={closing}
+        />
+      )}
     </div>
   );
 }

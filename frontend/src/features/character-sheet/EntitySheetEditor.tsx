@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "../../api/http";
 import type { CampaignMember } from "../../api/types";
@@ -7,9 +7,9 @@ import { gameSystemLabel, hasSheetTemplate } from "../campaign/gameSystems";
 import { useUpdateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 import {
   extractSheetFromEntity,
-  mergeSheetIntoDocument,
   type GameSheet,
 } from "./pcDocument";
+import { buildEntityPutDocument } from "./buildEntityPutDocument";
 import { CyberpunkSheetForm } from "./systems/cyberpunk_red/CyberpunkSheetForm";
 import { parseCyberpunkRedSheet } from "./systems/cyberpunk_red/schema";
 import { Dnd5eSheetForm } from "./systems/dnd5e/Dnd5eSheetForm";
@@ -17,13 +17,14 @@ import { parseDnd5eSheet } from "./systems/dnd5e/schema";
 import { VtmSheetForm } from "./systems/vtm_v5/VtmSheetForm";
 import { parseVtmV5Sheet } from "./systems/vtm_v5/schema";
 import type { CampaignEntity } from "../entities/entityDefaults";
-import { ensureNpcTypedMechanics, mergeNpcSheetIntoDocument } from "../entities/npcDocument";
+import { ensureNpcTypedMechanics } from "../entities/npcDocument";
 
 type EntitySheetEditorProps = {
   campaignId: string;
   entity: CampaignEntity;
   gameSystem: string;
   members?: CampaignMember[];
+  mode?: "create" | "edit";
   onSaved?: () => void;
   onCancel?: () => void;
 };
@@ -47,11 +48,19 @@ function playerLabel(members: CampaignMember[] | undefined, userId: string | und
   return member ? `${member.display_name} (${member.email})` : userId.slice(0, 8);
 }
 
+function parsePersonalityTraits(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((trait) => trait.trim())
+    .filter(Boolean);
+}
+
 export function EntitySheetEditor({
   campaignId,
   entity,
   gameSystem,
   members,
+  mode = "edit",
   onSaved,
   onCancel,
 }: EntitySheetEditorProps) {
@@ -65,33 +74,37 @@ export function EntitySheetEditor({
     return entity.document;
   }, [entity.document, entity.entity_type, gameSystem]);
 
-  const identity = workingDocument.identity as {
-    name?: string;
-    concept?: string;
-  };
-  const [name, setName] = useState(identity?.name ?? "");
-  const [concept, setConcept] = useState(identity?.concept ?? "");
+  const [name, setName] = useState("");
+  const [concept, setConcept] = useState("");
+  const [publicDescription, setPublicDescription] = useState("");
+  const [secretLore, setSecretLore] = useState("");
+  const [voiceAndTone, setVoiceAndTone] = useState("");
+  const [personalityTraits, setPersonalityTraits] = useState("");
 
-  const publicProfile = workingDocument.public_profile as { description?: string } | undefined;
-  const narrativeProfile = workingDocument.ai_narrative_profile as
-    | {
-        public_description?: string;
-        secret_lore_master?: string;
-        voice_and_tone?: string;
-        personality_traits?: string[];
-      }
-    | undefined;
+  useEffect(() => {
+    const identity = workingDocument.identity as { name?: string; concept?: string } | undefined;
+    const publicProfile = workingDocument.public_profile as { description?: string } | undefined;
+    const narrativeProfile = workingDocument.ai_narrative_profile as
+      | {
+          public_description?: string;
+          secret_lore_master?: string;
+          voice_and_tone?: string;
+          personality_traits?: string[];
+        }
+      | undefined;
 
-  const [publicDescription, setPublicDescription] = useState(
-    entity.entity_type === "PC"
-      ? (publicProfile?.description ?? "")
-      : (narrativeProfile?.public_description ?? ""),
-  );
-  const [secretLore, setSecretLore] = useState(narrativeProfile?.secret_lore_master ?? "");
-  const [voiceAndTone, setVoiceAndTone] = useState(narrativeProfile?.voice_and_tone ?? "");
-  const [personalityTraits, setPersonalityTraits] = useState(
-    (narrativeProfile?.personality_traits ?? []).join(", "),
-  );
+    setName(identity?.name ?? "");
+    setConcept(identity?.concept ?? "");
+    setPublicDescription(
+      entity.entity_type === "PC"
+        ? (publicProfile?.description ?? "")
+        : (narrativeProfile?.public_description ?? ""),
+    );
+    setSecretLore(narrativeProfile?.secret_lore_master ?? "");
+    setVoiceAndTone(narrativeProfile?.voice_and_tone ?? "");
+    setPersonalityTraits((narrativeProfile?.personality_traits ?? []).join(", "));
+    setFormError(null);
+  }, [entity.id, entity.updated_at, entity.entity_type, workingDocument]);
 
   const supportsSheet = hasSheetTemplate(gameSystem);
   const hasSheetEditor = supportsSheet && gameSystem !== "generic";
@@ -103,6 +116,18 @@ export function EntitySheetEditor({
       ? (workingDocument.player_binding as { user_id?: string } | undefined)?.user_id
       : undefined;
 
+  function buildNarrativeFields() {
+    const traits = parsePersonalityTraits(personalityTraits);
+    return {
+      name,
+      concept,
+      publicDescription,
+      secretLore,
+      voiceAndTone,
+      personalityTraits: traits.length > 0 ? traits : ["misterioso"],
+    };
+  }
+
   async function persistDocument(document: Record<string, unknown>) {
     setFormError(null);
     try {
@@ -113,58 +138,30 @@ export function EntitySheetEditor({
     }
   }
 
-  function buildBaseDocument(): Record<string, unknown> {
-    const traits = personalityTraits
-      .split(",")
-      .map((trait) => trait.trim())
-      .filter(Boolean);
-
-    if (entity.entity_type === "PC") {
-      return {
-        ...workingDocument,
-        identity: {
-          ...(workingDocument.identity as Record<string, unknown>),
-          name: name.trim(),
-          concept: concept.trim(),
-        },
-        public_profile: {
-          ...(workingDocument.public_profile as Record<string, unknown> | undefined),
-          description: publicDescription.trim(),
-        },
-      };
-    }
-
-    return {
-      ...workingDocument,
-      identity: {
-        ...(workingDocument.identity as Record<string, unknown>),
-        name: name.trim(),
-        concept: concept.trim(),
-      },
-      ai_narrative_profile: {
-        ...(workingDocument.ai_narrative_profile as Record<string, unknown>),
-        public_description: publicDescription.trim(),
-        secret_lore_master: secretLore.trim(),
-        voice_and_tone: voiceAndTone.trim() || "Neutral",
-        personality_traits: traits.length > 0 ? traits : ["misterioso"],
-      },
-    };
-  }
-
   async function handleNarrativeSubmit(event: FormEvent) {
     event.preventDefault();
-    await persistDocument(buildBaseDocument());
+    const document = buildEntityPutDocument({
+      entity,
+      workingDocument,
+      gameSystem,
+      narrative: buildNarrativeFields(),
+    });
+    await persistDocument(document);
   }
 
   async function handleSaveSheet(sheet: GameSheet) {
-    let document = buildBaseDocument();
-    if (entity.entity_type === "PC") {
-      document = mergeSheetIntoDocument(document, gameSystem, sheet as Record<string, unknown>);
-    } else {
-      document = mergeNpcSheetIntoDocument(document, gameSystem, sheet as Record<string, unknown>);
-    }
+    const document = buildEntityPutDocument({
+      entity,
+      workingDocument,
+      gameSystem,
+      narrative: buildNarrativeFields(),
+      sheet,
+    });
     await persistDocument(document);
   }
+
+  const saveLabel =
+    mode === "create" ? "Guardar ficha nueva" : "Guardar datos narrativos";
 
   return (
     <div className="entity-sheet-editor">
@@ -214,7 +211,7 @@ export function EntitySheetEditor({
 
         <div className="actions">
           <Button type="submit" disabled={updateMutation.isPending || !name.trim()}>
-            {updateMutation.isPending ? "Guardando..." : "Guardar datos narrativos"}
+            {updateMutation.isPending ? "Guardando..." : saveLabel}
           </Button>
           {onCancel && (
             <Button type="button" variant="secondary" onClick={onCancel}>
@@ -230,7 +227,7 @@ export function EntitySheetEditor({
           <p className="muted">Vista Máster: stats, PV, ataques y secretos mecánicos visibles.</p>
           {gameSystem === "dnd5e" && (
             <Dnd5eSheetForm
-              key={entity.updated_at}
+              key={`${entity.id}-${entity.updated_at}`}
               defaultValues={sheetDefaults as ReturnType<typeof parseDnd5eSheet>}
               onSubmit={handleSaveSheet}
               isSaving={updateMutation.isPending}
@@ -238,7 +235,7 @@ export function EntitySheetEditor({
           )}
           {gameSystem === "cyberpunk_red" && (
             <CyberpunkSheetForm
-              key={entity.updated_at}
+              key={`${entity.id}-${entity.updated_at}`}
               defaultValues={sheetDefaults as ReturnType<typeof parseCyberpunkRedSheet>}
               onSubmit={handleSaveSheet}
               isSaving={updateMutation.isPending}
@@ -246,7 +243,7 @@ export function EntitySheetEditor({
           )}
           {gameSystem === "vtm_v5" && (
             <VtmSheetForm
-              key={entity.updated_at}
+              key={`${entity.id}-${entity.updated_at}`}
               defaultValues={sheetDefaults as ReturnType<typeof parseVtmV5Sheet>}
               onSubmit={handleSaveSheet}
               isSaving={updateMutation.isPending}

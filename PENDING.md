@@ -370,6 +370,61 @@ Estado base: MVP funcional con auth JWT, campañas, miembros, chat+WS, entidades
 
 ---
 
+## Manuales de sistema (reglas oficiales por juego)
+
+> Diseño: `docs/07_system_manuals.md`. PDFs en `data/manuals/{system_id}/` (gitignored). Inventario D&D del usuario: `C:\Users\lebre\Downloads\Dnd5\` (11 PDFs).
+
+### Infra y datos
+
+- [ ] Añadir `SYSTEM_MANUALS_DIR` a `config.py` y `.env.example` (default `data/manuals`)
+- [ ] Migración Alembic: tabla `system_manual_sources` (inventario PDF, `sha256`, `index_status`)
+- [ ] Migración Alembic: tabla `system_manual_memory` (`system_id`, `source_id`, `content`, `embedding vector(1536)`, `metadata`, índice HNSW)
+- [ ] Montar volumen `./data/manuals:/app/data/manuals:ro` en `docker-compose.yml`
+- [ ] Documentar tablas en `docs/04_data_persistence.md` § manuales de sistema
+
+### Indexación PDF
+
+- [ ] Añadir dependencia extracción PDF (`pymupdf` o `pdfplumber`) en `requirements.txt`
+- [ ] Implementar extracción por página y chunking (~500–800 tokens, solapamiento) en servicio dedicado
+- [ ] Completar `backend/scripts/index_system_manuals.py`: upsert sources, embeddings, delete/reindex on hash change
+- [ ] Endpoint admin opcional `POST /api/v1/admin/manuals/reindex?system_id=dnd5e` (solo dev/admin)
+- [ ] Job background / CLI documentado para re-indexación masiva sin LLM
+
+### RAG e IA
+
+- [ ] Extender `RagService.search` (o nuevo `SystemManualRagService`) — consulta por `system_id` con `rag_manual_top_k`
+- [ ] En `build_master_assist_response`: leer `campaign.game_system`, fusionar chunks campaña + manuales en el Sándwich
+- [ ] Futuro `@asistente`: incluir manuales del sistema; excluir `secret_*` y lore de campaña no autorizado
+- [ ] Añadir paso 2b en `docs/03_ai_engine/rag_pipeline.md` cuando esté implementado
+- [ ] System prompt «Consultor de reglas»: citar página/sección desde `metadata` del chunk cuando exista
+
+### API
+
+- [ ] `GET /api/v1/systems/{system_id}/manuals` — lista sources + `index_status`, `indexed_at`, `page_count`
+- [ ] `GET /api/v1/campaigns/{campaign_id}/manuals/availability` — manuales del `game_system` de la campaña (solo metadatos)
+
+### UI (solo lectura)
+
+- [ ] Sección «Manuales del sistema» en `LibraryPage.tsx` o `MasterDeskPage.tsx`
+- [ ] Listado por archivo: No encontrado | Pendiente | Indexado | Error
+- [ ] Badge «Reglas {sistema} disponibles para la IA» según ≥1 core indexado
+- [ ] Tooltip con instrucciones locales (`data/manuals/…`) — sin upload ni descarga de PDFs
+- [ ] Query hook `useSystemManualsQuery(campaignId)` + keys en `api/queryKeys.ts`
+
+### Permisos y legal
+
+- [ ] No servir PDFs por HTTP en producción (solo metadatos de indexación)
+- [ ] Confirmar `.gitignore` ignora PDFs bajo `data/manuals/` (READMEs sí versionados)
+- [ ] Documentar en README que cada despliegue debe aportar sus propias copias licenciadas
+
+### Calidad
+
+- [ ] Test: campaña `dnd5e` → búsqueda RAG no devuelve chunks con `system_id=vtm_v5`
+- [ ] Test: stub CLI `--dry-run` lista PDFs y hashes sin escribir BD
+- [ ] Test integración: indexar PDF pequeño de fixture → chunk en `system_manual_memory`
+
+---
+
 ## Audio en escena (STT / TTS)
 
 > Diseño: `docs/06_audio_features.md`. Objetivo: narrar jugadas sin escribir (STT) y escuchar la escena sin leer (TTS). Independiente de fichas/combate; puede implementarse en paralelo al chat actual.

@@ -13,6 +13,8 @@ type ChatLogProps = {
   memberCount: number;
   emptyMessage: string;
   onVisible?: () => void;
+  isMaster?: boolean;
+  onDeleteMessage?: (messageId: string) => void;
 };
 
 function getTailSignature(messages: ChatMessage[]): string {
@@ -33,6 +35,8 @@ export function ChatLog({
   memberCount,
   emptyMessage,
   onVisible,
+  isMaster = false,
+  onDeleteMessage,
 }: ChatLogProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const tailSignatureRef = useRef(getTailSignature(messages));
@@ -133,6 +137,8 @@ export function ChatLog({
             members={members}
             currentUserId={currentUserId}
             memberCount={memberCount}
+            isMaster={isMaster}
+            onDelete={onDeleteMessage}
           />
         ))}
       </div>

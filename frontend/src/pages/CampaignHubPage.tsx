@@ -40,7 +40,7 @@ export function CampaignHubPage() {
           {activeScene && (
             <StatusBadge
               label="Estado"
-              value={activeScene.status === "ACTIVE" ? "activa" : activeScene.status === "PAUSED" ? "pausada" : "cerrada"}
+              value={activeScene.status === "ACTIVE" ? "Activa (abierta)" : activeScene.status === "PAUSED" ? "Pausada (congelada)" : "Cerrada"}
               ok={activeScene.status === "ACTIVE"}
             />
           )}
@@ -64,7 +64,7 @@ export function CampaignHubPage() {
             <Link to={`${base}/chat`}>Ir a Jugar</Link>
           </p>
         )}
-        <CampaignSceneLog campaignId={campaignId} activeSceneId={activeScene?.id} />
+        <CampaignSceneLog campaignId={campaignId} activeSceneId={activeScene?.id} isMaster={isMaster} />
       </Panel>
 
       <Panel>

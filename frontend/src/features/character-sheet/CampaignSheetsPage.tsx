@@ -4,7 +4,7 @@ import { useParams } from "react-router-dom";
 import { ApiError } from "../../api/http";
 import { RoleGate } from "../../components/auth/RoleGate";
 import { Users } from "../../components/icons";
-import { Button, ErrorBanner, Input, Panel, PanelHeader } from "../../components/ui";
+import { Button, ErrorBanner, Input, Panel, PanelHeader, Toast } from "../../components/ui";
 import { getGameSystemProfile, hasSheetTemplate } from "../campaign/gameSystems";
 import { getEntityDisplayName, buildPcDocumentForGameSystem } from "../entities/entityDefaults";
 import { useCreateEntityMutation } from "../../hooks/mutations/useEntityMutations";
@@ -26,6 +26,7 @@ export function CampaignSheetsPage() {
   const [createDescription, setCreateDescription] = useState("");
   const [createPlayerId, setCreatePlayerId] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const gameSystem = campaign?.game_system ?? "generic";
   const profile = getGameSystemProfile(gameSystem);
@@ -60,6 +61,7 @@ export function CampaignSheetsPage() {
       setCreateConcept("");
       setCreateDescription("");
       setSelectedId(created.id);
+      setToastMessage("Personaje creado. Edita y guarda la ficha completa.");
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "No se pudo crear el personaje");
     }
@@ -74,6 +76,8 @@ export function CampaignSheetsPage() {
   return (
     <RoleGate role="MASTER">
       <div className="campaign-sheets-page">
+        <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
+
         <Panel>
           <PanelHeader
             icon={Users}
@@ -174,10 +178,14 @@ export function CampaignSheetsPage() {
             <section className="campaign-sheets-editor">
               {selected ? (
                 <EntitySheetEditor
+                  key={`${selected.id}-${selected.updated_at}`}
                   campaignId={campaignId}
                   entity={selected}
                   gameSystem={gameSystem}
                   members={members}
+                  onSaved={() => {
+                    setToastMessage(`Ficha de ${getEntityDisplayName(selected)} guardada correctamente.`);
+                  }}
                   onCancel={() => setSelectedId(null)}
                 />
               ) : (

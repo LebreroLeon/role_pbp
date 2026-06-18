@@ -11,6 +11,7 @@ from app.services.entities import (
     strip_master_secrets,
     validate_entity_document,
     validate_npc_sheet_for_campaign,
+    validate_pc_sheet_for_campaign,
 )
 
 
@@ -40,6 +41,64 @@ def _npc_document_with_typed_sheet(sheet: dict | None = None) -> dict:
             "is_present_in_scene": False,
             "attitude_towards_party": "neutral",
             "has_met_party": False,
+        },
+    }
+
+
+def _frontend_dnd5e_sheet() -> dict:
+    return {
+        "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+        "proficiency": {
+            "bonus": 2,
+            "saving_throws": [],
+            "skills": [{"name": "Perception", "proficient": False, "expertise": False}],
+        },
+        "defense": {
+            "ac": 10,
+            "hp": {"max": 10, "current": 10, "temp": 0},
+            "hit_dice": "1d8",
+            "death_saves": {"successes": 0, "failures": 0},
+        },
+        "attacks": [
+            {
+                "name": "Ataque desarmado",
+                "ability": "str",
+                "proficient": True,
+                "damage": {"dice": "1d4", "type": "contundente"},
+                "properties": [],
+            }
+        ],
+        "initiative": {"modifier": 0},
+        "conditions": [],
+    }
+
+
+def _pc_document_with_typed_sheet(sheet: dict | None = None) -> dict:
+    resolved_sheet = sheet or _frontend_dnd5e_sheet()
+    return {
+        "metadata": {"type": "PC", "system_agnostic": False, "mechanics_enabled": True, "version": "2.0.0"},
+        "identity": {
+            "name": "Aldric",
+            "concept": "Fighter",
+            "faction_id": None,
+            "current_location_id": "00000000-0000-0000-0000-000000000001",
+        },
+        "player_binding": {
+            "user_id": "00000000-0000-0000-0000-000000000002",
+            "is_active_in_campaign": True,
+        },
+        "public_profile": {
+            "description": "A brave warrior",
+            "personality_traits": [],
+        },
+        "system_mechanics": {
+            "system_id": "dnd5e",
+            "schema_version": "1.0.0",
+            "sheet": resolved_sheet,
+        },
+        "state_flags": {
+            "is_present_in_scene": False,
+            "is_incapacitated": False,
         },
     }
 
@@ -111,3 +170,27 @@ class TestNpcSheetValidation:
                 entity_type=EntityType.NPC,
                 document=document,
             )
+
+
+class TestPcSheetValidation:
+    def test_validate_frontend_dnd5e_sheet_shape(self):
+        mechanics = TypedSystemMechanics(
+            system_id="dnd5e",
+            schema_version="1.0.0",
+            sheet=_frontend_dnd5e_sheet(),
+        )
+        validated = validate_pc_sheet_for_campaign("dnd5e", mechanics)
+        assert validated["attacks"][0]["damage_dice"] == "1d4"
+        assert validated["attacks"][0]["damage_type"] == "contundente"
+        assert validated["attacks"][0]["to_hit_bonus"] == 2
+
+    def test_normalize_pc_document_with_frontend_sheet(self):
+        document = _pc_document_with_typed_sheet()
+        normalized = normalize_entity_document_for_campaign(
+            campaign_game_system="dnd5e",
+            entity_type=EntityType.PC,
+            document=document,
+        )
+        validated = validate_entity_document(EntityType.PC, normalized)
+        dumped = validated.model_dump(mode="json")
+        assert dumped["system_mechanics"]["sheet"]["attacks"][0]["damage_dice"] == "1d4"

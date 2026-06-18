@@ -32,6 +32,7 @@ from app.services.scenes import (
     SceneServiceError,
     close_scene,
     create_scene,
+    delete_scene_message,
     ensure_player_pc_present_in_scene,
     load_scene_state,
     mark_messages_read,
@@ -39,6 +40,7 @@ from app.services.scenes import (
     roll_scene_dice,
     save_scene_state,
     scene_to_response,
+    start_active_scene,
     update_scene_display_name,
     update_scene_npc_presence,
     update_scene_status,
@@ -141,6 +143,26 @@ async def mark_read_route(
     return response
 
 
+@router.post("/{scene_id}/activate", response_model=SceneResponse)
+async def activate_scene_route(
+    scene_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> SceneResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_campaign_master(db, current_user, scene.campaign_id)
+    try:
+        response = await start_active_scene(db, scene)
+    except SceneServiceError as exc:
+        raise scene_service_error_to_http(exc) from exc
+
+    await scene_ws_manager.broadcast(
+        scene_id,
+        {"event": "scene_update", "scene": response.model_dump(mode="json")},
+    )
+    return response
+
+
 @router.patch("/{scene_id}/status", response_model=SceneResponse)
 async def patch_scene_status_route(
     scene_id: str,
@@ -170,6 +192,27 @@ async def patch_scene_route(
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_campaign_master(db, current_user, scene.campaign_id)
     response = await update_scene_display_name(db, scene, payload.display_name)
+    await scene_ws_manager.broadcast(
+        scene_id,
+        {"event": "scene_update", "scene": response.model_dump(mode="json")},
+    )
+    return response
+
+
+@router.delete("/{scene_id}/messages/{message_id}", response_model=SceneResponse)
+async def delete_scene_message_route(
+    scene_id: str,
+    message_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> SceneResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_campaign_master(db, current_user, scene.campaign_id)
+    try:
+        response = await delete_scene_message(db, scene, message_id)
+    except SceneServiceError as exc:
+        raise scene_service_error_to_http(exc) from exc
+
     await scene_ws_manager.broadcast(
         scene_id,
         {"event": "scene_update", "scene": response.model_dump(mode="json")},
