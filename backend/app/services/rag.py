@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.campaign import CampaignMemory, MemoryDocumentType
+from app.models.system_manual import SystemManualMemory
 
 
 async def embed_text(text: str) -> list[float] | None:
@@ -69,6 +70,27 @@ class RagService:
         await db.execute(stmt)
         await db.commit()
 
+    async def search_system_manuals(
+        self,
+        db: AsyncSession,
+        *,
+        game_system: str,
+        query: str,
+        top_k: int = 2,
+    ) -> list[str]:
+        query_embedding = await embed_text(query)
+        if query_embedding is None:
+            return []
+
+        stmt = (
+            select(SystemManualMemory.content)
+            .where(SystemManualMemory.system_id == game_system)
+            .order_by(SystemManualMemory.embedding.cosine_distance(query_embedding))
+            .limit(top_k)
+        )
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
     async def search(
         self,
         db: AsyncSession,
@@ -76,6 +98,9 @@ class RagService:
         campaign_id: str,
         query: str,
         top_k: int = 3,
+        include_system_manuals: bool = False,
+        game_system: str | None = None,
+        manual_top_k: int = 2,
     ) -> list[str]:
         query_embedding = await embed_text(query)
         if query_embedding is None:
@@ -88,7 +113,18 @@ class RagService:
             .limit(top_k)
         )
         result = await db.execute(stmt)
-        return list(result.scalars().all())
+        chunks = list(result.scalars().all())
+
+        if include_system_manuals and game_system:
+            manual_chunks = await self.search_system_manuals(
+                db,
+                game_system=game_system,
+                query=query,
+                top_k=manual_top_k,
+            )
+            chunks.extend(manual_chunks)
+
+        return chunks
 
 
 rag_service = RagService()

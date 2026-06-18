@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     app_debug: bool = True
     database_url: str = "postgresql+asyncpg://rolepbp:rolepbp@localhost:5432/rolepbp"
     upload_dir: str = str(PROJECT_ROOT / "campaign_uploads")
+    system_manuals_dir: str = str(PROJECT_ROOT / "data" / "manuals")
     max_upload_bytes: int = 20 * 1024 * 1024
     openai_api_key: str = ""
     embedding_model: str = "text-embedding-3-small"

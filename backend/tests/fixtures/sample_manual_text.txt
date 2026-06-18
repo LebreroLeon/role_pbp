@@ -1,0 +1,9 @@
+The wizard casts Fireball dealing 8d6 fire damage in a 20-foot radius sphere.
+
+When you cast a spell, you expend a slot of that spell's level or higher.
+
+Strength checks are used when a character attempts to lift, push, pull, or break something.
+
+Dexterity measures agility, reflexes, and balance.
+
+Constitution represents endurance, stamina, and vital force.

@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.campaign import CampaignEntity, Scene
+from app.models.campaign import Campaign, CampaignEntity, Scene
 from app.schemas.entities import EntityType
 from app.schemas.master import MasterAssistRequest, MasterAssistResponse
 from app.services.llm import LLMNotConfiguredError, LLMProviderError, chat_completion, parse_json_object
@@ -130,6 +130,7 @@ def build_sandwich_prompt(
     scene_context: dict[str, Any],
     entities_snapshot: list[dict[str, Any]],
     rag_chunks: list[str],
+    manual_rag_chunks: list[str],
     chat_buffer: list[dict[str, Any]],
     query: str,
 ) -> str:
@@ -145,8 +146,11 @@ def build_sandwich_prompt(
             indent=2,
         ),
         "",
-        "## HISTORICAL CONTEXT (RAG)",
+        "## HISTORICAL CONTEXT (RAG — Campaign)",
         "\n---\n".join(rag_chunks) if rag_chunks else "(No indexed campaign memory yet.)",
+        "",
+        "## SYSTEM RULEBOOKS (RAG — Official Manuals)",
+        "\n---\n".join(manual_rag_chunks) if manual_rag_chunks else "(No indexed system manuals for this game system.)",
         "",
         "## RECENT CHAT (Buffer)",
         json.dumps(chat_buffer, ensure_ascii=False, indent=2),
@@ -197,11 +201,17 @@ async def build_master_assist_response(
     *,
     scene: Scene,
     top_k: int = 3,
+    manual_top_k: int = 2,
 ) -> MasterAssistResponse:
     from app.services.scenes import load_scene_state
 
     state = load_scene_state(scene)
     buffer_size = state.memory_settings.max_chat_buffer_size
+
+    campaign = await db.scalar(select(Campaign).where(Campaign.id == scene.campaign_id))
+    game_system = campaign.game_system if campaign else None
+    if game_system is None:
+        logger.warning("Campaign %s has no game_system; skipping system manual RAG", scene.campaign_id)
 
     rag_chunks = await rag_service.search(
         db,
@@ -209,6 +219,15 @@ async def build_master_assist_response(
         query=payload.query,
         top_k=top_k,
     )
+
+    manual_rag_chunks: list[str] = []
+    if game_system:
+        manual_rag_chunks = await rag_service.search_system_manuals(
+            db,
+            game_system=game_system,
+            query=payload.query,
+            top_k=manual_top_k,
+        )
 
     entities = await fetch_campaign_entities(db, scene.campaign_id)
     entities_snapshot = build_entity_flags_snapshot(
@@ -223,13 +242,15 @@ async def build_master_assist_response(
         scene_context=state.context.model_dump(),
         entities_snapshot=entities_snapshot,
         rag_chunks=rag_chunks,
+        manual_rag_chunks=manual_rag_chunks,
         chat_buffer=chat_buffer,
         query=payload.query,
     )
 
+    all_rag = rag_chunks + manual_rag_chunks
     context_summary = (
-        " | ".join(rag_chunks)
-        if rag_chunks
+        " | ".join(all_rag)
+        if all_rag
         else "No indexed campaign memory yet. Scene chat will populate RAG over time."
     )
     suggestions = _fallback_suggestions(payload.query)

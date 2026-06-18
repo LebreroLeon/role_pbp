@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import settings
 from app.core.database import Base
-from app.models import campaign  # noqa: F401 — register ORM models with metadata
+from app.models import campaign, system_manual  # noqa: F401 — register ORM models with metadata
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

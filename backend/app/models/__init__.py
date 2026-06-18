@@ -8,6 +8,7 @@ from app.models.campaign import (
     MemoryDocumentType,
     Scene,
 )
+from app.models.system_manual import SystemManualMemory, SystemManualSource
 from app.models.user import CampaignMember, User
 
 __all__ = [
@@ -18,5 +19,7 @@ __all__ = [
     "CampaignMember",
     "MemoryDocumentType",
     "Scene",
+    "SystemManualMemory",
+    "SystemManualSource",
     "User",
 ]
