@@ -39,11 +39,47 @@ Respond ONLY with valid JSON (no markdown fences):
 SHADOW_MASTER_NARRATIVE_MODE_APPENDIX = """
 NARRATIVE MODE (mandatory for this query):
 - The MASTER QUERY asks for spoken narration, scene openings, descriptions, atmosphere, or prose the players will read in chat.
-- context_summary: keep as DM-facing analysis (why these options fit the scene).
-- suggestions: each item MUST be copy-paste ready narrator text — vivid, descriptive prose in professional novel tone (first-person narrator or omniscient voice). Write 2-4 sentences per suggestion that the DM publishes directly in the scene chat.
+
+Campaign grounding (mandatory — never write generic disconnected prose):
+- Every narrative suggestion MUST be anchored in the provided context: ABSOLUTE STATE (scene flags, entities, JSONB documents), HISTORICAL CONTEXT (campaign RAG), RECENT CHAT, and closed-scene summaries when present.
+- Do NOT invent plot beats, locations, NPCs, factions, or items that are not supported by that context. Generic sensory atmosphere (weather, silence, tension) is allowed only when it fits the established scene and does not contradict known facts.
+- When context names concrete campaign elements (e.g. Prólogo, bosque, Arturo, a prior ambush, a known location), weave those names and facts into the prose — do not substitute unrelated placeholders.
+- Respect hard entity flags: dead or absent NPCs cannot act physically; present entities and scene objectives should inform what the narration describes.
+
+context_summary (DM-facing):
+- Brief analysis of why these options fit the scene AND which lore/context elements each suggestion draws from (e.g. "Suggestion 1 uses the forest ambush RAG + Arturo's wounded state; Suggestion 2 echoes the Prólogo hook from chat.").
+- If campaign memory is thin, say what is missing; do not fabricate lore to fill gaps.
+
+suggestions:
+- Each item MUST be copy-paste ready narrator text — vivid, descriptive prose in professional novel tone (first-person narrator or omniscient voice). Write 2-4 sentences per suggestion that the DM publishes directly in the scene chat.
+- Ground every suggestion in retrieved campaign/scene context; avoid stock fantasy filler unrelated to this campaign.
 - FORBIDDEN in suggestions: meta or coaching phrasing such as "El maestro podría...", "Podrías narrar...", "Consider describing...", "The GM could...", "You could start by...". No instructions to the DM inside suggestions — only the in-world narration itself.
 - Example BAD suggestion: "El maestro puede comenzar describiendo el silencio del claro."
-- Example GOOD suggestion: "El silencio cae sobre el claro como un sudario húmedo. Desde el centro, un susurro en lengua desconocida raspa la garganta del bosque..."
+- Example GOOD suggestion (when forest + ambush are in context): "El silencio cae sobre el claro como un sudario húmedo. Desde el centro, un susurro en lengua desconocida raspa la garganta del bosque..."
+"""
+
+SHADOW_MASTER_CAMPAIGN_SYSTEM_PROMPT = """You are the Shadow Master campaign memory consultant for the Game Master (DM) of a tabletop RPG campaign.
+
+The MASTER QUERY is about lore, campaign history, what happened before, scene context, NPCs, locations, relationships, or facts grounded in this campaign — NOT game rules from rulebooks.
+
+Priority order:
+1. ABSOLUTE STATE — current entity flags, JSONB documents, and scene context from the database.
+2. HISTORICAL CONTEXT — semantically retrieved campaign memory (RAG).
+3. RECENT CHAT — the live scene message buffer.
+4. SYSTEM RULEBOOKS — ignore unless the query explicitly asks for rules.
+
+Rules:
+- Ground answers in retrieved campaign memory and entity state; do not invent plot details unsupported by context.
+- Do NOT answer with rulebook mechanics, prices, class features, or official manual text unless the query explicitly asks for rules.
+- Do NOT output narrator prose for players unless the MASTER QUERY explicitly asks for narration or scene description to publish.
+- context_summary: synthesis of relevant campaign and scene facts for the DM.
+- suggestions: actionable DM notes — reminders, connections, contradictions to watch, entity facts, follow-up angles. Keep each item concise (1-2 sentences). Do NOT use meta coaching such as "El maestro podría...", "Podrías narrar...", or invented pacing ideas without grounding in provided context.
+- If campaign memory is empty, say clearly what is missing; do not fabricate lore.
+- Never address players directly; this channel is master-only.
+- ALWAYS respond in the same language as the MASTER QUERY. If the query is in Spanish, write context_summary and every suggestion entirely in Spanish.
+
+Respond ONLY with valid JSON (no markdown fences):
+{"context_summary": "<campaign/scene synthesis>", "suggestions": ["<useful fact or follow-up>", "<another detail>"]}
 """
 
 SHADOW_MASTER_RULES_SYSTEM_PROMPT = """You are the Shadow Master rules consultant for the Game Master (DM) of a tabletop RPG campaign.
@@ -89,11 +125,35 @@ RULES_QUERY_PATTERN = re.compile(
 NARRATIVE_QUERY_PATTERN = re.compile(
     r"(?i)\b("
     r"narraci[oó]n|narrativ|narrar|narrador|narrator|"
-    r"empezar|comenzar|iniciar|arrancar|opening|"
+    r"empezar|comenzar|iniciar|arrancar|continuar|seguir|opening|"
+    r"historia|story|"
     r"describ|descripci[oó]n|describe|"
     r"atm[oó]sfera|ambiente|tone|tono|"
+    r"escena\s+actual|current\s+scene|"
     r"tercera\s+escena|third\s+scene|"
-    r"prosa|hook|apertura|introduc"
+    r"prosa|hook|apertura|introduc|"
+    r"m[aá]ndalo|mandalo|"
+    r"escribe\s+como"
+    r")\b"
+)
+
+NARRATOR_PROSE_REQUEST_PATTERN = re.compile(
+    r"(?i)("
+    r"como\s+si\s+fueras\s+(?:el\s+)?(?:m[aá]ster|master|dm|gm|narrador|narrator)|"
+    r"(?:m[aá]ndalo|mandalo|env[ií]alo|escr[ií]belo)\s+(?:como\s+)?"
+    r"(?:si\s+fueras\s+)?(?:el\s+)?(?:m[aá]ster|master|dm|gm|narrador|narrator)?|"
+    r"escribe\s+como\s+(?:el\s+)?(?:m[aá]ster|master|dm|gm|narrador|narrator)|"
+    r"(?:como|as\s+if\s+you\s+(?:were|are))\s+(?:the\s+)?(?:gm|dm|master|narrator)|"
+    r"write\s+(?:it\s+)?as\s+(?:the\s+)?(?:gm|dm|master|narrator)"
+    r")"
+)
+
+CREATIVE_META_PATTERN = re.compile(
+    r"(?i)\b("
+    r"complicaci[oó]n|complication|"
+    r"qu[eé]\s+(?:complicaci[oó]n|idea|twist|giro)|"
+    r"encaja\s+con|what\s+fits|"
+    r"brainstorm|lluvia\s+de\s+ideas"
     r")\b"
 )
 
@@ -144,8 +204,24 @@ def is_rules_query(query: str) -> bool:
     return bool(RULES_QUERY_PATTERN.search(query.strip()))
 
 
+def asks_for_narrator_prose(query: str) -> bool:
+    return bool(NARRATOR_PROSE_REQUEST_PATTERN.search(query.strip()))
+
+
+def is_creative_meta_query(query: str) -> bool:
+    q = query.strip()
+    if not CREATIVE_META_PATTERN.search(q):
+        return False
+    return not asks_for_narrator_prose(q)
+
+
 def is_narrative_query(query: str) -> bool:
-    return bool(NARRATIVE_QUERY_PATTERN.search(query.strip()))
+    q = query.strip()
+    if asks_for_narrator_prose(q):
+        return True
+    if is_creative_meta_query(q):
+        return False
+    return bool(NARRATIVE_QUERY_PATTERN.search(q))
 
 
 def resolve_query_kind(query: str) -> str:
@@ -180,16 +256,25 @@ def apply_language_instruction(system_prompt: str, query: str) -> str:
     )
 
 
-def build_shadow_master_system_prompt(query: str) -> tuple[str, str]:
+def resolve_effective_mode(query: str, mode: str | None = None) -> str:
+    """Return narrative | rules | campaign | creative."""
+    if mode in ("narrative", "rules", "campaign"):
+        return mode
+    return resolve_query_kind(query)
+
+
+def build_shadow_master_system_prompt(query: str, mode: str | None = None) -> tuple[str, str]:
     """Return (system_prompt, query_kind)."""
-    query_kind = resolve_query_kind(query)
-    if query_kind == "rules":
+    effective_mode = resolve_effective_mode(query, mode)
+    if effective_mode == "rules":
         base = SHADOW_MASTER_RULES_SYSTEM_PROMPT
+    elif effective_mode == "campaign":
+        base = SHADOW_MASTER_CAMPAIGN_SYSTEM_PROMPT
     else:
         base = SHADOW_MASTER_SYSTEM_PROMPT
-        if query_kind == "narrative":
+        if effective_mode == "narrative":
             base = f"{base}\n{SHADOW_MASTER_NARRATIVE_MODE_APPENDIX}"
-    return apply_language_instruction(base, query), query_kind
+    return apply_language_instruction(base, query), effective_mode
 
 
 def build_manual_search_query(query: str) -> str:
@@ -301,7 +386,48 @@ def build_sandwich_prompt(
     chat_buffer: list[dict[str, Any]],
     query: str,
     rules_query: bool = False,
+    campaign_query: bool = False,
+    narrative_query: bool = False,
 ) -> str:
+    if campaign_query or narrative_query:
+        manual_label = (
+            "## SYSTEM RULEBOOKS (RAG — Official Manuals) "
+            "[secondary — atmosphere/setting tone only; ignore mechanics unless query asks for rules]"
+            if narrative_query
+            else "## SYSTEM RULEBOOKS (RAG — Official Manuals) "
+            "[secondary — ignore unless query asks for rules]"
+        )
+        query_label = (
+            "## MASTER QUERY (narrative / scene description)"
+            if narrative_query
+            else "## MASTER QUERY (campaign / scene / lore)"
+        )
+        sections = [
+            "## ABSOLUTE STATE (Flags & Entities) [PRIMARY FOR THIS QUERY]",
+            json.dumps(
+                {
+                    "scene_flags": scene_flags,
+                    "scene_context": scene_context,
+                    "entities": entities_snapshot,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "",
+            "## HISTORICAL CONTEXT (RAG — Campaign) [PRIMARY FOR THIS QUERY]",
+            "\n---\n".join(rag_chunks) if rag_chunks else "(No indexed campaign memory yet.)",
+            "",
+            "## RECENT CHAT (Buffer) [PRIMARY FOR THIS QUERY]",
+            json.dumps(chat_buffer, ensure_ascii=False, indent=2),
+            "",
+            manual_label,
+            "\n---\n".join(manual_rag_chunks) if manual_rag_chunks else "(Not prioritized for campaign/scene queries.)",
+            "",
+            query_label,
+            query,
+        ]
+        return "\n".join(sections)
+
     if rules_query:
         sections = [
             "## SYSTEM RULEBOOKS (RAG — Official Manuals) [PRIMARY FOR THIS QUERY]",
@@ -421,10 +547,16 @@ async def build_master_assist_response(
 
     state = load_scene_state(scene)
     buffer_size = state.memory_settings.max_chat_buffer_size
-    rules_query = is_rules_query(payload.query)
-    narrative_query = is_narrative_query(payload.query)
-    query_kind = resolve_query_kind(payload.query)
-    effective_manual_top_k = RULES_MANUAL_TOP_K if rules_query else manual_top_k
+    effective_mode = resolve_effective_mode(payload.query, payload.mode)
+    rules_query = effective_mode == "rules"
+    narrative_query = effective_mode == "narrative"
+    campaign_query = effective_mode == "campaign"
+    query_kind = effective_mode
+    effective_manual_top_k = (
+        RULES_MANUAL_TOP_K
+        if rules_query
+        else (0 if campaign_query or narrative_query else manual_top_k)
+    )
 
     campaign = await db.scalar(select(Campaign).where(Campaign.id == scene.campaign_id))
     game_system = campaign.game_system if campaign else None
@@ -439,7 +571,7 @@ async def build_master_assist_response(
     )
 
     manual_rag_chunks: list[str] = []
-    if game_system:
+    if game_system and effective_manual_top_k > 0:
         manual_search_query = build_manual_search_query(payload.query) if rules_query else payload.query
         manual_rag_chunks = await rag_service.search_system_manuals(
             db,
@@ -465,6 +597,8 @@ async def build_master_assist_response(
         chat_buffer=chat_buffer,
         query=payload.query,
         rules_query=rules_query,
+        campaign_query=campaign_query,
+        narrative_query=narrative_query,
     )
 
     all_rag = rag_chunks + manual_rag_chunks
@@ -478,7 +612,7 @@ async def build_master_assist_response(
         context_summary = "No indexed campaign memory yet. Scene chat will populate RAG over time."
         suggestions = _fallback_suggestions(payload.query, rules_query=rules_query)
 
-    system_prompt, query_kind = build_shadow_master_system_prompt(payload.query)
+    system_prompt, query_kind = build_shadow_master_system_prompt(payload.query, payload.mode)
 
     try:
         raw_response = await chat_completion(

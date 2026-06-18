@@ -15,8 +15,57 @@ from app.services.master import (
     is_narrative_query,
     is_rules_query,
     query_language_is_spanish,
+    resolve_query_kind,
     sanitize_narrative_suggestion,
 )
+
+
+class TestExplicitAssistMode:
+    def test_explicit_narrative_mode_uses_narrative_prompt(self):
+        prompt, query_kind = build_shadow_master_system_prompt(
+            "cuanto vale la armadura?",
+            mode="narrative",
+        )
+        assert query_kind == "narrative"
+        assert "NARRATIVE MODE" in prompt
+        assert "copy-paste ready" in prompt
+
+    def test_explicit_rules_mode_uses_rules_prompt(self):
+        prompt, query_kind = build_shadow_master_system_prompt(
+            "Que complicacion encaja con la escena actual?",
+            mode="rules",
+        )
+        assert query_kind == "rules"
+        assert "rules consultant" in prompt
+        assert "Do NOT answer with scene suggestions" in prompt
+
+    def test_explicit_campaign_mode_uses_campaign_prompt(self):
+        prompt, query_kind = build_shadow_master_system_prompt(
+            "competencias luchador arquero arcano",
+            mode="campaign",
+        )
+        assert query_kind == "campaign"
+        assert "campaign memory consultant" in prompt
+        assert "Do NOT answer with rulebook mechanics" in prompt
+        assert "rules consultant" not in prompt
+
+    def test_campaign_sandwich_prioritizes_state_and_campaign_rag(self):
+        prompt = build_sandwich_prompt(
+            scene_flags={"combat_active": False},
+            scene_context={"objective": "Find the relic"},
+            entities_snapshot=[{"entity_id": "npc-1", "entity_type": "NPC"}],
+            rag_chunks=["The party met the baron last session."],
+            manual_rag_chunks=["Plate armor costs 1500 gp."],
+            chat_buffer=[{"text": "We enter the hall."}],
+            query="Que sabe el baron de la reliquia?",
+            campaign_query=True,
+        )
+        state_index = prompt.index("ABSOLUTE STATE")
+        rag_index = prompt.index("HISTORICAL CONTEXT")
+        manual_index = prompt.index("SYSTEM RULEBOOKS")
+        assert state_index < rag_index < manual_index
+        assert "PRIMARY FOR THIS QUERY" in prompt
+        assert "baron" in prompt
 
 
 class TestRulesQueryDetection:
@@ -41,6 +90,28 @@ class TestRulesQueryDetection:
     def test_detects_equipment_and_market_terms(self):
         assert is_rules_query("precio del equipamiento en la tienda")
         assert is_rules_query("market price for heavy armor")
+
+    def test_scene_complication_stays_creative_not_narrative(self):
+        query = "Que complicacion encaja con la escena actual?"
+        assert not is_narrative_query(query)
+        assert resolve_query_kind(query) == "creative"
+
+    def test_continue_story_is_narrative_not_creative(self):
+        query = "continuar la historia"
+        assert is_narrative_query(query)
+        assert resolve_query_kind(query) == "narrative"
+
+    def test_detects_continue_story_in_current_scene_as_narrative(self):
+        query = (
+            "como podría continuar la historia en la escena actual? "
+            "mandalo como si fueras el master."
+        )
+        assert is_narrative_query(query)
+        assert resolve_query_kind(query) == "narrative"
+
+    def test_narrator_prose_request_forces_narrative(self):
+        assert is_narrative_query("escribe como el narrador la llegada al puerto")
+        assert resolve_query_kind("mandalo como si fueras el master") == "narrative"
 
 
 class TestSpanishQueryDetection:
@@ -88,6 +159,47 @@ class TestNarrativeSuggestions:
         assert "NARRATIVE MODE" in prompt
         assert "copy-paste ready" in prompt
         assert "El maestro podría" in prompt
+
+    def test_narrative_prompt_includes_campaign_grounding_rules(self):
+        prompt, query_kind = build_shadow_master_system_prompt(
+            "Como podria empezar la narracion en la tercera escena?"
+        )
+        assert query_kind == "narrative"
+        assert "Campaign grounding" in prompt
+        assert "ABSOLUTE STATE" in prompt
+        assert "Do NOT invent plot" in prompt
+        assert "which lore/context elements each suggestion draws from" in prompt
+
+    def test_narrative_sandwich_prioritizes_state_and_campaign_rag(self):
+        prompt = build_sandwich_prompt(
+            scene_flags={"combat_active": False},
+            scene_context={"objective": "Reach the forest clearing"},
+            entities_snapshot=[{"entity_id": "npc-arturo", "entity_type": "NPC", "document": {"name": "Arturo"}}],
+            rag_chunks=["Prólogo: the party entered the bosque after Arturo's warning."],
+            manual_rag_chunks=["Plate armor costs 1500 gp."],
+            chat_buffer=[{"text": "Arturo points toward the dark trees."}],
+            query="Como podria empezar la narracion en la tercera escena?",
+            narrative_query=True,
+        )
+        state_index = prompt.index("ABSOLUTE STATE")
+        rag_index = prompt.index("HISTORICAL CONTEXT")
+        chat_index = prompt.index("RECENT CHAT")
+        manual_index = prompt.index("SYSTEM RULEBOOKS")
+        assert state_index < rag_index < chat_index < manual_index
+        assert "PRIMARY FOR THIS QUERY" in prompt
+        assert "Prólogo" in prompt
+        assert "Arturo" in prompt
+        assert "narrative / scene description" in prompt
+        assert "atmosphere/setting tone only" in prompt
+
+    def test_continue_story_prompt_uses_narrative_mode(self):
+        query = (
+            "como podría continuar la historia en la escena actual? "
+            "mandalo como si fueras el master."
+        )
+        prompt, query_kind = build_shadow_master_system_prompt(query)
+        assert query_kind == "narrative"
+        assert "NARRATIVE MODE" in prompt
 
 
 class TestSandwichPrompt:
@@ -331,7 +443,79 @@ async def test_build_master_assist_narrative_query_uses_narrative_prompt_and_san
 
     with (
         patch("app.services.scenes.load_scene_state", return_value=mock_state),
-        patch("app.services.master.rag_service.search", new=AsyncMock(return_value=["Past battle in the forest."])),
+        patch("app.services.master.rag_service.search", new=AsyncMock(return_value=["Past battle in the forest."])) as mock_campaign_search,
+        patch("app.services.master.rag_service.search_system_manuals", new=AsyncMock(return_value=["Manual chunk should not be fetched."])) as mock_manual_search,
+        patch(
+            "app.services.master.chat_completion",
+            new=AsyncMock(return_value=json.dumps(llm_payload, ensure_ascii=False)),
+        ) as mock_chat,
+    ):
+        response = await build_master_assist_response(db, payload, scene=scene)
+
+    mock_campaign_search.assert_awaited_once()
+    mock_manual_search.assert_not_awaited()
+
+    mock_chat.assert_awaited_once()
+    system_message = mock_chat.await_args.args[0][0]["content"]
+    assert "NARRATIVE MODE" in system_message
+    assert "copy-paste ready" in system_message
+    assert "Campaign grounding" in system_message
+    assert "Do NOT invent plot" in system_message
+
+    user_message = mock_chat.await_args.args[0][1]["content"]
+    assert "PRIMARY FOR THIS QUERY" in user_message
+    assert user_message.index("ABSOLUTE STATE") < user_message.index("HISTORICAL CONTEXT")
+    assert user_message.index("HISTORICAL CONTEXT") < user_message.index("SYSTEM RULEBOOKS")
+    assert "forest" in user_message.lower()
+
+    assert response.query_kind == "narrative"
+    assert response.suggestions
+    assert "maestro" not in response.suggestions[0].lower()
+    assert "silencio" in response.suggestions[0].lower()
+    assert "susurro" in response.suggestions[1].lower()
+
+
+@pytest.mark.asyncio
+async def test_build_master_assist_continue_story_query_uses_narrative_prompt():
+    campaign_id = uuid.uuid4()
+    scene_id = uuid.uuid4()
+    campaign = Campaign(id=campaign_id, name="Test", game_system="dnd5e")
+    scene = MagicMock()
+    scene.campaign_id = campaign_id
+    scene.id = scene_id
+
+    query = (
+        "como podría continuar la historia en la escena actual? "
+        "mandalo como si fueras el master."
+    )
+    payload = MasterAssistRequest(
+        campaign_id=str(campaign_id),
+        scene_id=str(scene_id),
+        query=query,
+    )
+
+    db = AsyncMock()
+    db.scalar = AsyncMock(return_value=campaign)
+    db.scalars = AsyncMock(return_value=[])
+
+    mock_state = MagicMock()
+    mock_state.memory_settings.rag_top_k_matches = 3
+    mock_state.memory_settings.max_chat_buffer_size = 20
+    mock_state.state_flags.model_dump.return_value = {}
+    mock_state.context.model_dump.return_value = {}
+    mock_state.chat_buffer = []
+
+    llm_payload = {
+        "context_summary": "La escena puede avanzar con tensión creciente.",
+        "suggestions": [
+            "Las antorchas parpadean mientras el grupo avanza por el pasillo.",
+            "Un crujido lejano interrumpe el silencio y todos se detienen.",
+        ],
+    }
+
+    with (
+        patch("app.services.scenes.load_scene_state", return_value=mock_state),
+        patch("app.services.master.rag_service.search", new=AsyncMock(return_value=["Earlier fight in the hall."])),
         patch("app.services.master.rag_service.search_system_manuals", new=AsyncMock(return_value=[])),
         patch(
             "app.services.master.chat_completion",
@@ -343,10 +527,71 @@ async def test_build_master_assist_narrative_query_uses_narrative_prompt_and_san
     mock_chat.assert_awaited_once()
     system_message = mock_chat.await_args.args[0][0]["content"]
     assert "NARRATIVE MODE" in system_message
-    assert "copy-paste ready" in system_message
 
     assert response.query_kind == "narrative"
+    assert len(response.suggestions) == 2
+
+
+@pytest.mark.asyncio
+async def test_build_master_assist_campaign_mode_uses_campaign_prompt_and_skips_manual_rag():
+    campaign_id = uuid.uuid4()
+    scene_id = uuid.uuid4()
+    campaign = Campaign(id=campaign_id, name="Test", game_system="dnd5e")
+    scene = MagicMock()
+    scene.campaign_id = campaign_id
+    scene.id = scene_id
+
+    query = "Que complicacion encaja con la escena actual?"
+    payload = MasterAssistRequest(
+        campaign_id=str(campaign_id),
+        scene_id=str(scene_id),
+        query=query,
+        mode="campaign",
+    )
+
+    db = AsyncMock()
+    db.scalar = AsyncMock(return_value=campaign)
+    db.scalars = AsyncMock(return_value=[])
+
+    mock_state = MagicMock()
+    mock_state.memory_settings.rag_top_k_matches = 3
+    mock_state.memory_settings.max_chat_buffer_size = 20
+    mock_state.state_flags.model_dump.return_value = {}
+    mock_state.context.model_dump.return_value = {}
+    mock_state.chat_buffer = []
+
+    with (
+        patch("app.services.scenes.load_scene_state", return_value=mock_state),
+        patch(
+            "app.services.master.rag_service.search",
+            new=AsyncMock(return_value=["Earlier ambush in the forest."]),
+        ) as mock_campaign_search,
+        patch(
+            "app.services.master.rag_service.search_system_manuals",
+            new=AsyncMock(return_value=["Manual chunk should not be fetched."]),
+        ) as mock_manual_search,
+        patch(
+            "app.services.master.chat_completion",
+            new=AsyncMock(
+                return_value='{"context_summary": "La escena puede complicarse con el eco del emboscada previa.", '
+                '"suggestions": ["El grupo reconoce el claro del ataque anterior.", '
+                '"Un NPC herido entonces podría reaparecer."]}'
+            ),
+        ) as mock_chat,
+    ):
+        response = await build_master_assist_response(db, payload, scene=scene)
+
+    mock_campaign_search.assert_awaited_once()
+    mock_manual_search.assert_not_awaited()
+
+    mock_chat.assert_awaited_once()
+    system_message = mock_chat.await_args.args[0][0]["content"]
+    assert "campaign memory consultant" in system_message
+    assert "NARRATIVE MODE" not in system_message
+
+    user_message = mock_chat.await_args.args[0][1]["content"]
+    assert "PRIMARY FOR THIS QUERY" in user_message
+    assert "forest" in user_message.lower()
+
+    assert response.query_kind == "campaign"
     assert response.suggestions
-    assert "maestro" not in response.suggestions[0].lower()
-    assert "silencio" in response.suggestions[0].lower()
-    assert "susurro" in response.suggestions[1].lower()

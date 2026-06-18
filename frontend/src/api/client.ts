@@ -13,6 +13,7 @@ import type {
   DocumentType,
   EntityExportBundle,
   EntityType,
+  MasterAssistMode,
   MasterAssistResponse,
   Scene,
 } from "./types";
@@ -162,10 +163,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  masterAssist: (campaignId: string, sceneId: string, query: string) =>
+  masterAssist: (campaignId: string, sceneId: string, query: string, mode?: MasterAssistMode) =>
     http<MasterAssistResponse>("/api/v1/master/assist", {
       method: "POST",
-      body: JSON.stringify({ campaign_id: campaignId, scene_id: sceneId, query }),
+      body: JSON.stringify({
+        campaign_id: campaignId,
+        scene_id: sceneId,
+        query,
+        ...(mode ? { mode } : {}),
+      }),
     }),
   listEntities: (campaignId: string, entityType?: EntityType) => {
     const params = new URLSearchParams({ campaign_id: campaignId });
@@ -233,5 +239,5 @@ export const api = {
     http<import("./types").SystemManualStatusResponse>(`/api/v1/system-manuals/${systemId}/status`),
 };
 
-export type { AuthResponse, Campaign, CampaignDocument, CampaignEntity, CampaignMember, CharacterSheetUpsert, ChatMessage, Dnd5eRollType, DocumentType, EntityExportBundle, EntityType, MasterAssistResponse, MessageType, PcIdentity, PublicProfile, PcStateFlags, Scene, SceneState, SheetRollContext, SheetRollRequest, SheetRollResponse, TypedSystemMechanics } from "./types";
+export type { AuthResponse, Campaign, CampaignDocument, CampaignEntity, CampaignMember, CharacterSheetUpsert, ChatMessage, Dnd5eRollType, DocumentType, EntityExportBundle, EntityType, MasterAssistMode, MasterAssistResponse, MessageType, PcIdentity, PublicProfile, PcStateFlags, Scene, SceneState, SheetRollContext, SheetRollRequest, SheetRollResponse, TypedSystemMechanics } from "./types";
 export type { AuthUser, MemberRole } from "../types/auth";

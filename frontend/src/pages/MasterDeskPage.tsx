@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Send } from "lucide-react";
 
 import { api } from "../api/client";
-import type { MasterAssistResponse } from "../api/types";
+import type { MasterAssistMode, MasterAssistResponse } from "../api/types";
 import { queryKeys } from "../api/queryKeys";
 import { RoleGate } from "../components/auth/RoleGate";
 import { DESK_TAB_ICONS, SECTION_ICONS } from "../components/icons";
@@ -24,6 +24,61 @@ const NARRATOR_SPEAKER = {
 
 type DeskTab = "scene" | "players" | "assist" | "settings";
 
+type ShadowMasterMode = MasterAssistMode;
+
+const SHADOW_MASTER_MODES: {
+  id: ShadowMasterMode;
+  label: string;
+  hint: string;
+  placeholder: string;
+  defaultQuery: string;
+}[] = [
+  {
+    id: "narrative",
+    label: "Narrativa",
+    hint: "Prosa lista para publicar en el chat",
+    placeholder: "Ej. ¿Cómo podría empezar o continuar la narración de la escena?",
+    defaultQuery: "¿Cómo podría continuar la narración en la escena actual?",
+  },
+  {
+    id: "rules",
+    label: "Manual",
+    hint: "Reglas, precios y mecánicas del sistema",
+    placeholder: "Ej. ¿Cuánto vale una armadura de placas? ¿Qué competencias tiene el arquero arcano?",
+    defaultQuery: "¿Cuánto vale en el mercado una armadura pesada completa?",
+  },
+  {
+    id: "campaign",
+    label: "Escena y campaña",
+    hint: "Lore, contexto, entidades y memoria de campaña",
+    placeholder: "Ej. ¿Qué pasó la última vez aquí? ¿Quién conoce a este NPC?",
+    defaultQuery: "¿Qué complicación encaja con la escena actual?",
+  },
+];
+
+const SHADOW_MASTER_MODE_META: Record<
+  ShadowMasterMode | "creative",
+  { summaryTitle: string; suggestionsTitle: string; hint?: string }
+> = {
+  narrative: {
+    summaryTitle: "Análisis",
+    suggestionsTitle: "Sugerencias narrativas",
+    hint: "Texto listo para publicar en el chat. Puedes enviarlo directamente a la escena activa.",
+  },
+  rules: {
+    summaryTitle: "Respuesta",
+    suggestionsTitle: "Detalle",
+  },
+  campaign: {
+    summaryTitle: "Contexto",
+    suggestionsTitle: "Puntos útiles",
+  },
+  creative: {
+    summaryTitle: "Análisis",
+    suggestionsTitle: "Ideas",
+  },
+};
+
 const TABS: { id: DeskTab; label: string; hint: string }[] = [
   { id: "scene", label: "Escena", hint: "Estado y control" },
   { id: "players", label: "Jugadores", hint: "Mesa y invitaciones" },
@@ -36,7 +91,8 @@ export function MasterDeskPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<DeskTab>("scene");
-  const [query, setQuery] = useState("¿Qué complicación encaja con la escena actual?");
+  const [assistMode, setAssistMode] = useState<ShadowMasterMode>("campaign");
+  const [query, setQuery] = useState(SHADOW_MASTER_MODES.find((m) => m.id === "campaign")!.defaultQuery);
   const [response, setResponse] = useState<MasterAssistResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +126,7 @@ export function MasterDeskPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await api.masterAssist(campaignId, openScene.id, query.trim());
+      const result = await api.masterAssist(campaignId, openScene.id, query.trim(), assistMode);
       setResponse(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo consultar al asistente");
@@ -257,41 +313,60 @@ export function MasterDeskPage() {
           {tab === "assist" && (
             <section className="master-tab-panel">
               <p className="muted">
-                Consulta reglas, precios de equipamiento o pide ideas narrativas. Usa el contexto indexado de la campaña
-                y los manuales del sistema.
+                Elige un modo: narrativa para prosa publicable, manual para reglas del sistema, o escena y campaña
+                para lore, contexto y memoria indexada.
               </p>
               {!openScene && (
                 <ErrorBanner message="No hay escena abierta. Inicia o reanuda una escena desde Jugar para usar el Shadow Master." />
               )}
+              <div className="shadow-master-modes" role="group" aria-label="Modo del Shadow Master">
+                {SHADOW_MASTER_MODES.map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    className={`shadow-master-modes__btn ${assistMode === mode.id ? "is-active" : ""}`}
+                    onClick={() => {
+                      setAssistMode(mode.id);
+                      setResponse(null);
+                    }}
+                    title={mode.hint}
+                    disabled={loading}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
               <form className="master-form" onSubmit={handleAssist}>
                 <label className="field-label" htmlFor="shadow-master-query">
-                  Consulta al Shadow Master
+                  Consulta al Shadow Master — {SHADOW_MASTER_MODES.find((m) => m.id === assistMode)?.label}
                 </label>
                 <textarea
                   id="shadow-master-query"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   rows={4}
-                  placeholder="Ej. ¿Cuánto vale una armadura de placas? ¿Qué complicación encaja con la escena?"
+                  placeholder={SHADOW_MASTER_MODES.find((m) => m.id === assistMode)?.placeholder}
                   disabled={loading || !openScene}
                 />
                 <Button type="submit" disabled={loading || !query.trim() || !openScene}>
                   {loading ? "Consultando…" : "Consultar"}
                 </Button>
               </form>
-              {response && (
+              {response && (() => {
+                const kind = response.query_kind ?? assistMode;
+                const meta = SHADOW_MASTER_MODE_META[kind] ?? SHADOW_MASTER_MODE_META.campaign;
+                const isNarrative = kind === "narrative";
+                return (
                 <div className="master-result">
                   <section className="master-result__section">
-                    <h3>{response.query_kind === "rules" ? "Respuesta" : "Análisis"}</h3>
+                    <h3>{meta.summaryTitle}</h3>
                     <p>{response.context_summary}</p>
                   </section>
 
-                  {response.suggestions.length > 0 && response.query_kind === "narrative" && (
+                  {response.suggestions.length > 0 && isNarrative && (
                     <section className="master-result__section master-result__narrative">
-                      <h3>Sugerencias narrativas</h3>
-                      <p className="muted master-result__hint">
-                        Texto listo para publicar en el chat. Puedes enviarlo directamente a la escena activa.
-                      </p>
+                      <h3>{meta.suggestionsTitle}</h3>
+                      {meta.hint && <p className="muted master-result__hint">{meta.hint}</p>}
                       <ul className="master-narrative-suggestions">
                         {response.suggestions.map((suggestion, index) => {
                           const suggestionKey = `${index}:${suggestion.slice(0, 40)}`;
@@ -316,9 +391,9 @@ export function MasterDeskPage() {
                     </section>
                   )}
 
-                  {response.suggestions.length > 0 && response.query_kind !== "narrative" && (
+                  {response.suggestions.length > 0 && !isNarrative && (
                     <section className="master-result__section">
-                      <h3>{response.query_kind === "rules" ? "Detalle" : "Ideas"}</h3>
+                      <h3>{meta.suggestionsTitle}</h3>
                       <ul>
                         {response.suggestions.map((suggestion) => (
                           <li key={suggestion}>{suggestion}</li>
@@ -329,7 +404,8 @@ export function MasterDeskPage() {
 
                   {response.note && <p className="muted">{response.note}</p>}
                 </div>
-              )}
+                );
+              })()}
             </section>
           )}
 

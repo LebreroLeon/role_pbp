@@ -2,7 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-MasterAssistQueryKind = Literal["rules", "narrative", "creative"]
+MasterAssistMode = Literal["narrative", "rules", "campaign"]
+MasterAssistQueryKind = Literal["rules", "narrative", "creative", "campaign"]
 
 
 class MasterAssistRequest(BaseModel):
@@ -10,6 +11,7 @@ class MasterAssistRequest(BaseModel):
     scene_id: str
     query: str = Field(min_length=3, max_length=2000)
     focus_entity_id: str | None = None
+    mode: MasterAssistMode | None = None
 
 
 class MasterAssistResponse(BaseModel):

@@ -455,7 +455,9 @@ export type Scene = {
 
 
 
-export type MasterAssistQueryKind = "rules" | "narrative" | "creative";
+export type MasterAssistMode = "narrative" | "rules" | "campaign";
+
+export type MasterAssistQueryKind = "rules" | "narrative" | "creative" | "campaign";
 
 export type MasterAssistResponse = {
 
