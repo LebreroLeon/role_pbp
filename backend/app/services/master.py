@@ -27,13 +27,23 @@ You receive context in strict priority order:
 
 Rules:
 - Ground suggestions in the provided state; do not contradict hard flags.
-- Offer actionable narrative, encounter, or pacing ideas for the DM only.
-- Never address players directly; this channel is master-only.
-- Keep suggestions concise (1-2 sentences each).
+- context_summary: brief synthesis for the DM — analysis, rationale, or pacing notes (this field may address the DM).
+- suggestions: actionable narrative, encounter, or pacing ideas. Keep each item concise (1-2 sentences) unless NARRATIVE MODE applies.
+- Never address players directly in context_summary; this channel is master-only.
 - ALWAYS respond in the same language as the MASTER QUERY. If the query is in Spanish, write context_summary and every suggestion entirely in Spanish.
 
 Respond ONLY with valid JSON (no markdown fences):
 {"context_summary": "<brief synthesis of relevant state and history>", "suggestions": ["<idea 1>", "<idea 2>", "<idea 3>"]}
+"""
+
+SHADOW_MASTER_NARRATIVE_MODE_APPENDIX = """
+NARRATIVE MODE (mandatory for this query):
+- The MASTER QUERY asks for spoken narration, scene openings, descriptions, atmosphere, or prose the players will read in chat.
+- context_summary: keep as DM-facing analysis (why these options fit the scene).
+- suggestions: each item MUST be copy-paste ready narrator text — vivid, descriptive prose in professional novel tone (first-person narrator or omniscient voice). Write 2-4 sentences per suggestion that the DM publishes directly in the scene chat.
+- FORBIDDEN in suggestions: meta or coaching phrasing such as "El maestro podría...", "Podrías narrar...", "Consider describing...", "The GM could...", "You could start by...". No instructions to the DM inside suggestions — only the in-world narration itself.
+- Example BAD suggestion: "El maestro puede comenzar describiendo el silencio del claro."
+- Example GOOD suggestion: "El silencio cae sobre el claro como un sudario húmedo. Desde el centro, un susurro en lengua desconocida raspa la garganta del bosque..."
 """
 
 SHADOW_MASTER_RULES_SYSTEM_PROMPT = """You are the Shadow Master rules consultant for the Game Master (DM) of a tabletop RPG campaign.
@@ -76,6 +86,30 @@ RULES_QUERY_PATTERN = re.compile(
     r")\b"
 )
 
+NARRATIVE_QUERY_PATTERN = re.compile(
+    r"(?i)\b("
+    r"narraci[oó]n|narrativ|narrar|narrador|narrator|"
+    r"empezar|comenzar|iniciar|arrancar|opening|"
+    r"describ|descripci[oó]n|describe|"
+    r"atm[oó]sfera|ambiente|tone|tono|"
+    r"tercera\s+escena|third\s+scene|"
+    r"prosa|hook|apertura|introduc"
+    r")\b"
+)
+
+NARRATIVE_META_PREFIX = re.compile(
+    r"(?i)^("
+    r"el\s+(?:maestro|master|dm|gm|director)\s+(?:podr[ií]a|puede|deber[ií]a|could|can|might)|"
+    r"podr[ií]as\s+(?:narrar|empezar|comenzar|describir|iniciar)|"
+    r"you\s+could\s+(?:narrate|describe|start|begin|open)|"
+    r"the\s+(?:gm|dm|master)\s+(?:could|can|might)|"
+    r"(?:consider|try)\s+(?:describing|narrating|starting|opening)|"
+    r"comienza\s+describiendo|"
+    r"el\s+narrador\s+podr[ií]a|"
+    r"start\s+by\s+describing"
+    r")[\s,:—\-]*"
+)
+
 SPANISH_QUERY_PATTERN = re.compile(
     r"(?i)([áéíóúñü]|"
     r"\b(cu[aá]nto|qu[eé]|c[oó]mo|d[oó]nde|por\s+qu[eé]|"
@@ -110,6 +144,27 @@ def is_rules_query(query: str) -> bool:
     return bool(RULES_QUERY_PATTERN.search(query.strip()))
 
 
+def is_narrative_query(query: str) -> bool:
+    return bool(NARRATIVE_QUERY_PATTERN.search(query.strip()))
+
+
+def resolve_query_kind(query: str) -> str:
+    if is_rules_query(query):
+        return "rules"
+    if is_narrative_query(query):
+        return "narrative"
+    return "creative"
+
+
+def sanitize_narrative_suggestion(text: str) -> str:
+    cleaned = NARRATIVE_META_PREFIX.sub("", text.strip()).strip()
+    return cleaned or text.strip()
+
+
+def sanitize_narrative_suggestions(suggestions: list[str]) -> list[str]:
+    return [sanitize_narrative_suggestion(item) for item in suggestions if item.strip()]
+
+
 def query_language_is_spanish(query: str) -> bool:
     return bool(SPANISH_QUERY_PATTERN.search(query.strip()))
 
@@ -123,6 +178,18 @@ def apply_language_instruction(system_prompt: str, query: str) -> str:
         "Write context_summary and every suggestion entirely in Spanish. "
         "Do not use English unless quoting an untranslatable proper noun."
     )
+
+
+def build_shadow_master_system_prompt(query: str) -> tuple[str, str]:
+    """Return (system_prompt, query_kind)."""
+    query_kind = resolve_query_kind(query)
+    if query_kind == "rules":
+        base = SHADOW_MASTER_RULES_SYSTEM_PROMPT
+    else:
+        base = SHADOW_MASTER_SYSTEM_PROMPT
+        if query_kind == "narrative":
+            base = f"{base}\n{SHADOW_MASTER_NARRATIVE_MODE_APPENDIX}"
+    return apply_language_instruction(base, query), query_kind
 
 
 def build_manual_search_query(query: str) -> str:
@@ -309,6 +376,7 @@ def _parse_llm_assist_response(
     manual_rag_chunks: list[str],
     query: str,
     rules_query: bool = False,
+    narrative_query: bool = False,
 ) -> tuple[str, list[str]]:
     all_rag = rag_chunks + manual_rag_chunks
     parsed = parse_json_object(raw)
@@ -320,6 +388,8 @@ def _parse_llm_assist_response(
             if isinstance(suggestions_raw, list)
             else []
         )
+        if narrative_query and suggestions:
+            suggestions = sanitize_narrative_suggestions(suggestions)
         if summary and suggestions:
             return summary, suggestions[:5]
         if summary:
@@ -330,7 +400,10 @@ def _parse_llm_assist_response(
 
     lines = [line.strip("-• ").strip() for line in raw.splitlines() if line.strip()]
     if lines:
-        return lines[0], lines[1:4] or _fallback_suggestions(query, rules_query=rules_query)
+        suggestions = lines[1:4] or _fallback_suggestions(query, rules_query=rules_query)
+        if narrative_query:
+            suggestions = sanitize_narrative_suggestions(suggestions)
+        return lines[0], suggestions
 
     fallback_summary = " | ".join(all_rag[:3]) if all_rag else "No indexed campaign memory yet."
     return fallback_summary, _fallback_suggestions(query, rules_query=rules_query)
@@ -349,6 +422,8 @@ async def build_master_assist_response(
     state = load_scene_state(scene)
     buffer_size = state.memory_settings.max_chat_buffer_size
     rules_query = is_rules_query(payload.query)
+    narrative_query = is_narrative_query(payload.query)
+    query_kind = resolve_query_kind(payload.query)
     effective_manual_top_k = RULES_MANUAL_TOP_K if rules_query else manual_top_k
 
     campaign = await db.scalar(select(Campaign).where(Campaign.id == scene.campaign_id))
@@ -403,8 +478,7 @@ async def build_master_assist_response(
         context_summary = "No indexed campaign memory yet. Scene chat will populate RAG over time."
         suggestions = _fallback_suggestions(payload.query, rules_query=rules_query)
 
-    base_system_prompt = SHADOW_MASTER_RULES_SYSTEM_PROMPT if rules_query else SHADOW_MASTER_SYSTEM_PROMPT
-    system_prompt = apply_language_instruction(base_system_prompt, payload.query)
+    system_prompt, query_kind = build_shadow_master_system_prompt(payload.query)
 
     try:
         raw_response = await chat_completion(
@@ -419,12 +493,14 @@ async def build_master_assist_response(
             manual_rag_chunks=manual_rag_chunks,
             query=payload.query,
             rules_query=rules_query,
+            narrative_query=narrative_query,
         )
     except LLMNotConfiguredError as exc:
         return MasterAssistResponse(
             query=payload.query,
             context_summary=context_summary,
             suggestions=suggestions,
+            query_kind=query_kind,
             note=str(exc),
         )
     except LLMProviderError as exc:
@@ -433,6 +509,7 @@ async def build_master_assist_response(
             query=payload.query,
             context_summary=context_summary,
             suggestions=suggestions,
+            query_kind=query_kind,
             note=f"LLM provider error: {exc}",
         )
 
@@ -440,4 +517,5 @@ async def build_master_assist_response(
         query=payload.query,
         context_summary=context_summary,
         suggestions=suggestions,
+        query_kind=query_kind,
     )

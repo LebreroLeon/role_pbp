@@ -1,13 +1,14 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { Send } from "lucide-react";
 
 import { api } from "../api/client";
 import type { MasterAssistResponse } from "../api/types";
 import { queryKeys } from "../api/queryKeys";
 import { RoleGate } from "../components/auth/RoleGate";
 import { DESK_TAB_ICONS, SECTION_ICONS } from "../components/icons";
-import { Button, ButtonLink, ConfirmDialog, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
+import { Button, ButtonLink, ConfirmDialog, ErrorBanner, Panel, PanelHeader, StatusBadge, Toast } from "../components/ui";
 import { CampaignMemberList, CampaignSettingsForm, formatSceneLabel, InviteMemberForm } from "../features/campaign";
 import { getChatBuffer, getSceneObjective } from "../features/scene/sceneState";
 import {
@@ -15,6 +16,11 @@ import {
   useCampaignQuery,
 } from "../hooks/queries/useCampaignQueries";
 import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
+
+const NARRATOR_SPEAKER = {
+  speaker_type: "NARRATOR" as const,
+  speaker_display_name: "Máster / Narrador",
+};
 
 type DeskTab = "scene" | "players" | "assist" | "settings";
 
@@ -39,6 +45,8 @@ export function MasterDeskPage() {
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [displayNameDraft, setDisplayNameDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [sendingSuggestionKey, setSendingSuggestionKey] = useState<string | null>(null);
 
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
@@ -117,6 +125,29 @@ export function MasterDeskPage() {
       setError(err instanceof Error ? err.message : "No se pudo guardar el nombre");
     } finally {
       setSavingName(false);
+    }
+  }
+
+  async function handleSendToScene(text: string, suggestionKey: string) {
+    if (!openScene) {
+      setToastMessage("No hay escena abierta para publicar.");
+      return;
+    }
+    if (openScene.status !== "ACTIVE" && openScene.status !== "PAUSED") {
+      setToastMessage("La escena debe estar activa o pausada para publicar.");
+      return;
+    }
+
+    setSendingSuggestionKey(suggestionKey);
+    try {
+      const updated = await api.postMessage(openScene.id, text, "ACTION", NARRATOR_SPEAKER);
+      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), updated);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
+      setToastMessage("Narración enviada a la escena.");
+    } catch (err) {
+      setToastMessage(err instanceof Error ? err.message : "No se pudo enviar a la escena.");
+    } finally {
+      setSendingSuggestionKey(null);
     }
   }
 
@@ -250,18 +281,52 @@ export function MasterDeskPage() {
               </form>
               {response && (
                 <div className="master-result">
-                  <h3>Respuesta</h3>
-                  <p>{response.context_summary}</p>
-                  {response.suggestions.length > 0 && (
-                    <>
-                      <h3>Detalle</h3>
+                  <section className="master-result__section">
+                    <h3>{response.query_kind === "rules" ? "Respuesta" : "Análisis"}</h3>
+                    <p>{response.context_summary}</p>
+                  </section>
+
+                  {response.suggestions.length > 0 && response.query_kind === "narrative" && (
+                    <section className="master-result__section master-result__narrative">
+                      <h3>Sugerencias narrativas</h3>
+                      <p className="muted master-result__hint">
+                        Texto listo para publicar en el chat. Puedes enviarlo directamente a la escena activa.
+                      </p>
+                      <ul className="master-narrative-suggestions">
+                        {response.suggestions.map((suggestion, index) => {
+                          const suggestionKey = `${index}:${suggestion.slice(0, 40)}`;
+                          const sending = sendingSuggestionKey === suggestionKey;
+                          return (
+                            <li key={suggestionKey} className="master-narrative-suggestion">
+                              <blockquote className="master-narrative-suggestion__text">{suggestion}</blockquote>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                className="master-narrative-suggestion__send"
+                                disabled={!openScene || sending}
+                                onClick={() => handleSendToScene(suggestion, suggestionKey)}
+                              >
+                                <Send size={15} aria-hidden />
+                                {sending ? "Enviando…" : "Enviar a escena"}
+                              </Button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </section>
+                  )}
+
+                  {response.suggestions.length > 0 && response.query_kind !== "narrative" && (
+                    <section className="master-result__section">
+                      <h3>{response.query_kind === "rules" ? "Detalle" : "Ideas"}</h3>
                       <ul>
                         {response.suggestions.map((suggestion) => (
                           <li key={suggestion}>{suggestion}</li>
                         ))}
                       </ul>
-                    </>
+                    </section>
                   )}
+
                   {response.note && <p className="muted">{response.note}</p>}
                 </div>
               )}
@@ -304,6 +369,8 @@ export function MasterDeskPage() {
           confirming={closing}
         />
       )}
+
+      <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
     </RoleGate>
   );
 }

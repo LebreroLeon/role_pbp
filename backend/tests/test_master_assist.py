@@ -1,3 +1,4 @@
+import json
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -9,9 +10,12 @@ from app.services.master import (
     apply_language_instruction,
     build_manual_search_query,
     build_master_assist_response,
+    build_shadow_master_system_prompt,
     build_sandwich_prompt,
+    is_narrative_query,
     is_rules_query,
     query_language_is_spanish,
+    sanitize_narrative_suggestion,
 )
 
 
@@ -24,6 +28,12 @@ class TestRulesQueryDetection:
 
     def test_ignores_narrative_scene_question(self):
         assert not is_rules_query("Que complicacion encaja con la escena actual?")
+
+    def test_detects_narrative_opening_question(self):
+        assert is_narrative_query("Como podria empezar la narracion en la tercera escena?")
+
+    def test_ignores_rules_price_question_for_narrative(self):
+        assert not is_narrative_query("cuanto vale en el mercado una armadura pesada completa?")
 
     def test_detects_spanish_armor_price_question(self):
         assert is_rules_query("cuanto vale en el mercado una armadura pesada completa?")
@@ -61,6 +71,23 @@ class TestManualSearchQuery:
         assert "heavy armor" in expanded.lower()
         assert "price" in expanded.lower()
         assert "official rules manual" in expanded
+
+
+class TestNarrativeSuggestions:
+    def test_sanitize_strips_master_meta_prefix(self):
+        raw = "El maestro podría comenzar describiendo el silencio del claro."
+        cleaned = sanitize_narrative_suggestion(raw)
+        assert "maestro" not in cleaned.lower()
+        assert "silencio" in cleaned.lower()
+
+    def test_narrative_prompt_includes_copy_paste_rules(self):
+        prompt, query_kind = build_shadow_master_system_prompt(
+            "Como podria empezar la narracion en la tercera escena?"
+        )
+        assert query_kind == "narrative"
+        assert "NARRATIVE MODE" in prompt
+        assert "copy-paste ready" in prompt
+        assert "El maestro podría" in prompt
 
 
 class TestSandwichPrompt:
@@ -261,3 +288,65 @@ async def test_build_master_assist_heavy_armor_price_uses_rules_prompt_in_spanis
     assert "1.500" in response.context_summary or "1500" in response.context_summary
     assert response.suggestions
     assert not any("merchant" in s.lower() or "introduce" in s.lower() for s in response.suggestions)
+
+
+@pytest.mark.asyncio
+async def test_build_master_assist_narrative_query_uses_narrative_prompt_and_sanitizes():
+    campaign_id = uuid.uuid4()
+    scene_id = uuid.uuid4()
+    campaign = Campaign(id=campaign_id, name="Test", game_system="dnd5e")
+    scene = MagicMock()
+    scene.campaign_id = campaign_id
+    scene.id = scene_id
+
+    query = "Como podria empezar la narracion en la tercera escena?"
+    payload = MasterAssistRequest(
+        campaign_id=str(campaign_id),
+        scene_id=str(scene_id),
+        query=query,
+    )
+
+    db = AsyncMock()
+    db.scalar = AsyncMock(return_value=campaign)
+    db.scalars = AsyncMock(return_value=[])
+
+    mock_state = MagicMock()
+    mock_state.memory_settings.rag_top_k_matches = 3
+    mock_state.memory_settings.max_chat_buffer_size = 20
+    mock_state.state_flags.model_dump.return_value = {}
+    mock_state.context.model_dump.return_value = {}
+    mock_state.chat_buffer = []
+
+    meta_suggestion = (
+        "El maestro podría comenzar describiendo el silencio del claro como un sudario húmedo."
+    )
+    good_suggestion = (
+        "El silencio cae sobre el claro como un sudario húmedo. "
+        "Desde el centro, un susurro en lengua desconocida raspa la garganta del bosque."
+    )
+    llm_payload = {
+        "context_summary": "La tercera escena puede abrir con tensión ambiental.",
+        "suggestions": [meta_suggestion, good_suggestion],
+    }
+
+    with (
+        patch("app.services.scenes.load_scene_state", return_value=mock_state),
+        patch("app.services.master.rag_service.search", new=AsyncMock(return_value=["Past battle in the forest."])),
+        patch("app.services.master.rag_service.search_system_manuals", new=AsyncMock(return_value=[])),
+        patch(
+            "app.services.master.chat_completion",
+            new=AsyncMock(return_value=json.dumps(llm_payload, ensure_ascii=False)),
+        ) as mock_chat,
+    ):
+        response = await build_master_assist_response(db, payload, scene=scene)
+
+    mock_chat.assert_awaited_once()
+    system_message = mock_chat.await_args.args[0][0]["content"]
+    assert "NARRATIVE MODE" in system_message
+    assert "copy-paste ready" in system_message
+
+    assert response.query_kind == "narrative"
+    assert response.suggestions
+    assert "maestro" not in response.suggestions[0].lower()
+    assert "silencio" in response.suggestions[0].lower()
+    assert "susurro" in response.suggestions[1].lower()

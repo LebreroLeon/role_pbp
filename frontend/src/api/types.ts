@@ -455,6 +455,8 @@ export type Scene = {
 
 
 
+export type MasterAssistQueryKind = "rules" | "narrative" | "creative";
+
 export type MasterAssistResponse = {
 
   query: string;
@@ -462,6 +464,8 @@ export type MasterAssistResponse = {
   context_summary: string;
 
   suggestions: string[];
+
+  query_kind?: MasterAssistQueryKind;
 
   note: string;
 

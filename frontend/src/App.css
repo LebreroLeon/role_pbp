@@ -15,6 +15,48 @@
   margin: 0 0 0.5rem;
 }
 
+.master-result__section + .master-result__section {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.master-result__hint {
+  margin: 0 0 0.85rem;
+  font-size: 0.85rem;
+}
+
+.master-narrative-suggestions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.master-narrative-suggestion {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+}
+
+.master-narrative-suggestion__text {
+  margin: 0;
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.master-narrative-suggestion__send {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .chat-log {
   max-height: 480px;
   overflow-y: auto;

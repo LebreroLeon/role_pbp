@@ -1,4 +1,8 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+MasterAssistQueryKind = Literal["rules", "narrative", "creative"]
 
 
 class MasterAssistRequest(BaseModel):
@@ -12,4 +16,5 @@ class MasterAssistResponse(BaseModel):
     query: str
     context_summary: str
     suggestions: list[str]
+    query_kind: MasterAssistQueryKind = "creative"
     note: str | None = None
