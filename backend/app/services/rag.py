@@ -3,7 +3,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -164,6 +164,36 @@ class RagService:
             )
             indexed += 1
         return indexed
+
+    async def delete_chunks_by_document_id(
+        self,
+        db: AsyncSession,
+        *,
+        campaign_id: str,
+        document_id: str,
+    ) -> int:
+        result = await db.execute(
+            delete(CampaignMemory).where(
+                CampaignMemory.campaign_id == uuid.UUID(campaign_id),
+                CampaignMemory.metadata_["document_id"].astext == document_id,
+            )
+        )
+        await db.commit()
+        return result.rowcount or 0
+
+    async def purge_semantic_cache(
+        self,
+        db: AsyncSession,
+        *,
+        campaign_id: str,
+    ) -> int:
+        result = await db.execute(
+            delete(SemanticCache).where(
+                SemanticCache.campaign_id == uuid.UUID(campaign_id),
+            )
+        )
+        await db.commit()
+        return result.rowcount or 0
 
     async def search_system_manuals(
         self,

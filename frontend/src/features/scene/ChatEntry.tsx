@@ -87,10 +87,13 @@ export function ChatEntry({
   }
 
   if (type === "DICE_ROLL") {
+    const characterName = resolveDiceRollCharacterName(message, members);
+    const playerName = resolvePlayerName(message, members);
     return (
       <DiceRollCard
         message={message}
-        senderName={members[message.sender_id]?.display_name ?? message.sender_id.slice(0, 8)}
+        characterName={characterName}
+        playerName={playerName}
         timestamp={formatChatTimestamp(message.timestamp)}
         isOwn={message.sender_id === currentUserId}
       />
@@ -152,6 +155,16 @@ export function ChatEntry({
       </footer>
     </article>
   );
+}
+
+function resolveDiceRollCharacterName(message: ChatMessage, members: MemberLookup): string {
+  if (message.entity_name?.trim()) return message.entity_name.trim();
+  if (message.speaker_display_name?.trim()) return message.speaker_display_name.trim();
+  const textPrefix = message.text?.split(" — ")[0]?.trim();
+  if (textPrefix) return textPrefix;
+  const sender = members[message.sender_id];
+  if (sender?.role === "MASTER") return FALLBACK_NARRATOR_NAME;
+  return FALLBACK_CHARACTER_NAME;
 }
 
 function buildReadTooltip(readBy: string[], members: MemberLookup): string {

@@ -137,5 +137,10 @@ async def delete_campaign_document(db: AsyncSession, doc: CampaignDocument) -> N
     path = resolve_document_path(doc)
     if path.exists():
         path.unlink()
+    await rag_service.delete_chunks_by_document_id(
+        db,
+        campaign_id=str(doc.campaign_id),
+        document_id=str(doc.id),
+    )
     await db.delete(doc)
     await db.commit()

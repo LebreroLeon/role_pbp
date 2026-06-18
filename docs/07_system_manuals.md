@@ -1,8 +1,8 @@
 # Manuales de sistema (reglas oficiales por juego)
 
-> Diseño arquitectónico — **no implementado**. Objetivo: que Shadow Master, `@asistente` y el consultor de reglas puedan citar reglas oficiales del sistema de la campaña (D&D 5e, VTM V5, Cyberpunk RED, etc.) sin mezclar manuales entre sistemas.
+> **Infra y UI implementadas** (jun 2026): tablas `system_manual_sources` / `system_manual_memory`, volumen Docker `data/manuals`, API `GET /system-manuals/{system_id}/status`, panel `SystemManualsPanel` en biblioteca, script `backend/scripts/index_system_manuals.py`, integración RAG en Shadow Master y `@asistente`. **Pendiente acción manual:** copiar PDFs licenciados a `data/manuals/{system_id}/` y ejecutar el indexador (requiere `OPENAI_API_KEY`).
 
-Detalle de tareas accionables: `PENDING.md` § Manuales de sistema.
+Detalle de tareas restantes: `PENDING.md`.
 
 ---
 

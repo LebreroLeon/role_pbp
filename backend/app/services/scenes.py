@@ -782,6 +782,7 @@ async def close_scene(db: AsyncSession, scene: Scene) -> SceneResponse:
         },
         document_type=MemoryDocumentType.SCENE_SUMMARY,
     )
+    await rag_service.purge_semantic_cache(db, campaign_id=str(scene.campaign_id))
     return scene_to_response(scene)
 
 

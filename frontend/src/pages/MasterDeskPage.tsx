@@ -14,7 +14,7 @@ import {
   useCampaignMembersQuery,
   useCampaignQuery,
 } from "../hooks/queries/useCampaignQueries";
-import { useActiveSceneQuery } from "../hooks/queries/useSceneQueries";
+import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
 
 type DeskTab = "scene" | "players" | "assist" | "settings";
 
@@ -42,11 +42,11 @@ export function MasterDeskPage() {
 
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
-  const { data: activeScene } = useActiveSceneQuery(campaignId);
+  const { data: openScene } = useOpenSceneQuery(campaignId);
 
   useEffect(() => {
-    setDisplayNameDraft(activeScene?.display_name ?? "");
-  }, [activeScene?.id, activeScene?.display_name]);
+    setDisplayNameDraft(openScene?.display_name ?? "");
+  }, [openScene?.id, openScene?.display_name]);
 
   async function invalidateSceneQueries() {
     await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
@@ -55,14 +55,14 @@ export function MasterDeskPage() {
 
   async function handleAssist(event: FormEvent) {
     event.preventDefault();
-    if (!activeScene) {
-      setError("No hay escena activa. Iníciala desde Jugar.");
+    if (!openScene) {
+      setError("No hay escena abierta. Iníciala desde Jugar.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const result = await api.masterAssist(campaignId, activeScene.id, query.trim());
+      const result = await api.masterAssist(campaignId, openScene.id, query.trim());
       setResponse(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo consultar al asistente");
@@ -72,12 +72,12 @@ export function MasterDeskPage() {
   }
 
   async function handleFreeze() {
-    if (!activeScene) return;
+    if (!openScene) return;
     setFreezing(true);
     setError(null);
     try {
-      const next = activeScene.status === "PAUSED" ? "ACTIVE" : "PAUSED";
-      const updated = await api.updateSceneStatus(activeScene.id, next);
+      const next = openScene.status === "PAUSED" ? "ACTIVE" : "PAUSED";
+      const updated = await api.updateSceneStatus(openScene.id, next);
       queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cambiar el estado");
@@ -87,11 +87,11 @@ export function MasterDeskPage() {
   }
 
   async function handleCloseScene() {
-    if (!activeScene) return;
+    if (!openScene) return;
     setClosing(true);
     setError(null);
     try {
-      await api.closeScene(activeScene.id);
+      await api.closeScene(openScene.id);
       queryClient.removeQueries({ queryKey: queryKeys.campaigns.activeScene(campaignId) });
       await invalidateSceneQueries();
       setCloseDialogOpen(false);
@@ -105,12 +105,12 @@ export function MasterDeskPage() {
 
   async function handleSaveDisplayName(event: FormEvent) {
     event.preventDefault();
-    if (!activeScene) return;
+    if (!openScene) return;
     setSavingName(true);
     setError(null);
     try {
       const trimmed = displayNameDraft.trim();
-      const updated = await api.updateSceneDisplayName(activeScene.id, trimmed || null);
+      const updated = await api.updateSceneDisplayName(openScene.id, trimmed || null);
       queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), updated);
       await invalidateSceneQueries();
     } catch (err) {
@@ -154,27 +154,27 @@ export function MasterDeskPage() {
           {tab === "scene" && (
             <section className="master-tab-panel">
               <h3>Escena activa</h3>
-              {activeScene ? (
+              {openScene ? (
                 <>
                   <p className="muted">
-                    <strong>{formatSceneLabel(activeScene)}</strong>
+                    <strong>{formatSceneLabel(openScene)}</strong>
                   </p>
-                  <p className="muted">{getSceneObjective(activeScene.scene_state) ?? "Sin objetivo definido"}</p>
+                  <p className="muted">{getSceneObjective(openScene.scene_state) ?? "Sin objetivo definido"}</p>
                   <div className="status-row">
                     <StatusBadge
                       label="Estado"
                       value={
-                        activeScene.status === "ACTIVE"
+                        openScene.status === "ACTIVE"
                           ? "Activa (abierta)"
-                          : activeScene.status === "PAUSED"
+                          : openScene.status === "PAUSED"
                             ? "Pausada (congelada)"
                             : "Cerrada"
                       }
-                      ok={activeScene.status === "ACTIVE"}
+                      ok={openScene.status === "ACTIVE"}
                     />
                     <StatusBadge
                       label="Mensajes"
-                      value={String(getChatBuffer(activeScene.scene_state).length)}
+                      value={String(getChatBuffer(openScene.scene_state).length)}
                       ok
                     />
                   </div>
@@ -200,7 +200,7 @@ export function MasterDeskPage() {
                       Ir a Jugar
                     </ButtonLink>
                     <Button variant="secondary" onClick={handleFreeze} disabled={freezing}>
-                      {activeScene.status === "PAUSED" ? "Reanudar escena" : "Congelar escena"}
+                      {openScene.status === "PAUSED" ? "Reanudar escena" : "Congelar escena"}
                     </Button>
                     <Button variant="secondary" onClick={() => setCloseDialogOpen(true)} disabled={closing}>
                       Cerrar escena
@@ -229,14 +229,17 @@ export function MasterDeskPage() {
                 Prototipo del Shadow Master: recupera contexto del chat indexado y ofrece ideas. La IA completa llegará
                 en una fase posterior.
               </p>
+              {!openScene && (
+                <ErrorBanner message="No hay escena abierta. Inicia o reanuda una escena desde Jugar para usar el asistente." />
+              )}
               <form className="master-form" onSubmit={handleAssist}>
                 <textarea
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   rows={4}
-                  disabled={loading}
+                  disabled={loading || !openScene}
                 />
-                <Button type="submit" disabled={loading || !query.trim() || !activeScene}>
+                <Button type="submit" disabled={loading || !query.trim() || !openScene}>
                   Pedir sugerencias
                 </Button>
               </form>

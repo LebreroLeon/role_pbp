@@ -121,3 +121,40 @@ async def test_search_returns_content_strings():
     assert len(results) == 2
     assert "tavern" in results[0].lower()
     assert db.execute.await_count >= 1
+
+
+@pytest.mark.asyncio
+async def test_delete_chunks_by_document_id():
+    db = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.rowcount = 3
+    db.execute = AsyncMock(return_value=mock_result)
+    service = RagService()
+    campaign_id = str(uuid.uuid4())
+    document_id = str(uuid.uuid4())
+
+    deleted = await service.delete_chunks_by_document_id(
+        db,
+        campaign_id=campaign_id,
+        document_id=document_id,
+    )
+
+    assert deleted == 3
+    db.execute.assert_awaited_once()
+    db.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_purge_semantic_cache():
+    db = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.rowcount = 5
+    db.execute = AsyncMock(return_value=mock_result)
+    service = RagService()
+    campaign_id = str(uuid.uuid4())
+
+    purged = await service.purge_semantic_cache(db, campaign_id=campaign_id)
+
+    assert purged == 5
+    db.execute.assert_awaited_once()
+    db.commit.assert_awaited_once()

@@ -68,6 +68,10 @@
   border-left-color: var(--accent-violet);
 }
 
+.chat-card--dice {
+  border-left-color: var(--accent-sky);
+}
+
 .chat-card--master.chat-card--master {
   border-left-color: var(--accent-teal);
 }
@@ -169,6 +173,10 @@
   color: var(--accent-teal);
 }
 
+.chat-card__type--dice {
+  color: var(--accent-sky);
+}
+
 .chat-card__time {
   font-size: 0.75rem;
   opacity: 0.55;
@@ -205,6 +213,14 @@
 }
 
 /* —— Dice roll card —— */
+.dice-roll-card .dice-card__stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.35rem 0 0.25rem;
+}
+
 .dice-card {
   border-radius: var(--radius-md);
   padding: 1rem;
@@ -1809,6 +1825,15 @@
   border-radius: var(--radius-sm);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
+}
+
+.member-list--manageable .member-card {
+  grid-template-columns: auto 1fr auto auto;
+}
+
+.member-card__remove {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .member-card__avatar {

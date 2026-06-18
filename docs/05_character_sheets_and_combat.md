@@ -1,7 +1,6 @@
 # Fichas de personaje y combate automatizado
 
-> Diseño arquitectónico para RolePBP. **No implementado** — referencia para fases posteriores.  
-> Estado base del código (jun 2026): `game_system` en campaña es metadata; fichas PC/NPC usan `system_mechanics` genérico; dados = parser `NdS+M` sin reglas; escena sin combate ni iniciativa mecánica.
+> Diseño arquitectónico para RolePBP. **Implementado en el código** (jun 2026): perfiles D&D 5e, Cyberpunk RED y VTM V5; fichas en `/ficha` y `/fichas`; combate con iniciativa y ataque; PBP con turnos. Este doc sigue siendo referencia de arquitectura; la sección 2 resume brechas menores pendientes.
 
 ---
 
@@ -21,32 +20,31 @@
 
 ---
 
-## 2. Estado actual (brechas)
+## 2. Estado actual (brechas menores)
 
-### Backend
+### Hecho
 
-| Componente | Estado |
+| Área | Estado |
 |---|---|
-| `campaigns.game_system` | String libre; no enlaza reglas. |
-| `entity_pc_schema.json` | `system_mechanics.stats_summary` = mapa clave-valor; sin campos mecánicos tipados. |
-| `dice.py` | Solo `NdS±M`; sin pools, sin éxito/fracaso, sin ventaja. |
-| `scenes.py` | `turn_order` = IDs de **usuario**, no entidades; sin validación de turno; sin combate. |
-| `scene_state_schema.json` | `conflict_mode_active` existe pero no se usa en código. |
-| Chat WS/REST | Solo `message` y `dice`; sin parser de comandos. |
+| `backend/app/rules/` | Plugins `dnd5e`, `cyberpunk_red`, `vtm_v5` + `GenericFallbackPlugin` |
+| Fichas UI | `CharacterSheetPage`, `CampaignSheetsPage`, formularios por sistema |
+| Combate | `POST .../combat/initiative`, `.../combat/attack`; paneles en `ChatPage` |
+| PBP | `pbp_enabled`, avance de turno, enforcement en backend |
+| Tiradas enriquecidas | `DICE_ROLL` con `entity_id`, `roll_type`, `roll_details` |
 
-### Frontend
+### Pendiente menor
 
-| Componente | Estado |
+| Componente | Brecha |
 |---|---|
-| `gameSystems.ts` | Catálogo estático; comentario explícito: "futuro perfiles por sistema". |
-| `CreateEntityForm` | PC mínimo (nombre, concepto, descripción); `system_name: "agnóstico"`. |
-| `CampaignLayout` | Jugador: Inicio, Jugar, Mundo — **sin panel de ficha**. |
-| `DiceRoller` | Expresión manual; sin vínculo a ficha ni habilidad. |
-| `ChatComposer` | Sin autocompletado `@`, sin slash commands. |
+| `ChatComposer` | Sin autocompletado `@` ni slash commands (`/attack`, `@npc ataca @pc`) |
+| `DiceRoller` | Expresión manual; sin selector de habilidad desde ficha |
+| WS combate | Paridad REST en acción `roll` / combate vía WebSocket |
+| Formularios mundo | Creación de `FACTION`, `RELATIONSHIP`, `ARC_MANIFEST` limitada |
+| Pulido | Tests E2E combate; bloqueo cambio `game_system` si hay fichas |
 
 ### Dependencias previas (ver `PENDING.md`)
 
-Antes de combate completo conviene alinear `SceneState` con el schema canónico anidado y exponer `active_npc_ids` / `location_id` en API y UI.
+`SceneState` anidado, `active_npc_ids`, cierre de escena y RAG pgvector ya están alineados. Prioridad restante: comandos de chat y pulido UX.
 
 ---
 
