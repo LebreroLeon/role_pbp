@@ -21,7 +21,7 @@ type DeskTab = "scene" | "players" | "assist" | "settings";
 const TABS: { id: DeskTab; label: string; hint: string }[] = [
   { id: "scene", label: "Escena", hint: "Estado y control" },
   { id: "players", label: "Jugadores", hint: "Mesa y invitaciones" },
-  { id: "assist", label: "Asistente", hint: "Sugerencias (prototipo)" },
+  { id: "assist", label: "Shadow Master", hint: "Reglas, precios e ideas narrativas" },
   { id: "settings", label: "Campaña", hint: "Datos generales" },
 ];
 
@@ -226,34 +226,43 @@ export function MasterDeskPage() {
           {tab === "assist" && (
             <section className="master-tab-panel">
               <p className="muted">
-                Prototipo del Shadow Master: recupera contexto del chat indexado y ofrece ideas. La IA completa llegará
-                en una fase posterior.
+                Consulta reglas, precios de equipamiento o pide ideas narrativas. Usa el contexto indexado de la campaña
+                y los manuales del sistema.
               </p>
               {!openScene && (
-                <ErrorBanner message="No hay escena abierta. Inicia o reanuda una escena desde Jugar para usar el asistente." />
+                <ErrorBanner message="No hay escena abierta. Inicia o reanuda una escena desde Jugar para usar el Shadow Master." />
               )}
               <form className="master-form" onSubmit={handleAssist}>
+                <label className="field-label" htmlFor="shadow-master-query">
+                  Consulta al Shadow Master
+                </label>
                 <textarea
+                  id="shadow-master-query"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   rows={4}
+                  placeholder="Ej. ¿Cuánto vale una armadura de placas? ¿Qué complicación encaja con la escena?"
                   disabled={loading || !openScene}
                 />
                 <Button type="submit" disabled={loading || !query.trim() || !openScene}>
-                  Pedir sugerencias
+                  {loading ? "Consultando…" : "Consultar"}
                 </Button>
               </form>
               {response && (
                 <div className="master-result">
-                  <h3>Contexto recuperado</h3>
+                  <h3>Respuesta</h3>
                   <p>{response.context_summary}</p>
-                  <h3>Sugerencias</h3>
-                  <ul>
-                    {response.suggestions.map((suggestion) => (
-                      <li key={suggestion}>{suggestion}</li>
-                    ))}
-                  </ul>
-                  <p className="muted">{response.note}</p>
+                  {response.suggestions.length > 0 && (
+                    <>
+                      <h3>Detalle</h3>
+                      <ul>
+                        {response.suggestions.map((suggestion) => (
+                          <li key={suggestion}>{suggestion}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  {response.note && <p className="muted">{response.note}</p>}
                 </div>
               )}
             </section>

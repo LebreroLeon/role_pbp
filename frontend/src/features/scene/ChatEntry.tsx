@@ -2,7 +2,8 @@ import type { CampaignEntity, CampaignMember, ChatMessage } from "../../api/type
 import { CombatEntry } from "../combat/CombatEntry";
 import { shouldRenderCombatEntry } from "../combat/combatMessage";
 import type { SceneStateInput } from "./sceneState";
-import { Eye, Trash2 } from "../../components/icons";
+import { Eye } from "../../components/icons";
+import { ChatMessageDeleteButton } from "./ChatMessageDeleteButton";
 import {
   formatChatTimestamp,
   getInitials,
@@ -80,6 +81,7 @@ export function ChatEntry({
         members={members}
         currentUserId={currentUserId}
         isMaster={isMaster}
+        onDelete={onDelete}
         entities={entities}
         sceneState={sceneState}
       />
@@ -96,6 +98,8 @@ export function ChatEntry({
         playerName={playerName}
         timestamp={formatChatTimestamp(message.timestamp)}
         isOwn={message.sender_id === currentUserId}
+        isMaster={isMaster}
+        onDelete={onDelete}
       />
     );
   }
@@ -111,7 +115,6 @@ export function ChatEntry({
 
   function handleDeleteClick() {
     if (!message.id || !onDelete) return;
-    if (!window.confirm("¿Deseas borrar este mensaje?")) return;
     onDelete(message.id);
   }
 
@@ -131,15 +134,7 @@ export function ChatEntry({
         </div>
         <div className="chat-card__meta">
           {isMaster && message.id && onDelete && (
-            <button
-              type="button"
-              className="chat-card__delete"
-              onClick={handleDeleteClick}
-              aria-label="Borrar mensaje"
-              title="Borrar mensaje"
-            >
-              <Trash2 size={14} aria-hidden />
-            </button>
+            <ChatMessageDeleteButton onClick={handleDeleteClick} />
           )}
           <span className="chat-card__player">{playerName}</span>
           <time className="chat-card__time">{formatChatTimestamp(message.timestamp)}</time>

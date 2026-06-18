@@ -5,20 +5,20 @@ import { Panel, PanelHeader, StatusBadge } from "../components/ui";
 import { CampaignMemberList, CampaignSceneLog, formatSceneLabel, InviteMemberForm } from "../features/campaign";
 import { gameSystemLabel } from "../features/campaign/gameSystems";
 import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
-import { useActiveSceneQuery } from "../hooks/queries/useSceneQueries";
+import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
 
 export function CampaignHubPage() {
   const { campaignId = "" } = useParams();
   const base = `/campaigns/${campaignId}`;
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
-  const { data: activeScene } = useActiveSceneQuery(campaignId);
+  const { data: openScene } = useOpenSceneQuery(campaignId);
 
   if (!campaign) return null;
 
   const isMaster = campaign.role === "MASTER";
   const players = members.filter((m) => m.role === "PLAYER");
-  const closedScenesHint = activeScene ? formatSceneLabel(activeScene) : null;
+  const closedScenesHint = openScene ? formatSceneLabel(openScene) : null;
 
   return (
     <div className="campaign-hub">
@@ -29,42 +29,42 @@ export function CampaignHubPage() {
           <StatusBadge
             label="Escena"
             value={
-              activeScene
-                ? activeScene.display_name
-                  ? `#${activeScene.scene_number} · ${activeScene.display_name}`
-                  : `#${activeScene.scene_number}`
+              openScene
+                ? openScene.display_name
+                  ? `#${openScene.scene_number} · ${openScene.display_name}`
+                  : `#${openScene.scene_number}`
                 : "sin iniciar"
             }
-            ok={activeScene?.status === "ACTIVE"}
+            ok={openScene?.status === "ACTIVE"}
           />
-          {activeScene && (
+          {openScene && (
             <StatusBadge
               label="Estado"
-              value={activeScene.status === "ACTIVE" ? "Activa (abierta)" : activeScene.status === "PAUSED" ? "Pausada (congelada)" : "Cerrada"}
-              ok={activeScene.status === "ACTIVE"}
+              value={openScene.status === "ACTIVE" ? "Activa (abierta)" : openScene.status === "PAUSED" ? "Pausada (congelada)" : "Cerrada"}
+              ok={openScene.status === "ACTIVE"}
             />
           )}
           <StatusBadge label="Jugadores" value={String(players.length)} ok={players.length > 0} />
         </div>
-        {!activeScene && (
+        {!openScene && (
           <p className="muted hub-hint">
             {isMaster ? (
               <>
                 Aún no hay escena activa. Ve a <Link to={`${base}/chat`}>Jugar</Link> para iniciarla.
               </>
             ) : (
-              "El Máster aún no ha iniciado la escena. Cuando lo haga, aparecerá aquí."
+              "Esperando al Máster. El Máster debe iniciar la siguiente escena antes de que puedas entrar al chat."
             )}
           </p>
         )}
-        {activeScene && closedScenesHint && (
+        {openScene && closedScenesHint && (
           <p className="muted hub-hint">
             Escena en curso: <strong>{closedScenesHint}</strong>
             {" · "}
             <Link to={`${base}/chat`}>Ir a Jugar</Link>
           </p>
         )}
-        <CampaignSceneLog campaignId={campaignId} activeSceneId={activeScene?.id} isMaster={isMaster} />
+        <CampaignSceneLog campaignId={campaignId} activeSceneId={openScene?.id} isMaster={isMaster} />
       </Panel>
 
       <Panel>

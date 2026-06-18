@@ -1,6 +1,7 @@
 // Use this for all overlays — don't create one-off modals
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import "./Modal.css";
 
@@ -108,10 +109,17 @@ export function Modal({
     if (closeOnBackdropClick) onClose();
   }
 
-  const panelClassName = ["ui-modal-panel", `ui-modal-panel--${size}`, className].filter(Boolean).join(" ");
+  const panelClassName = [
+    "ui-modal-panel",
+    "ui-modal__panel",
+    `ui-modal-panel--${size}`,
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
   const bodyClasses = ["ui-modal__body", bodyClassName].filter(Boolean).join(" ");
 
-  return (
+  return createPortal(
     <div
       className={["ui-modal-backdrop", blurBackdrop ? "ui-modal-backdrop--blur" : ""].filter(Boolean).join(" ")}
       role="presentation"
@@ -139,6 +147,7 @@ export function Modal({
         <div className={bodyClasses}>{children}</div>
         {footer && <footer className="ui-modal__footer">{footer}</footer>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

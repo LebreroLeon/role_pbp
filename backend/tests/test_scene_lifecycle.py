@@ -188,6 +188,50 @@ class TestDeleteSceneMessage:
         assert buffer_ids == ["keep-me"]
         assert len(response.scene_state.chat_buffer) == 1
 
+    def test_delete_scene_message_removes_dice_roll(self):
+        scene = _make_scene()
+        scene.scene_state["chat_buffer"] = [
+            {
+                "id": "dice-roll",
+                "timestamp": "t1",
+                "sender_id": "u1",
+                "type": "DICE_ROLL",
+                "text": "Gandalf — 1d20 = 15",
+                "read_by": ["u1"],
+                "dice_expression": "1d20",
+                "final_result": 15,
+            },
+        ]
+        db = AsyncMock()
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock(side_effect=lambda obj: obj)
+
+        response = asyncio.run(delete_scene_message(db, scene, "dice-roll"))
+
+        assert scene.scene_state["chat_buffer"] == []
+        assert len(response.scene_state.chat_buffer) == 0
+
+    def test_delete_scene_message_removes_combat(self):
+        scene = _make_scene()
+        scene.scene_state["chat_buffer"] = [
+            {
+                "id": "combat-msg",
+                "timestamp": "t1",
+                "sender_id": "u1",
+                "type": "COMBAT",
+                "text": "Ataque resuelto",
+                "read_by": ["u1"],
+            },
+        ]
+        db = AsyncMock()
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock(side_effect=lambda obj: obj)
+
+        response = asyncio.run(delete_scene_message(db, scene, "combat-msg"))
+
+        assert scene.scene_state["chat_buffer"] == []
+        assert len(response.scene_state.chat_buffer) == 0
+
     def test_delete_scene_message_not_found(self):
         scene = _make_scene()
         db = AsyncMock()

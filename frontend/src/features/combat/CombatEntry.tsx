@@ -1,5 +1,6 @@
 import type { CampaignEntity, ChatMessage } from "../../api/types";
 import type { MemberLookup } from "../scene/ChatEntry";
+import { ChatMessageDeleteButton } from "../scene/ChatMessageDeleteButton";
 import { getInitials, formatChatTimestamp } from "../scene/messageTypes";
 import type { SceneStateInput } from "../scene/sceneState";
 import {
@@ -17,6 +18,7 @@ type CombatEntryProps = {
   members: MemberLookup;
   currentUserId: string;
   isMaster?: boolean;
+  onDelete?: (messageId: string) => void;
   entities?: CampaignEntity[];
   sceneState?: SceneStateInput | null;
 };
@@ -26,6 +28,7 @@ export function CombatEntry({
   members,
   currentUserId,
   isMaster = false,
+  onDelete,
   entities,
   sceneState,
 }: CombatEntryProps) {
@@ -34,6 +37,16 @@ export function CombatEntry({
   const playerName = members[message.sender_id]?.display_name ?? "Desconocido";
   const timestamp = formatChatTimestamp(message.timestamp);
   const summary = message.chat_summary ?? message.text;
+
+  function handleDeleteClick() {
+    if (!message.id || !onDelete) return;
+    onDelete(message.id);
+  }
+
+  const deleteButton =
+    isMaster && message.id && onDelete ? (
+      <ChatMessageDeleteButton onClick={handleDeleteClick} />
+    ) : null;
 
   const speakerEntityId = event ? resolveCombatSpeakerEntityId(event) : message.entity_id;
   const storedSpeakerName =
@@ -70,6 +83,7 @@ export function CombatEntry({
             </div>
           </div>
           <div className="chat-card__meta">
+            {deleteButton}
             <span className="chat-card__player">{playerName}</span>
             <time className="chat-card__time">{timestamp}</time>
           </div>
@@ -115,6 +129,7 @@ export function CombatEntry({
           </div>
         </div>
         <div className="chat-card__meta">
+          {deleteButton}
           <span className="chat-card__player">{playerName}</span>
           <time className="chat-card__time">{timestamp}</time>
         </div>

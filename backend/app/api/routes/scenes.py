@@ -8,6 +8,7 @@ from app.api.deps import (
     parse_uuid,
     require_campaign_master,
     require_campaign_member,
+    require_player_open_scene,
     scene_service_error_to_http,
 )
 from app.core.database import get_db
@@ -64,7 +65,7 @@ async def create_scene_route(
     db: AsyncSession = Depends(get_db),
 ) -> SceneResponse:
     campaign_id = parse_uuid(payload.campaign_id, "campaign_id")
-    await require_campaign_member(db, current_user, campaign_id)
+    await require_campaign_master(db, current_user, campaign_id)
 
     try:
         response = await create_scene(db, campaign_id, payload, current_user.id)
@@ -84,6 +85,7 @@ async def get_scene_route(
     db: AsyncSession = Depends(get_db),
 ) -> SceneResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_player_open_scene(db, current_user, scene)
     if scene.status == "ACTIVE":
         await ensure_player_pc_present_in_scene(db, scene, current_user.id)
     return scene_to_response(scene)
@@ -97,6 +99,7 @@ async def post_message_route(
     db: AsyncSession = Depends(get_db),
 ) -> SceneResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_player_open_scene(db, current_user, scene)
     role = await require_campaign_member(db, current_user, scene.campaign_id)
     try:
         response = await post_message(db, scene, str(current_user.id), payload, sender_role=role)
@@ -118,6 +121,8 @@ async def roll_scene_dice_route(
     db: AsyncSession = Depends(get_db),
 ) -> SceneResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_player_open_scene(db, current_user, scene)
+    role = await require_campaign_member(db, current_user, scene.campaign_id)
     try:
         response = await roll_scene_dice(db, scene, str(current_user.id), payload, sender_role=role)
     except SceneServiceError as exc:
@@ -138,6 +143,7 @@ async def mark_read_route(
     db: AsyncSession = Depends(get_db),
 ) -> SceneResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_player_open_scene(db, current_user, scene)
     response = await mark_messages_read(
         db,
         scene,
@@ -336,6 +342,7 @@ async def lore_assist_route(
     db: AsyncSession = Depends(get_db),
 ) -> LoreAssistResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_player_open_scene(db, current_user, scene)
     try:
         return await build_player_lore_response(db, scene, current_user.id, payload)
     except SceneServiceError as exc:
@@ -431,6 +438,7 @@ async def combat_attack_route(
     db: AsyncSession = Depends(get_db),
 ) -> SceneResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_player_open_scene(db, current_user, scene)
     role = await require_campaign_member(db, current_user, scene.campaign_id)
 
     try:

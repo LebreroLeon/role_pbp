@@ -3,7 +3,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../api/client";
-import { ApiError } from "../api/http";
 import { queryKeys } from "../api/queryKeys";
 import type { MessageType, Scene } from "../api/types";
 import { SECTION_ICONS } from "../components/icons";
@@ -33,7 +32,7 @@ import {
 import { InitiativeOrderPanel, SceneRosterPanel } from "../features/combat";
 import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
 import { useEntitiesQuery } from "../hooks/queries/useEntityQueries";
-import { useActiveSceneQuery } from "../hooks/queries/useSceneQueries";
+import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
 import { useSceneWebSocket } from "../hooks/useSceneWebSocket";
 import { useAuthStore } from "../stores/authStore";
 
@@ -47,7 +46,7 @@ export function ChatPage() {
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
   const { data: entities = [] } = useEntitiesQuery(campaignId);
-  const { data: activeScene, isLoading, isError, error, refetch } = useActiveSceneQuery(campaignId);
+  const { data: openScene, isLoading: sceneLoading, refetch } = useOpenSceneQuery(campaignId);
 
   const [scene, setScene] = useState<Scene | null>(null);
   const [message, setMessage] = useState("");
@@ -61,10 +60,13 @@ export function ChatPage() {
   const [closing, setClosing] = useState(false);
   const [freezeDialogOpen, setFreezeDialogOpen] = useState(false);
   const [freezing, setFreezing] = useState(false);
+  const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
+  const [deletingMessage, setDeletingMessage] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const currentScene = scene ?? activeScene ?? null;
+  const currentScene = scene ?? openScene ?? null;
   const isMaster = campaign?.role === "MASTER";
+  const noOpenScene = !sceneLoading && !openScene;
 
   const memberLookup = useMemo<MemberLookup>(() => {
     const lookup: MemberLookup = {};
@@ -129,8 +131,6 @@ export function ChatPage() {
       api.markSceneRead(currentScene.id).then(handleSceneUpdate).catch(() => undefined);
     }
   }, [currentScene, currentUserId, markRead, handleSceneUpdate]);
-
-  const noActiveScene = !isLoading && isError && error instanceof ApiError && error.status === 404;
 
   async function handleStart() {
     setLoading(true);
@@ -218,15 +218,23 @@ export function ChatPage() {
     }
   }
 
-  async function handleDeleteMessage(messageId: string) {
-    if (!currentScene || !isMaster) return;
+  function requestDeleteMessage(messageId: string) {
+    setDeleteMessageId(messageId);
+  }
 
+  async function confirmDeleteMessage() {
+    if (!currentScene || !deleteMessageId || !isMaster) return;
+
+    setDeletingMessage(true);
     setErrorMessage(null);
     try {
-      const updated = await api.deleteSceneMessage(currentScene.id, messageId);
+      const updated = await api.deleteSceneMessage(currentScene.id, deleteMessageId);
       handleSceneUpdate(updated);
+      setDeleteMessageId(null);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "No se pudo borrar el mensaje");
+    } finally {
+      setDeletingMessage(false);
     }
   }
 
@@ -334,26 +342,26 @@ export function ChatPage() {
 
         {errorMessage && <ErrorBanner message={errorMessage} />}
 
-        {isLoading && <p className="muted">Cargando escena...</p>}
+        {sceneLoading && <p className="muted">Cargando escena...</p>}
 
-        {noActiveScene ? (
+        {noOpenScene && !isMaster ? (
           <div className="chat-start">
-            {isMaster && (
-              <label className="field-label" htmlFor="new-scene-name">
-                Nombre de la escena
-              </label>
-            )}
-            {isMaster && (
-              <input
-                id="new-scene-name"
-                type="text"
-                value={newSceneName}
-                onChange={(event) => setNewSceneName(event.target.value)}
-                placeholder='Ej. "La taberna del Grifo"'
-                maxLength={200}
-                disabled={loading}
-              />
-            )}
+            <p className="muted">Esperando al Máster. Cuando inicie la siguiente escena podrás entrar al chat.</p>
+          </div>
+        ) : noOpenScene && isMaster ? (
+          <div className="chat-start">
+            <label className="field-label" htmlFor="new-scene-name">
+              Nombre de la escena
+            </label>
+            <input
+              id="new-scene-name"
+              type="text"
+              value={newSceneName}
+              onChange={(event) => setNewSceneName(event.target.value)}
+              placeholder='Ej. "La taberna del Grifo"'
+              maxLength={200}
+              disabled={loading}
+            />
             <div className="actions">
               <Button onClick={handleStart} disabled={loading}>
                 Iniciar escena
@@ -371,7 +379,7 @@ export function ChatPage() {
               emptyMessage="Aún no hay mensajes en la escena."
               onVisible={handleMarkRead}
               isMaster={Boolean(isMaster)}
-              onDeleteMessage={isMaster ? handleDeleteMessage : undefined}
+              onDeleteMessage={isMaster ? requestDeleteMessage : undefined}
               entities={entities}
               sceneState={currentScene.scene_state}
             />
@@ -408,16 +416,25 @@ export function ChatPage() {
               <p className="muted chat-paused">La escena está congelada por el Máster.</p>
             )}
           </>
-        ) : isError ? (
-          <ErrorBanner message={error instanceof Error ? error.message : "No se pudo cargar la escena"} />
         ) : null}
 
-        {!isLoading && !noActiveScene && !currentScene && (
+        {!sceneLoading && !noOpenScene && !currentScene && (
           <Button onClick={() => refetch()} disabled={loading}>
             Reintentar carga
           </Button>
         )}
       </Panel>
+
+      {deleteMessageId && (
+        <ConfirmDialog
+          title="Eliminar mensaje"
+          description="¿Seguro que quieres eliminar esto del registro?"
+          confirmLabel="Eliminar"
+          onConfirm={confirmDeleteMessage}
+          onCancel={() => setDeleteMessageId(null)}
+          confirming={deletingMessage}
+        />
+      )}
 
       {freezeDialogOpen && (
         <ConfirmDialog

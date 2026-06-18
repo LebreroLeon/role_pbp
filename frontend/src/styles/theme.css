@@ -644,6 +644,12 @@ select {
   text-overflow: ellipsis;
 }
 
+.campaign-nav__link--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* —— Hub nav cards —— */
 .nav-card-grid {
   display: grid;

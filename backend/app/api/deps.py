@@ -60,6 +60,27 @@ async def require_campaign_master(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Master role required")
 
 
+PLAYER_NO_ACTIVE_SCENE_DETAIL = (
+    "No active scene. Wait for the Master to start the next scene."
+)
+
+
+async def require_player_open_scene(
+    db: AsyncSession,
+    user: User,
+    scene: Scene,
+) -> None:
+    """Players may only access ACTIVE or PAUSED scenes; CLOSED scenes are master-only."""
+    role = await require_campaign_member(db, user, scene.campaign_id)
+    if role == "MASTER":
+        return
+    if scene.status == "CLOSED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=PLAYER_NO_ACTIVE_SCENE_DETAIL,
+        )
+
+
 async def require_system_manual_master(
     db: AsyncSession,
     user: User,

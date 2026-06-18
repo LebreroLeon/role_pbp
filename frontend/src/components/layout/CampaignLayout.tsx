@@ -6,7 +6,7 @@ import { CAMPAIGN_NAV_ICONS } from "../icons";
 import { ErrorBanner, SectionToneProvider, getToneFromPath } from "../ui";
 import { gameSystemLabel } from "../../features/campaign/gameSystems";
 import { useCampaignQuery } from "../../hooks/queries/useCampaignQueries";
-import { useActiveSceneQuery } from "../../hooks/queries/useSceneQueries";
+import { useOpenSceneQuery } from "../../hooks/queries/useSceneQueries";
 
 const MASTER_LINKS = [
   { to: "", label: "Inicio", hint: "Resumen de la campaña" },
@@ -30,7 +30,7 @@ export function CampaignLayout() {
   const sectionTone = getToneFromPath(location.pathname);
   const base = `/campaigns/${campaignId}`;
   const { data: campaign, isLoading, isError, error } = useCampaignQuery(campaignId);
-  const { data: activeScene } = useActiveSceneQuery(campaignId);
+  const { data: openScene, isLoading: openSceneLoading } = useOpenSceneQuery(campaignId);
 
   if (isLoading) {
     return <p className="muted">Cargando campaña...</p>;
@@ -42,7 +42,8 @@ export function CampaignLayout() {
 
   const isMaster = campaign.role === "MASTER";
   const links = isMaster ? MASTER_LINKS : PLAYER_LINKS;
-  const sceneStatus = activeScene?.status ?? "sin escena";
+  const sceneStatus = openScene?.status ?? "sin escena";
+  const playerChatBlocked = !isMaster && !openSceneLoading && !openScene;
   const RoleIcon = isMaster ? Crown : User;
 
   return (
@@ -73,6 +74,25 @@ export function CampaignLayout() {
       <nav className="campaign-nav">
         {links.map((link) => {
           const Icon = CAMPAIGN_NAV_ICONS[link.to as keyof typeof CAMPAIGN_NAV_ICONS];
+          const chatBlocked = link.to === "chat" && playerChatBlocked;
+          if (chatBlocked) {
+            return (
+              <span
+                key={link.to}
+                className="campaign-nav__link campaign-nav__link--disabled"
+                title="Esperando al Máster"
+                aria-disabled="true"
+              >
+                <span className="campaign-nav__icon" aria-hidden>
+                  <Icon size={18} strokeWidth={1.75} />
+                </span>
+                <span className="campaign-nav__text">
+                  <span className="campaign-nav__label">{link.label}</span>
+                  <span className="campaign-nav__hint">Esperando al Máster</span>
+                </span>
+              </span>
+            );
+          }
           return (
             <NavLink
               key={link.to}

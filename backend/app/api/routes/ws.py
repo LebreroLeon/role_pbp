@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_user_from_token, require_campaign_member
+from app.api.deps import PLAYER_NO_ACTIVE_SCENE_DETAIL, get_user_from_token, require_campaign_member
 from app.core.database import SessionLocal
 from app.schemas.scene import DiceRollRequest, PostMessageRequest
 from app.services.scene_ws import scene_ws_manager
@@ -41,6 +41,9 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
                 await websocket.close(code=4404)
                 return
             role = await require_campaign_member(db, user, scene.campaign_id)
+            if role != "MASTER" and scene.status == "CLOSED":
+                await websocket.close(code=4403, reason=PLAYER_NO_ACTIVE_SCENE_DETAIL)
+                return
             snapshot = scene_to_response(scene)
             member_role = role
         except HTTPException:
@@ -65,6 +68,11 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
                     await websocket.send_json({"event": "error", "detail": "Scene not found"})
                     continue
                 role = await require_campaign_member(db, user, scene.campaign_id)
+                if role != "MASTER" and scene.status == "CLOSED":
+                    await websocket.send_json(
+                        {"event": "error", "detail": PLAYER_NO_ACTIVE_SCENE_DETAIL},
+                    )
+                    continue
 
                 try:
                     if action == "message":
