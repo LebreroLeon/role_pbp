@@ -1,7 +1,9 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
+import { useState } from "react";
 import { LayoutDashboard, LogOut, Scroll, User } from "lucide-react";
 
 import { SectionToneProvider } from "../ui";
+import { PlayerNameModal } from "../../features/auth/PlayerNameModal";
 import { useLogout } from "../../hooks/mutations/useAuthMutations";
 import { useAuthStore } from "../../stores/authStore";
 
@@ -9,6 +11,7 @@ export function Layout() {
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated());
   const logout = useLogout();
+  const [nameModalOpen, setNameModalOpen] = useState(false);
 
   return (
     <div className="app-shell">
@@ -27,10 +30,15 @@ export function Layout() {
         <nav>
           {isAuthenticated ? (
             <>
-              <span className="nav-user">
+              <button
+                type="button"
+                className="nav-user nav-user--button"
+                onClick={() => setNameModalOpen(true)}
+                title="Cambiar nombre visible"
+              >
                 <User size={15} aria-hidden />
                 {user?.display_name}
-              </span>
+              </button>
               <NavLink to="/campaigns" className="nav-link">
                 <LayoutDashboard size={15} aria-hidden />
                 Campañas
@@ -57,6 +65,9 @@ export function Layout() {
           <Outlet />
         </SectionToneProvider>
       </main>
+      {nameModalOpen && user && (
+        <PlayerNameModal currentName={user.display_name} onClose={() => setNameModalOpen(false)} />
+      )}
     </div>
   );
 }

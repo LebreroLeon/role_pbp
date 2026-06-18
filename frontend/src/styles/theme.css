@@ -4,6 +4,7 @@
   /* Surfaces */
   --bg-base: #09090f;
   --bg-elevated: #101018;
+  --surface-elevated: var(--bg-elevated);
   --bg-surface: #161622;
   --bg-surface-hover: #1c1c2a;
   --bg-glass: rgba(22, 22, 34, 0.72);
@@ -187,6 +188,21 @@ select {
   gap: 0.35rem;
   font-size: 0.88rem;
   color: var(--text-secondary);
+}
+
+.nav-user--button {
+  padding: 0.5rem 0.85rem;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  transition: color 0.15s var(--ease-out), background 0.15s var(--ease-out);
+}
+
+.nav-user--button:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .app-main {

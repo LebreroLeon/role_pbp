@@ -1,4 +1,5 @@
 export { ConfirmDialog } from "./ConfirmDialog";
+export { Modal, type ModalSize } from "./Modal";
 export { Button } from "./Button";
 export { ButtonLink } from "./ButtonLink";
 export { ErrorBanner } from "./ErrorBanner";
@@ -8,4 +9,5 @@ export { Section, SectionToneProvider, useSectionTone } from "./SectionToneConte
 export { getToneFromPath, type SectionTone } from "./sectionTone";
 export { SlideOver } from "./SlideOver";
 export { StatusBadge } from "./StatusBadge";
+export { Switch } from "./Switch";
 export { Toast } from "./Toast";

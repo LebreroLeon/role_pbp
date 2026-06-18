@@ -380,6 +380,13 @@ async def upsert_player_character_sheet(
     db.add(entity)
     await db.commit()
     await db.refresh(entity)
+
+    from app.services.scenes import add_player_to_scene_presence, get_active_scene
+
+    active_scene = await get_active_scene(db, campaign_id)
+    if active_scene is not None and active_scene.status == "ACTIVE":
+        await add_player_to_scene_presence(db, active_scene, entity_id=entity.id)
+
     return entity
 
 

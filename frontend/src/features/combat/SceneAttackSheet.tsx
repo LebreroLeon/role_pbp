@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
+import { ArrowRight, Swords } from "lucide-react";
 
 import type { CampaignEntity } from "../../api/types";
-import { Button } from "../../components/ui";
+import { Button, Modal } from "../../components/ui";
 import { useCombatAttackMutation } from "../../hooks/mutations/useSceneMutations";
 import { extractAttacksFromEntity } from "./combatEntityOptions";
 import type { SceneRosterEntry } from "./sceneRoster";
@@ -36,9 +37,6 @@ export function SceneAttackSheet({
 
   const attackMutation = useCombatAttackMutation({ campaignId, onSceneUpdate });
 
-  const attackerLabel = attacker.isHiddenFromPlayers ? attacker.maskedLabel : attacker.label;
-  const targetLabel = target.isHiddenFromPlayers ? target.maskedLabel : target.label;
-
   async function handleAttack() {
     setLocalError(null);
     try {
@@ -58,66 +56,98 @@ export function SceneAttackSheet({
     }
   }
 
+  const isBusy = disabled || attackMutation.isPending;
+
   return (
-    <div className="scene-attack-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="scene-attack-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="scene-attack-title"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal
+      onClose={onClose}
+      size="sm"
+      className="scene-attack-sheet"
+      titleId="scene-attack-title"
+      header={
         <header className="scene-attack-sheet__header">
-          <h2 id="scene-attack-title">Atacar</h2>
-          <button type="button" className="scene-attack-sheet__close" onClick={onClose} aria-label="Cerrar">
-            ×
-          </button>
-        </header>
-
-        <p className="scene-attack-sheet__pair">
-          <strong>{attackerLabel}</strong>
-          <span aria-hidden>→</span>
-          <strong>{targetLabel}</strong>
-        </p>
-
-        {attacks.length > 1 && (
-          <div className="scene-attack-sheet__attacks" role="radiogroup" aria-label="Elegir ataque">
-            {attacks.map((attack, index) => (
-              <label key={`${attack.name}-${index}`} className="scene-attack-sheet__attack-option">
-                <input
-                  type="radio"
-                  name="attack-choice"
-                  value={index}
-                  checked={weaponIndex === index}
-                  onChange={() => setWeaponIndex(index)}
-                  disabled={disabled || attackMutation.isPending}
-                />
-                <span>{attack.name}</span>
-              </label>
-            ))}
+          <div className="scene-attack-sheet__header-top">
+            <div className="scene-attack-sheet__title-row">
+              <span className="scene-attack-sheet__icon-wrap" aria-hidden>
+                <Swords size={18} />
+              </span>
+              <h2 id="scene-attack-title">Atacar</h2>
+            </div>
+            <button type="button" className="scene-attack-sheet__close" onClick={onClose} aria-label="Cerrar">
+              ×
+            </button>
           </div>
-        )}
 
-        {attacks.length === 1 && <p className="muted scene-attack-sheet__weapon">{attacks[0].name}</p>}
-
-        {localError && <p className="scene-attack-sheet__error">{localError}</p>}
-
-        <footer className="scene-attack-sheet__footer">
-          <Button type="button" variant="secondary" onClick={onClose} disabled={attackMutation.isPending}>
+          <div className="scene-attack-sheet__participants" aria-label="Atacante y objetivo">
+            <EntityChip entry={attacker} />
+            <ArrowRight size={14} className="scene-attack-sheet__arrow" aria-hidden />
+            <EntityChip entry={target} />
+          </div>
+        </header>
+      }
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="secondary"
+            className="scene-attack-sheet__cancel"
+            onClick={onClose}
+            disabled={attackMutation.isPending}
+          >
             Cancelar
           </Button>
           <Button
             type="button"
-            disabled={disabled || attackMutation.isPending}
+            tone="rose"
+            disabled={isBusy}
             onClick={() => {
               void handleAttack();
             }}
           >
             {attackMutation.isPending ? "Atacando…" : "Atacar"}
           </Button>
-        </footer>
-      </div>
-    </div>
+        </>
+      }
+    >
+      {attacks.length > 0 ? (
+        <div className="scene-attack-sheet__attacks" role="radiogroup" aria-label="Elegir ataque">
+          {attacks.map((attack, index) => {
+            const isSelected = weaponIndex === index;
+            return (
+              <button
+                key={`${attack.name}-${index}`}
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                className={`scene-attack-sheet__attack-card${isSelected ? " is-selected" : ""}`}
+                onClick={() => setWeaponIndex(index)}
+                disabled={isBusy}
+              >
+                <span className="scene-attack-sheet__attack-name">{attack.name}</span>
+                {attack.statsLabel && (
+                  <span className="scene-attack-sheet__attack-stats">{attack.statsLabel}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="scene-attack-sheet__empty muted">Sin ataques configurados en la ficha.</p>
+      )}
+
+      {localError && <p className="scene-attack-sheet__error">{localError}</p>}
+    </Modal>
+  );
+}
+
+function EntityChip({ entry }: { entry: SceneRosterEntry }) {
+  return (
+    <span
+      className={`scene-attack-sheet__chip scene-attack-sheet__chip--${entry.entityType.toLowerCase()}${entry.isHiddenFromPlayers ? " scene-attack-sheet__chip--hidden" : ""}`}
+    >
+      <span className="scene-attack-sheet__chip-badge">{entry.entityType}</span>
+      <span className="scene-attack-sheet__chip-name">{entry.label}</span>
+    </span>
   );
 }
 

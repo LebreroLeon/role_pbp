@@ -1,4 +1,6 @@
+import hashlib
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from sqlalchemy import select
@@ -7,7 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.campaign import CampaignMemory, MemoryDocumentType
+from app.models.semantic_cache import SemanticCache
 from app.models.system_manual import SystemManualMemory
+
+SEMANTIC_CACHE_TTL = timedelta(hours=24)
+
+
+def _semantic_cache_key(campaign_id: str, query: str, snapshot_hash: str = "") -> str:
+    normalized = query.strip().lower()
+    digest = hashlib.sha256(f"{campaign_id}:{snapshot_hash}:{normalized}".encode()).hexdigest()
+    return digest[:64]
 
 
 async def embed_text(text: str) -> list[float] | None:
@@ -33,6 +44,62 @@ async def embed_text(text: str) -> list[float] | None:
 
 
 class RagService:
+    async def _lookup_semantic_cache(
+        self,
+        db: AsyncSession,
+        *,
+        campaign_id: str,
+        cache_key: str,
+    ) -> list[str] | None:
+        now = datetime.now(UTC)
+        row = await db.scalar(
+            select(SemanticCache).where(
+                SemanticCache.campaign_id == uuid.UUID(campaign_id),
+                SemanticCache.cache_key == cache_key,
+                SemanticCache.expires_at > now,
+            )
+        )
+        if row is None:
+            return None
+        chunks = row.response_payload.get("chunks")
+        if isinstance(chunks, list):
+            return [str(chunk) for chunk in chunks if str(chunk).strip()]
+        return None
+
+    async def _store_semantic_cache(
+        self,
+        db: AsyncSession,
+        *,
+        campaign_id: str,
+        cache_key: str,
+        chunks: list[str],
+        query_embedding: list[float] | None,
+        snapshot_hash: str = "",
+    ) -> None:
+        expires_at = datetime.now(UTC) + SEMANTIC_CACHE_TTL
+        stmt = (
+            insert(SemanticCache)
+            .values(
+                campaign_id=uuid.UUID(campaign_id),
+                cache_key=cache_key,
+                state_snapshot_hash=snapshot_hash,
+                query_embedding=query_embedding,
+                response_payload={"chunks": chunks},
+                expires_at=expires_at,
+            )
+            .on_conflict_do_update(
+                index_elements=["campaign_id", "cache_key"],
+                set_={
+                    "response_payload": {"chunks": chunks},
+                    "query_embedding": query_embedding,
+                    "expires_at": expires_at,
+                    "state_snapshot_hash": snapshot_hash,
+                },
+            )
+        )
+        await db.execute(stmt)
+        await db.commit()
+
     async def index_message(
         self,
         db: AsyncSession,
@@ -70,6 +137,34 @@ class RagService:
         await db.execute(stmt)
         await db.commit()
 
+    async def index_text_chunks(
+        self,
+        db: AsyncSession,
+        *,
+        campaign_id: str,
+        chunks: list[str],
+        document_type: MemoryDocumentType,
+        metadata: dict | None = None,
+    ) -> int:
+        indexed = 0
+        base_metadata = metadata or {}
+        for index, chunk in enumerate(chunks):
+            text = chunk.strip()
+            if not text:
+                continue
+            chunk_id = uuid.uuid4()
+            chunk_metadata = {**base_metadata, "chunk_index": index}
+            await self.index_message(
+                db,
+                campaign_id=campaign_id,
+                document_id=str(chunk_id),
+                text=text,
+                metadata=chunk_metadata,
+                document_type=document_type,
+            )
+            indexed += 1
+        return indexed
+
     async def search_system_manuals(
         self,
         db: AsyncSession,
@@ -101,7 +196,13 @@ class RagService:
         include_system_manuals: bool = False,
         game_system: str | None = None,
         manual_top_k: int = 2,
+        snapshot_hash: str = "",
     ) -> list[str]:
+        cache_key = _semantic_cache_key(campaign_id, query, snapshot_hash)
+        cached = await self._lookup_semantic_cache(db, campaign_id=campaign_id, cache_key=cache_key)
+        if cached is not None:
+            return cached
+
         query_embedding = await embed_text(query)
         if query_embedding is None:
             return []
@@ -123,6 +224,16 @@ class RagService:
                 top_k=manual_top_k,
             )
             chunks.extend(manual_chunks)
+
+        if chunks:
+            await self._store_semantic_cache(
+                db,
+                campaign_id=campaign_id,
+                cache_key=cache_key,
+                chunks=chunks,
+                query_embedding=query_embedding,
+                snapshot_hash=snapshot_hash,
+            )
 
         return chunks
 

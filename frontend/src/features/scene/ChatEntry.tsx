@@ -1,7 +1,7 @@
-import type { CampaignMember } from "../../api/types";
-import type { ChatMessage } from "../../api/types";
+import type { CampaignEntity, CampaignMember, ChatMessage } from "../../api/types";
 import { CombatEntry } from "../combat/CombatEntry";
 import { shouldRenderCombatEntry } from "../combat/combatMessage";
+import type { SceneStateInput } from "./sceneState";
 import { Eye, Trash2 } from "../../components/icons";
 import {
   formatChatTimestamp,
@@ -23,6 +23,8 @@ type ChatEntryProps = {
   memberCount: number;
   isMaster?: boolean;
   onDelete?: (messageId: string) => void;
+  entities?: CampaignEntity[];
+  sceneState?: SceneStateInput | null;
 };
 
 const FALLBACK_NARRATOR_NAME = "Máster / Narrador";
@@ -66,11 +68,22 @@ export function ChatEntry({
   memberCount,
   isMaster = false,
   onDelete,
+  entities,
+  sceneState,
 }: ChatEntryProps) {
   const type = normalizeMessageType(message.type);
 
   if (shouldRenderCombatEntry(message)) {
-    return <CombatEntry message={message} members={members} currentUserId={currentUserId} />;
+    return (
+      <CombatEntry
+        message={message}
+        members={members}
+        currentUserId={currentUserId}
+        isMaster={isMaster}
+        entities={entities}
+        sceneState={sceneState}
+      />
+    );
   }
 
   if (type === "DICE_ROLL") {

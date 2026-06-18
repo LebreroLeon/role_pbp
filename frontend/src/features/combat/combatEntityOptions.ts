@@ -76,12 +76,63 @@ export function findPlayerPcOption(
   return options.find((option) => option.entityType === "PC" && option.userId === currentUserId) ?? null;
 }
 
-export function extractAttacksFromEntity(entity: CampaignEntity | null | undefined): { name: string }[] {
+type SheetAttack = {
+  name?: string;
+  ability?: string;
+  proficient?: boolean;
+  damage?: { dice?: string; type?: string };
+};
+
+type EntitySheet = {
+  abilities?: Record<string, number>;
+  proficiency?: { bonus?: number };
+  attacks?: SheetAttack[];
+};
+
+export type CombatAttackOption = {
+  name: string;
+  statsLabel: string | null;
+};
+
+function formatSigned(value: number): string {
+  return value >= 0 ? `+${value}` : `${value}`;
+}
+
+function abilityModifier(score: number): number {
+  return Math.floor((score - 10) / 2);
+}
+
+function buildAttackStatsLabel(attack: SheetAttack, sheet: EntitySheet | undefined): string | null {
+  const parts: string[] = [];
+
+  const ability = attack.ability;
+  const abilityScore = ability ? sheet?.abilities?.[ability] : undefined;
+  if (typeof abilityScore === "number") {
+    const modifier = abilityModifier(abilityScore);
+    const proficiencyBonus = sheet?.proficiency?.bonus ?? 0;
+    const toHit = modifier + (attack.proficient ? proficiencyBonus : 0);
+    parts.push(formatSigned(toHit));
+  }
+
+  const dice = attack.damage?.dice?.trim();
+  const damageType = attack.damage?.type?.trim();
+  if (dice) {
+    parts.push(damageType ? `${dice} ${damageType}` : dice);
+  }
+
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+export function extractAttacksFromEntity(entity: CampaignEntity | null | undefined): CombatAttackOption[] {
   if (!entity) return [];
-  const mechanics = entity.document.system_mechanics as { sheet?: { attacks?: { name?: string }[] } } | undefined;
-  const attacks = mechanics?.sheet?.attacks;
+  const mechanics = entity.document.system_mechanics as { sheet?: EntitySheet } | undefined;
+  const sheet = mechanics?.sheet;
+  const attacks = sheet?.attacks;
   if (!Array.isArray(attacks)) return [];
   return attacks
-    .map((attack, index) => ({ name: attack.name?.trim() || `Ataque ${index + 1}` }))
+    .map((attack, index) => ({
+      name: attack.name?.trim() || `Ataque ${index + 1}`,
+      statsLabel: buildAttackStatsLabel(attack, sheet),
+    }))
     .filter((attack) => attack.name.length > 0);
 }

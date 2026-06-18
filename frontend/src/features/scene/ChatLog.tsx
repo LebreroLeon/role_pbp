@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 
-import type { ChatMessage } from "../../api/types";
+import type { CampaignEntity, ChatMessage } from "../../api/types";
 import type { MemberLookup } from "./ChatEntry";
 import { ChatEntry } from "./ChatEntry";
+import type { SceneStateInput } from "./sceneState";
 
 const BOTTOM_THRESHOLD_PX = 96;
 
@@ -15,6 +16,8 @@ type ChatLogProps = {
   onVisible?: () => void;
   isMaster?: boolean;
   onDeleteMessage?: (messageId: string) => void;
+  entities?: CampaignEntity[];
+  sceneState?: SceneStateInput | null;
 };
 
 function getTailSignature(messages: ChatMessage[]): string {
@@ -37,6 +40,8 @@ export function ChatLog({
   onVisible,
   isMaster = false,
   onDeleteMessage,
+  entities,
+  sceneState,
 }: ChatLogProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const tailSignatureRef = useRef(getTailSignature(messages));
@@ -139,6 +144,8 @@ export function ChatLog({
             memberCount={memberCount}
             isMaster={isMaster}
             onDelete={onDeleteMessage}
+            entities={entities}
+            sceneState={sceneState}
           />
         ))}
       </div>

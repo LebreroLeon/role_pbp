@@ -12,6 +12,10 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
+class UpdateProfileRequest(BaseModel):
+    display_name: str = Field(min_length=2, max_length=32)
+
+
 class UserResponse(BaseModel):
     id: str
     email: str

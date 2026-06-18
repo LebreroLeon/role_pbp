@@ -7,6 +7,7 @@ type CampaignMemberListProps = {
   members: CampaignMember[];
   showEmails?: boolean;
   emptyMessage?: string;
+  onRemove?: (userId: string) => void;
 };
 
 function roleLabel(role: CampaignMember["role"]): string {
@@ -17,6 +18,7 @@ export function CampaignMemberList({
   members,
   showEmails = false,
   emptyMessage = "Aún no hay nadie más en la campaña.",
+  onRemove,
 }: CampaignMemberListProps) {
   if (members.length === 0) {
     return <p className="muted">{emptyMessage}</p>;
@@ -46,6 +48,15 @@ export function CampaignMemberList({
               <RoleIcon size={14} aria-hidden />
               <StatusBadge label="" value={roleLabel(member.role)} ok={isMaster} />
             </span>
+            {onRemove && member.role === "PLAYER" && (
+              <button
+                type="button"
+                className="member-card__remove"
+                onClick={() => onRemove(member.user_id)}
+              >
+                Expulsar
+              </button>
+            )}
           </li>
         );
       })}

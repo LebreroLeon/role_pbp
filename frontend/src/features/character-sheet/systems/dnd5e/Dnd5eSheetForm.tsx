@@ -1,9 +1,9 @@
-import { useFieldArray, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Dices } from "lucide-react";
 
 import type { SheetRollRequest } from "../../../../api/types";
-import { Button, Input } from "../../../../components/ui";
+import { Button, Input, Switch } from "../../../../components/ui";
 import {
   DND5E_ABILITIES,
   DND5E_ABILITY_LABELS,
@@ -59,6 +59,7 @@ export function Dnd5eSheetForm({
     control,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<Dnd5eSheet>({
     resolver: zodResolver(dnd5eSheetSchema),
@@ -69,6 +70,22 @@ export function Dnd5eSheetForm({
   const abilities = watch("abilities");
   const skills = watch("proficiency.skills");
   const attacks = watch("attacks");
+  const savingThrows = watch("proficiency.saving_throws") ?? [];
+
+  function toggleSavingThrow(ability: Dnd5eAbility, enabled: boolean) {
+    if (enabled) {
+      if (!savingThrows.includes(ability)) {
+        setValue("proficiency.saving_throws", [...savingThrows, ability], { shouldDirty: true });
+      }
+      return;
+    }
+
+    setValue(
+      "proficiency.saving_throws",
+      savingThrows.filter((entry) => entry !== ability),
+      { shouldDirty: true },
+    );
+  }
 
   function rollAbilityCheck(ability: Dnd5eAbility) {
     onRoll?.({ roll_type: "ability_check", context: { ability } });
@@ -196,10 +213,15 @@ export function Dnd5eSheetForm({
         <div className="sheet-saving-throws">
           {DND5E_ABILITIES.map((ability) => (
             <div key={ability} className="sheet-saving-throw">
-              <label className="sheet-checkbox">
-                <input type="checkbox" disabled={disabled} value={ability} {...register("proficiency.saving_throws")} />
-                {DND5E_ABILITY_LABELS[ability]}
-              </label>
+              <Switch
+                className="sheet-switch"
+                checked={savingThrows.includes(ability)}
+                onCheckedChange={(enabled) => toggleSavingThrow(ability, enabled)}
+                disabled={disabled}
+                label={DND5E_ABILITY_LABELS[ability]}
+                description="Competente en salvación"
+                tone="teal"
+              />
               <RollButton
                 label={`Tirar salvación de ${DND5E_ABILITY_LABELS[ability]}`}
                 disabled={rollDisabled}
@@ -216,14 +238,34 @@ export function Dnd5eSheetForm({
           {skills?.map((skill, index) => (
             <div key={skill.name} className="sheet-skill">
               <span className="sheet-skill__name">{skill.name}</span>
-              <label className="sheet-checkbox">
-                <input type="checkbox" disabled={disabled} {...register(`proficiency.skills.${index}.proficient`)} />
-                Competente
-              </label>
-              <label className="sheet-checkbox">
-                <input type="checkbox" disabled={disabled} {...register(`proficiency.skills.${index}.expertise`)} />
-                Experto
-              </label>
+              <Controller
+                control={control}
+                name={`proficiency.skills.${index}.proficient`}
+                render={({ field }) => (
+                  <Switch
+                    className="sheet-switch sheet-switch--inline"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    disabled={disabled}
+                    label="Competente"
+                    tone="teal"
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name={`proficiency.skills.${index}.expertise`}
+                render={({ field }) => (
+                  <Switch
+                    className="sheet-switch sheet-switch--inline"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    disabled={disabled}
+                    label="Experto"
+                    tone="rose"
+                  />
+                )}
+              />
               <RollButton
                 label={`Tirar ${skill.name}`}
                 disabled={rollDisabled}
@@ -284,10 +326,20 @@ export function Dnd5eSheetForm({
               error={errors.attacks?.[index]?.damage?.type?.message}
               {...register(`attacks.${index}.damage.type`)}
             />
-            <label className="sheet-checkbox">
-              <input type="checkbox" disabled={disabled} {...register(`attacks.${index}.proficient`)} />
-              Competente
-            </label>
+            <Controller
+              control={control}
+              name={`attacks.${index}.proficient`}
+              render={({ field }) => (
+                <Switch
+                  className="sheet-switch sheet-switch--inline"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  disabled={disabled}
+                  label="Competente"
+                  tone="teal"
+                />
+              )}
+            />
             <div className="sheet-attack__rolls">
               <Button type="button" variant="secondary" disabled={rollDisabled} onClick={() => rollDamage(index)}>
                 Tirar daño

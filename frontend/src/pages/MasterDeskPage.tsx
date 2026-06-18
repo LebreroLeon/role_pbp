@@ -8,8 +8,7 @@ import { queryKeys } from "../api/queryKeys";
 import { RoleGate } from "../components/auth/RoleGate";
 import { DESK_TAB_ICONS, SECTION_ICONS } from "../components/icons";
 import { Button, ButtonLink, ConfirmDialog, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
-import { CampaignMemberList, formatSceneLabel, InviteMemberForm } from "../features/campaign";
-import { gameSystemLabel } from "../features/campaign/gameSystems";
+import { CampaignMemberList, CampaignSettingsForm, formatSceneLabel, InviteMemberForm } from "../features/campaign";
 import { getChatBuffer, getSceneObjective } from "../features/scene/sceneState";
 import {
   useCampaignMembersQuery,
@@ -259,16 +258,7 @@ export function MasterDeskPage() {
 
           {tab === "settings" && (
             <section className="master-tab-panel">
-              <h3>Datos de la campaña</h3>
-              <p>
-                <strong>Nombre:</strong> {campaign?.name}
-              </p>
-              <p>
-                <strong>Sistema:</strong> {gameSystemLabel(campaign?.game_system)}
-              </p>
-              <p>
-                <strong>Tono:</strong> {campaign?.tone ?? "Sin definir"}
-              </p>
+              <CampaignSettingsForm campaignId={campaignId} campaign={campaign} />
               <div className="actions">
                 <ButtonLink variant="secondary" to={`/campaigns/${campaignId}/biblioteca`}>
                   Abrir biblioteca

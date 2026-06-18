@@ -120,8 +120,121 @@ export function defaultDnd5eSheet(): Dnd5eSheet {
   };
 }
 
+function normalizeSkillKey(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function isBackendFlatSheet(raw: unknown): raw is Record<string, unknown> {
+  if (!raw || typeof raw !== "object") return false;
+  const sheet = raw as Record<string, unknown>;
+  return !("proficiency" in sheet) && !("defense" in sheet) && ("ac" in sheet || "proficiency_bonus" in sheet);
+}
+
+/** Map backend canonical sheet (flat) to frontend nested editor shape. */
+export function convertBackendDnd5eSheet(raw: Record<string, unknown>): Dnd5eSheet {
+  const defaults = defaultDnd5eSheet();
+  const abilitiesRaw = raw.abilities as Record<string, number> | undefined;
+
+  const abilities = {
+    str: abilitiesRaw?.str ?? defaults.abilities.str,
+    dex: abilitiesRaw?.dex ?? defaults.abilities.dex,
+    con: abilitiesRaw?.con ?? defaults.abilities.con,
+    int: abilitiesRaw?.int ?? abilitiesRaw?.intelligence ?? defaults.abilities.int,
+    wis: abilitiesRaw?.wis ?? defaults.abilities.wis,
+    cha: abilitiesRaw?.cha ?? defaults.abilities.cha,
+  };
+
+  const proficiencyBonus =
+    typeof raw.proficiency_bonus === "number" ? raw.proficiency_bonus : defaults.proficiency.bonus;
+
+  const savingThrowsRaw = Array.isArray(raw.saving_throws) ? raw.saving_throws : [];
+  const saving_throws = savingThrowsRaw.filter(
+    (ability): ability is Dnd5eAbility =>
+      typeof ability === "string" && DND5E_ABILITIES.includes(ability as Dnd5eAbility),
+  );
+
+  const skillsRaw = Array.isArray(raw.skills)
+    ? (raw.skills as Array<{ name?: string; proficient?: boolean; expertise?: boolean }>)
+    : [];
+  const skillByKey = new Map(
+    skillsRaw
+      .filter((entry) => typeof entry.name === "string")
+      .map((entry) => [normalizeSkillKey(entry.name!), entry] as const),
+  );
+
+  const skills = DND5E_SKILLS.map((name) => {
+    const found = skillByKey.get(normalizeSkillKey(name));
+    return {
+      name,
+      proficient: found?.proficient ?? false,
+      expertise: found?.expertise ?? false,
+    };
+  });
+
+  const hpRaw = raw.hp as { max?: number; current?: number; temp?: number } | undefined;
+  const defense = {
+    ac: typeof raw.ac === "number" ? raw.ac : defaults.defense.ac,
+    hp: {
+      max: hpRaw?.max ?? defaults.defense.hp.max,
+      current: hpRaw?.current ?? defaults.defense.hp.current,
+      temp: hpRaw?.temp ?? defaults.defense.hp.temp,
+    },
+    hit_dice: defaults.defense.hit_dice,
+    death_saves: defaults.defense.death_saves,
+  };
+
+  const attacksRaw = Array.isArray(raw.attacks) ? raw.attacks : [];
+  const attacks =
+    attacksRaw.length > 0
+      ? attacksRaw.map((attack) => {
+          if (attack && typeof attack === "object" && "damage" in attack) {
+            const parsed = attackSchema.safeParse(attack);
+            if (parsed.success) return parsed.data;
+          }
+          const entry = attack as {
+            name?: string;
+            ability?: Dnd5eAbility;
+            proficient?: boolean;
+            damage_dice?: string;
+            damage_type?: string;
+            properties?: string[];
+          };
+          return {
+            name: entry.name?.trim() || "Ataque",
+            ability: entry.ability ?? "str",
+            proficient: entry.proficient ?? false,
+            damage: {
+              dice: entry.damage_dice?.trim() || "1d4",
+              type: entry.damage_type?.trim() || "contundente",
+            },
+            properties: entry.properties ?? [],
+          };
+        })
+      : defaults.attacks;
+
+  return {
+    abilities,
+    proficiency: {
+      bonus: proficiencyBonus,
+      saving_throws,
+      skills,
+    },
+    defense,
+    attacks,
+    initiative: defaults.initiative,
+    conditions: defaults.conditions,
+  };
+}
+
 export function parseDnd5eSheet(raw: unknown): Dnd5eSheet {
   const result = dnd5eSheetSchema.safeParse(raw);
   if (result.success) return result.data;
+
+  if (isBackendFlatSheet(raw)) {
+    const converted = convertBackendDnd5eSheet(raw);
+    const revalidated = dnd5eSheetSchema.safeParse(converted);
+    if (revalidated.success) return revalidated.data;
+  }
+
   return defaultDnd5eSheet();
 }

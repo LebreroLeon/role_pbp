@@ -106,7 +106,8 @@ async def test_search_returns_content_strings():
         "The party enters the tavern.",
         "A hooded figure watches from the corner.",
     ]
-    db.execute = AsyncMock(return_value=mock_result)
+    db.execute = AsyncMock(side_effect=[mock_result, MagicMock()])
+    db.scalar = AsyncMock(return_value=None)
     service = RagService()
 
     with patch("app.services.rag.embed_text", new=AsyncMock(return_value=MOCK_EMBEDDING)):
@@ -119,4 +120,4 @@ async def test_search_returns_content_strings():
 
     assert len(results) == 2
     assert "tavern" in results[0].lower()
-    db.execute.assert_awaited_once()
+    assert db.execute.await_count >= 1

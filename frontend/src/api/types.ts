@@ -100,9 +100,13 @@ export type CombatAttackRollSummary = {
 
   target_ac?: number;
 
+  modifier?: number;
+
   expression?: string;
 
   rolls?: number[];
+
+  chat_summary?: string;
 
 };
 
@@ -155,6 +159,14 @@ export type CombatEvent = {
   defender_hp_max?: number;
 
   weapon_name?: string;
+
+  hp?: {
+
+    before?: number;
+
+    after?: number;
+
+  };
 
 };
 
@@ -278,11 +290,66 @@ export type ScenePresenceUpdate = {
 
 
 
+export type SceneAddPlayerRequest = {
+
+  entity_id?: string;
+
+  user_id?: string;
+
+};
+
+
+export type SceneTurnManagementUpdate = {
+  pbp_enabled?: boolean;
+  order_source?: TurnOrderSource;
+  turn_order?: string[];
+  initiative_order?: CombatInitiativeEntry[];
+  current_turn_player_id?: string | null;
+  current_turn_entity_id?: string | null;
+  resort?: boolean;
+};
+
+export type LoreAssistResponse = {
+  query: string;
+  answer: string;
+  remaining_tokens: number;
+  generated_at: string;
+  note?: string | null;
+};
+
+export type SystemManualFileStatus = {
+  filename: string;
+  path: string;
+  indexed: boolean;
+  indexed_at?: string | null;
+  chunk_count: number;
+};
+
+export type SystemManualStatusResponse = {
+  system_id: string;
+  files: SystemManualFileStatus[];
+};
+
+
+export type CombatInitiativeRequest = {
+  activate_combat?: boolean;
+};
+
+
+
+export type TurnOrderSource = "initiative" | "attribute" | "manual";
+
+
+
 export type TurnManagement = {
 
   current_turn_player_id: string | null;
 
   turn_order: string[];
+
+  pbp_enabled: boolean;
+
+  order_source: TurnOrderSource;
 
 };
 

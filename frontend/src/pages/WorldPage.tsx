@@ -111,6 +111,7 @@ export function WorldPage() {
           <CreateEntityForm
             campaignId={campaignId}
             members={members}
+            entities={entities}
             gameSystem={gameSystem}
             onNpcCreated={(entity) => openEditor(entity.id, "create")}
           />

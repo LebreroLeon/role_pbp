@@ -1,13 +1,13 @@
 import asyncio
 import uuid
 from copy import deepcopy
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.models.campaign import CampaignEntity, Scene
 from app.rules.dnd5e.plugin import Dnd5ePlugin
-from app.schemas.scene import InitiativeEntry, NpcPresenceEntry, SceneContext, SceneMetadata, ScenePresenceUpdate, SceneState, StateFlags
+from app.schemas.scene import InitiativeEntry, NpcPresenceEntry, SceneContext, SceneMetadata, ScenePresenceUpdate, SceneState, StateFlags, TurnManagement
 from app.services.combat_resolver import fetch_scene_combat_entities, resolve_entity_reference
 from app.services.entities import (
     HIDDEN_NPC_DISPLAY_NAME,
@@ -16,8 +16,11 @@ from app.services.entities import (
 )
 from app.services.scenes import (
     _apply_npc_presence_to_state,
+    _append_pc_to_pbp_initiative_if_needed,
+    add_player_to_scene_presence,
     build_dice_roll_message,
     load_scene_state,
+    mark_all_campaign_pcs_present_for_scene,
     update_scene_npc_presence,
 )
 
@@ -116,6 +119,23 @@ class TestNpcPresenceState:
         )
 
         assert npc_id in state.context.active_npc_ids
+        assert state.context.hidden_npc_ids == []
+
+    def test_visible_npc_not_hidden_even_if_never_met_party(self):
+        """Scene visibility is driven by hidden_npc_ids, not entity has_met_party."""
+        npc_id = str(uuid.uuid4())
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id=str(uuid.uuid4()), status="ACTIVE"),
+            context=SceneContext(),
+        )
+
+        _apply_npc_presence_to_state(
+            state,
+            add=[NpcPresenceEntry(entity_id=npc_id, is_hidden_from_players=False)],
+            remove=[],
+        )
+
+        assert state.context.active_npc_ids == [npc_id]
         assert state.context.hidden_npc_ids == []
 
 
@@ -230,3 +250,146 @@ class TestUpdateSceneNpcPresence:
         assert str(npc.id) in state.context.active_npc_ids
         assert str(npc.id) in state.context.hidden_npc_ids
         assert str(npc.id) in response.scene_state.context.active_npc_ids
+
+
+class TestPcScenePresence:
+    def test_mark_all_campaign_pcs_present(self):
+        campaign_id = uuid.uuid4()
+        pc_a = _make_pc(name="Arturo", present=False, user_id="player-1")
+        pc_b = _make_pc(name="Norman", present=False, user_id="player-2")
+        pc_a.campaign_id = campaign_id
+        pc_b.campaign_id = campaign_id
+
+        scene = Scene(
+            id=uuid.uuid4(),
+            campaign_id=campaign_id,
+            scene_number=1,
+            status="ACTIVE",
+            scene_state=SceneState(
+                metadata=SceneMetadata(campaign_id=str(campaign_id), status="ACTIVE"),
+                context=SceneContext(),
+            ).model_dump(),
+        )
+
+        db = AsyncMock()
+        db.scalars = AsyncMock(return_value=MagicMock(all=lambda: [pc_a, pc_b]))
+        db.commit = AsyncMock()
+
+        asyncio.run(mark_all_campaign_pcs_present_for_scene(db, scene))
+
+        assert pc_a.document["state_flags"]["is_present_in_scene"] is True
+        assert pc_b.document["state_flags"]["is_present_in_scene"] is True
+        db.commit.assert_awaited_once()
+
+    def test_add_player_appends_to_pbp_initiative(self):
+        campaign_id = uuid.uuid4()
+        user_id = str(uuid.uuid4())
+        pc = _make_pc(name="Latecomer", present=False, user_id=user_id)
+        pc.campaign_id = campaign_id
+        existing = _make_pc(name="Veteran", present=True, user_id=str(uuid.uuid4()))
+        existing.campaign_id = campaign_id
+
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id=str(campaign_id), status="ACTIVE"),
+            context=SceneContext(),
+            turn_management=TurnManagement(pbp_enabled=True, order_source="manual"),
+        )
+        state.combat.initiative_order = [
+            InitiativeEntry(entity_id=str(existing.id), entity_type="PC", display_name="Veteran"),
+        ]
+
+        scene = Scene(
+            id=uuid.uuid4(),
+            campaign_id=campaign_id,
+            scene_number=1,
+            status="ACTIVE",
+            scene_state=state.model_dump(),
+        )
+
+        db = AsyncMock()
+        db.scalar = AsyncMock(return_value=pc)
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock()
+
+        with patch(
+            "app.services.scenes.sync_turn_management_from_initiative",
+            new=AsyncMock(),
+        ):
+            response = asyncio.run(add_player_to_scene_presence(db, scene, entity_id=pc.id))
+
+        updated_state = load_scene_state(scene)
+        initiative_ids = [entry.entity_id for entry in updated_state.combat.initiative_order]
+        assert str(existing.id) in initiative_ids
+        assert str(pc.id) in initiative_ids
+        assert initiative_ids.index(str(pc.id)) == len(initiative_ids) - 1
+        assert pc.document["state_flags"]["is_present_in_scene"] is True
+        assert str(pc.id) in [
+            entry.entity_id for entry in response.scene_state.combat.initiative_order
+        ]
+
+    def test_append_pc_skips_when_already_in_initiative(self):
+        campaign_id = uuid.uuid4()
+        pc = _make_pc(name="Arturo", present=True, user_id="player-1")
+        pc.campaign_id = campaign_id
+
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id=str(campaign_id), status="ACTIVE"),
+            context=SceneContext(),
+            turn_management=TurnManagement(pbp_enabled=True),
+        )
+        state.combat.initiative_order = [
+            InitiativeEntry(entity_id=str(pc.id), entity_type="PC", display_name="Arturo"),
+        ]
+
+        scene = Scene(
+            id=uuid.uuid4(),
+            campaign_id=campaign_id,
+            scene_number=1,
+            status="ACTIVE",
+            scene_state=state.model_dump(),
+        )
+
+        db = AsyncMock()
+        asyncio.run(_append_pc_to_pbp_initiative_if_needed(db, scene, pc, state))
+
+        assert len(state.combat.initiative_order) == 1
+
+    def test_add_player_appends_to_user_turn_order_when_no_initiative(self):
+        campaign_id = uuid.uuid4()
+        user_id = str(uuid.uuid4())
+        pc = _make_pc(name="Latecomer", present=False, user_id=user_id)
+        pc.campaign_id = campaign_id
+        veteran_user_id = str(uuid.uuid4())
+
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id=str(campaign_id), status="ACTIVE"),
+            context=SceneContext(),
+            turn_management=TurnManagement(
+                pbp_enabled=True,
+                turn_order=[veteran_user_id],
+                current_turn_player_id=veteran_user_id,
+                order_source="manual",
+            ),
+        )
+
+        scene = Scene(
+            id=uuid.uuid4(),
+            campaign_id=campaign_id,
+            scene_number=1,
+            status="ACTIVE",
+            scene_state=state.model_dump(),
+        )
+
+        db = AsyncMock()
+        db.scalar = AsyncMock(return_value=pc)
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock()
+
+        response = asyncio.run(add_player_to_scene_presence(db, scene, entity_id=pc.id))
+
+        updated_state = load_scene_state(scene)
+        assert updated_state.combat.initiative_order == []
+        assert updated_state.turn_management.turn_order == [veteran_user_id, user_id]
+        assert updated_state.turn_management.current_turn_player_id == veteran_user_id
+        assert pc.document["state_flags"]["is_present_in_scene"] is True
+        assert response.scene_state.turn_management.turn_order == [veteran_user_id, user_id]

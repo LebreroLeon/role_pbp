@@ -14,6 +14,7 @@ from app.schemas.campaign_mgmt import (
     CampaignMemberAdd,
     CampaignMemberResponse,
     CampaignResponse,
+    CampaignUpdate,
 )
 from app.schemas.scene import SceneResponse
 from app.services.scenes import (
@@ -31,7 +32,9 @@ from app.services.campaigns import (
     get_user_campaign_role,
     list_campaign_members,
     list_user_campaigns,
+    remove_campaign_member,
     require_master,
+    update_campaign,
 )
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
@@ -80,6 +83,38 @@ async def get_campaign(
         game_system=campaign.game_system,
         role=role,
     )
+
+
+@router.patch("/{campaign_id}", response_model=CampaignResponse)
+async def patch_campaign(
+    campaign_id: str,
+    payload: CampaignUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> CampaignResponse:
+    campaign_uuid = parse_uuid(campaign_id, "campaign_id")
+    await require_campaign_master(db, current_user, campaign_uuid)
+    try:
+        return await update_campaign(db, campaign_uuid, current_user.id, payload)
+    except CampaignServiceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/{campaign_id}/members/{user_id}", status_code=204)
+async def delete_campaign_member(
+    campaign_id: str,
+    user_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    campaign_uuid = parse_uuid(campaign_id, "campaign_id")
+    member_uuid = parse_uuid(user_id, "user_id")
+    await require_campaign_master(db, current_user, campaign_uuid)
+    try:
+        await remove_campaign_member(db, campaign_uuid, member_uuid)
+    except CampaignServiceError as exc:
+        status = 404 if "not found" in str(exc).lower() else 400
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 
 @router.get("/{campaign_id}/members", response_model=list[CampaignMemberResponse])

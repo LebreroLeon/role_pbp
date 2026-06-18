@@ -1,50 +1,123 @@
-import type { ChatMessage } from "../../api/types";
+import type { CampaignEntity, ChatMessage } from "../../api/types";
 import type { MemberLookup } from "../scene/ChatEntry";
-import { formatChatTimestamp } from "../scene/messageTypes";
+import { getInitials, formatChatTimestamp } from "../scene/messageTypes";
+import type { SceneStateInput } from "../scene/sceneState";
 import {
+  formatAttackRollLine,
   formatDamageType,
+  resolveCombatEntityName,
   resolveCombatEvent,
+  resolveCombatSpeakerEntityId,
 } from "./combatMessage";
+
+const FALLBACK_NARRATOR_NAME = "Máster / Narrador";
 
 type CombatEntryProps = {
   message: ChatMessage;
   members: MemberLookup;
   currentUserId: string;
+  isMaster?: boolean;
+  entities?: CampaignEntity[];
+  sceneState?: SceneStateInput | null;
 };
 
-export function CombatEntry({ message, members, currentUserId }: CombatEntryProps) {
+export function CombatEntry({
+  message,
+  members,
+  currentUserId,
+  isMaster = false,
+  entities,
+  sceneState,
+}: CombatEntryProps) {
   const event = resolveCombatEvent(message);
   const isOwn = message.sender_id === currentUserId;
-  const senderName = members[message.sender_id]?.display_name ?? message.sender_id.slice(0, 8);
+  const playerName = members[message.sender_id]?.display_name ?? "Desconocido";
   const timestamp = formatChatTimestamp(message.timestamp);
   const summary = message.chat_summary ?? message.text;
 
+  const speakerEntityId = event ? resolveCombatSpeakerEntityId(event) : message.entity_id;
+  const storedSpeakerName =
+    message.speaker_display_name ??
+    (event?.kind === "ATTACK_RESOLVED"
+      ? event.attacker_name
+      : event?.kind === "DAMAGE_APPLIED"
+        ? event.defender_name
+        : message.entity_name);
+
+  const characterName =
+    message.speaker_display_name ??
+    (speakerEntityId
+      ? resolveCombatEntityName(
+          speakerEntityId,
+          storedSpeakerName,
+          entities,
+          sceneState,
+          isMaster,
+        )
+      : storedSpeakerName?.trim() || FALLBACK_NARRATOR_NAME);
+
   if (!event) {
     return (
-      <article className={`combat-card ${isOwn ? "combat-card--own" : ""}`}>
-        <header className="combat-card__header">
-          <strong>{senderName}</strong>
-          <time>{timestamp}</time>
+      <article className={`chat-card combat-card ${isOwn ? "chat-card--own combat-card--own" : ""}`}>
+        <header className="chat-card__header">
+          <div className="chat-card__identity">
+            <span className="chat-card__avatar" aria-hidden>
+              {getInitials(characterName)}
+            </span>
+            <div className="chat-card__identity-text">
+              <strong className="chat-card__character">{characterName}</strong>
+              <span className="chat-card__type chat-card__type--action">Combate</span>
+            </div>
+          </div>
+          <div className="chat-card__meta">
+            <span className="chat-card__player">{playerName}</span>
+            <time className="chat-card__time">{timestamp}</time>
+          </div>
         </header>
-        <p className="combat-card__summary">{summary ?? "Evento de combate"}</p>
+        <p className="chat-card__body">{summary ?? "Evento de combate"}</p>
       </article>
     );
   }
 
-  const attackerLabel = event.attacker_name ?? labelEntity(event.attacker_id);
-  const defenderLabel = event.defender_name ?? labelEntity(event.defender_id);
+  const attackerLabel = resolveCombatEntityName(
+    event.attacker_id,
+    event.attacker_name,
+    entities,
+    sceneState,
+    isMaster,
+  );
+  const defenderLabel = resolveCombatEntityName(
+    event.defender_id,
+    event.defender_name,
+    entities,
+    sceneState,
+    isMaster,
+  );
   const attackRoll = event.attack_roll;
   const damage = event.damage;
-  const hpLabel = formatHp(event.defender_hp_remaining, event.defender_hp_max);
+  const hpRemaining = event.defender_hp_remaining ?? event.hp?.after;
+  const hpBefore = event.hp?.before;
+  const hpLabel = formatHp(hpRemaining, event.defender_hp_max);
 
   return (
-    <article className={`combat-card ${isOwn ? "combat-card--own" : ""}`} aria-label="Combate">
-      <header className="combat-card__header">
-        <div className="combat-card__identity">
-          <span className="combat-card__badge">Combate</span>
-          <strong>{senderName}</strong>
+    <article
+      className={`chat-card combat-card ${isOwn ? "chat-card--own combat-card--own" : ""}`}
+      aria-label="Combate"
+    >
+      <header className="chat-card__header">
+        <div className="chat-card__identity">
+          <span className="chat-card__avatar" aria-hidden>
+            {getInitials(characterName)}
+          </span>
+          <div className="chat-card__identity-text">
+            <strong className="chat-card__character">{characterName}</strong>
+            <span className="chat-card__type chat-card__type--action">Combate</span>
+          </div>
         </div>
-        <time>{timestamp}</time>
+        <div className="chat-card__meta">
+          <span className="chat-card__player">{playerName}</span>
+          <time className="chat-card__time">{timestamp}</time>
+        </div>
       </header>
 
       {event.kind === "ATTACK_RESOLVED" && attackerLabel && defenderLabel ? (
@@ -55,26 +128,11 @@ export function CombatEntry({ message, members, currentUserId }: CombatEntryProp
           {event.weapon_name && <span className="combat-card__weapon">({event.weapon_name})</span>}
         </p>
       ) : summary ? (
-        <p className="combat-card__summary">{summary}</p>
+        <p className="chat-card__body">{summary}</p>
       ) : null}
 
       {attackRoll && (
-        <div className="combat-card__roll">
-          <span className="combat-card__roll-label">Ataque</span>
-          <span className="combat-card__roll-total">{attackRoll.total}</span>
-          {attackRoll.target_ac != null && (
-            <span className="combat-card__roll-vs">vs CA {attackRoll.target_ac}</span>
-          )}
-          {attackRoll.hit != null && (
-            <span
-              className={`combat-card__hit ${attackRoll.hit ? "combat-card__hit--success" : "combat-card__hit--fail"}`}
-            >
-              {attackRoll.hit ? "Impacto" : "Fallo"}
-            </span>
-          )}
-          {attackRoll.natural_20 && <span className="combat-card__crit">¡Crítico!</span>}
-          {attackRoll.natural_1 && <span className="combat-card__crit combat-card__crit--fail">Fallo crítico</span>}
-        </div>
+        <p className="combat-card__roll-line">{formatAttackRollLine(attackRoll)}</p>
       )}
 
       {damage && damage.amount > 0 && (
@@ -89,7 +147,8 @@ export function CombatEntry({ message, members, currentUserId }: CombatEntryProp
 
       {hpLabel && (
         <p className="combat-card__hp">
-          PV restantes: <strong>{hpLabel}</strong>
+          PV {hpBefore != null ? `${hpBefore} → ` : ""}
+          <strong>{hpLabel}</strong>
           {defenderLabel && <span className="muted"> ({defenderLabel})</span>}
         </p>
       )}
@@ -99,11 +158,6 @@ export function CombatEntry({ message, members, currentUserId }: CombatEntryProp
       )}
     </article>
   );
-
-  function labelEntity(entityId?: string): string | null {
-    if (!entityId) return null;
-    return entityId.slice(0, 8);
-  }
 }
 
 function formatHp(current?: number, max?: number): string | null {

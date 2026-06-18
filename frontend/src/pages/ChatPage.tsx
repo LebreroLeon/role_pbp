@@ -7,8 +7,21 @@ import { ApiError } from "../api/http";
 import { queryKeys } from "../api/queryKeys";
 import type { MessageType, Scene } from "../api/types";
 import { SECTION_ICONS } from "../components/icons";
-import { Button, ButtonLink, ConfirmDialog, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../components/ui";
+import {
+  Button,
+  ConfirmDialog,
+  ErrorBanner,
+  Panel,
+  PanelHeader,
+  StatusBadge,
+  Toast,
+} from "../components/ui";
 import { ChatComposer, ChatLog, DiceRoller, getChatBuffer, type MemberLookup } from "../features/scene";
+import {
+  canUserPostInPbp,
+  isPbpEnabled,
+  resolveCurrentTurnLabel,
+} from "../features/scene/sceneState";
 import { formatSceneLabel } from "../features/campaign";
 import { buildMentionOptions } from "../features/scene/mentionOptions";
 import {
@@ -46,6 +59,9 @@ export function ChatPage() {
   const [newSceneName, setNewSceneName] = useState("");
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [freezeDialogOpen, setFreezeDialogOpen] = useState(false);
+  const [freezing, setFreezing] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const currentScene = scene ?? activeScene ?? null;
   const isMaster = campaign?.role === "MASTER";
@@ -84,6 +100,20 @@ export function ChatPage() {
     onSceneUpdate: handleSceneUpdate,
     onError: setErrorMessage,
   });
+
+  const canPostInPbp = useMemo(() => {
+    if (!currentScene || isMaster) return true;
+    return canUserPostInPbp(currentScene.scene_state, currentUserId, Boolean(isMaster), entities);
+  }, [currentScene, currentUserId, isMaster, entities]);
+
+  const pbpTurnLabel = useMemo(() => {
+    if (!currentScene) return null;
+    return resolveCurrentTurnLabel(currentScene.scene_state, memberLookup, entities, Boolean(isMaster));
+  }, [currentScene, memberLookup, entities, isMaster]);
+
+  const pbpEnabled = currentScene ? isPbpEnabled(currentScene.scene_state) : false;
+  const composerDisabled =
+    loading || currentScene?.status === "PAUSED" || (pbpEnabled && !canPostInPbp && !isMaster);
 
   const handleMarkRead = useCallback(() => {
     if (!currentScene || !currentUserId) return;
@@ -124,9 +154,28 @@ export function ChatPage() {
     event.preventDefault();
     if (!message.trim() || !currentScene) return;
 
+    const text = message.trim();
+    const loreMatch = text.match(/^@asistente\s+(.+)/i);
+    if (loreMatch && !isMaster) {
+      setLoading(true);
+      setErrorMessage(null);
+      setMessage("");
+      try {
+        const response = await api.loreAssist(currentScene.id, loreMatch[1].trim());
+        setToastMessage(
+          `${response.answer}${response.note ? ` (${response.note})` : ""} — Quedan ${response.remaining_tokens} consultas.`,
+        );
+        await refetch();
+      } catch (err) {
+        setErrorMessage(err instanceof Error ? err.message : "No se pudo consultar al asistente");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     setLoading(true);
     setErrorMessage(null);
-    const text = message.trim();
     const type = messageType;
     setMessage("");
 
@@ -199,8 +248,36 @@ export function ChatPage() {
     }
   }
 
+  async function handleUpdateSceneStatus(nextStatus: "ACTIVE" | "PAUSED") {
+    if (!currentScene || !isMaster) return;
+
+    setFreezing(true);
+    setErrorMessage(null);
+    try {
+      const updated = await api.updateSceneStatus(currentScene.id, nextStatus);
+      handleSceneUpdate(updated);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
+      setFreezeDialogOpen(false);
+      setToastMessage(nextStatus === "PAUSED" ? "Escena congelada." : "Escena reanudada.");
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "No se pudo cambiar el estado de la escena");
+    } finally {
+      setFreezing(false);
+    }
+  }
+
+  function handleFreezeClick() {
+    if (!currentScene || currentScene.status === "CLOSED") return;
+    if (currentScene.status === "PAUSED") {
+      void handleUpdateSceneStatus("ACTIVE");
+      return;
+    }
+    setFreezeDialogOpen(true);
+  }
+
   return (
     <div className="chat-page">
+      <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
       {currentScene && (
         <aside className="chat-page__sidebar">
           <SceneRosterPanel
@@ -218,6 +295,7 @@ export function ChatPage() {
             sceneId={currentScene.id}
             campaignId={campaignId}
             sceneState={currentScene.scene_state}
+            entities={entities}
             members={memberLookup}
             isMaster={Boolean(isMaster)}
             onSceneUpdate={handleSceneUpdate}
@@ -241,18 +319,15 @@ export function ChatPage() {
                 />
               )}
               {isMaster && currentScene && currentScene.status !== "CLOSED" && (
-                <Button variant="secondary" onClick={() => setCloseDialogOpen(true)} disabled={closing}>
-                  Cerrar escena
-                </Button>
+                <>
+                  <Button variant="secondary" onClick={handleFreezeClick} disabled={freezing}>
+                    {currentScene.status === "PAUSED" ? "Reanudar escena" : "Congelar escena"}
+                  </Button>
+                  <Button variant="secondary" onClick={() => setCloseDialogOpen(true)} disabled={closing}>
+                    Cerrar escena
+                  </Button>
+                </>
               )}
-              {isMaster && (
-                <ButtonLink variant="secondary" to={`/campaigns/${campaignId}/mesa`}>
-                  Mesa del Máster
-                </ButtonLink>
-              )}
-              <ButtonLink variant="secondary" to={`/campaigns/${campaignId}`}>
-                Inicio
-              </ButtonLink>
             </div>
           }
         />
@@ -297,7 +372,16 @@ export function ChatPage() {
               onVisible={handleMarkRead}
               isMaster={Boolean(isMaster)}
               onDeleteMessage={isMaster ? handleDeleteMessage : undefined}
+              entities={entities}
+              sceneState={currentScene.scene_state}
             />
+
+            {pbpEnabled && pbpTurnLabel && (
+              <p className="chat-pbp-banner" role="status">
+                Turno de <strong>{pbpTurnLabel}</strong>
+                {!canPostInPbp && !isMaster && " — espera tu turno para escribir."}
+              </p>
+            )}
 
             <ChatComposer
               value={message}
@@ -305,7 +389,7 @@ export function ChatPage() {
               onChange={setMessage}
               onTypeChange={setMessageType}
               onSubmit={handleSend}
-              disabled={loading || currentScene.status === "PAUSED"}
+              disabled={composerDisabled}
               isMaster={Boolean(isMaster)}
               mentionOptions={mentionOptions}
               speakerOptions={speakerOptions}
@@ -317,7 +401,7 @@ export function ChatPage() {
               expression={dice}
               onExpressionChange={setDice}
               onRoll={handleRoll}
-              disabled={loading || currentScene.status === "PAUSED"}
+              disabled={composerDisabled}
             />
 
             {currentScene.status === "PAUSED" && (
@@ -334,6 +418,21 @@ export function ChatPage() {
           </Button>
         )}
       </Panel>
+
+      {freezeDialogOpen && (
+        <ConfirmDialog
+          title="Congelar escena"
+          description={
+            <p className="muted">
+              Los jugadores no podrán enviar mensajes ni tirar dados hasta que reanudes la escena.
+            </p>
+          }
+          confirmLabel="Congelar"
+          onConfirm={() => handleUpdateSceneStatus("PAUSED")}
+          onCancel={() => setFreezeDialogOpen(false)}
+          confirming={freezing}
+        />
+      )}
 
       {closeDialogOpen && (
         <ConfirmDialog

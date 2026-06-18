@@ -144,3 +144,68 @@ export function buildPcDocumentForGameSystem(input: {
     sheet: defaultSheetForGameSystem(input.systemId),
   });
 }
+
+export function buildFactionDocument(input: {
+  name: string;
+  factionType: string;
+  publicDescription: string;
+  secretLore: string;
+  goals: string;
+}): Record<string, unknown> {
+  const goals = input.goals
+    .split(",")
+    .map((goal) => goal.trim())
+    .filter(Boolean);
+
+  return {
+    metadata: { type: "FACTION", version: "1.0.0" },
+    identity: {
+      name: input.name.trim(),
+      faction_type: input.factionType.trim() || "organización",
+      headquarters_location_id: null,
+    },
+    narrative_profile: {
+      public_description: input.publicDescription.trim(),
+      secret_lore_master: input.secretLore.trim(),
+      goals: goals.length > 0 ? goals : ["sobrevivir"],
+    },
+    state_flags: {
+      attitude_towards_party: "neutral",
+      influence_level: 5,
+      is_active: true,
+    },
+  };
+}
+
+export function buildRelationshipDocument(input: {
+  sourceId: string;
+  targetId: string;
+  bondType: string;
+  publicStatus: string;
+  secretNuance: string;
+  tensionLevel: number;
+}): Record<string, unknown> {
+  const now = new Date().toISOString();
+  return {
+    metadata: { type: "RELATIONSHIP", created_at: now, last_updated: now },
+    connection: {
+      source_id: input.sourceId,
+      target_id: input.targetId,
+      is_bidirectional: true,
+    },
+    narrative_bond: {
+      bond_type: input.bondType.trim() || "alianza",
+      public_status: input.publicStatus.trim(),
+      secret_nuance: input.secretNuance.trim(),
+      tension_level: Math.min(10, Math.max(0, input.tensionLevel)),
+    },
+    ai_behavior_guidelines: {
+      if_source_acts: "Considera el vínculo al narrar acciones del origen.",
+      if_target_acts: "Considera el vínculo al narrar acciones del destino.",
+    },
+    state_flags: {
+      is_secret_discovered_by_party: false,
+      is_active: true,
+    },
+  };
+}

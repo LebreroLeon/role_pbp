@@ -194,3 +194,22 @@ class TestPcSheetValidation:
         validated = validate_entity_document(EntityType.PC, normalized)
         dumped = validated.model_dump(mode="json")
         assert dumped["system_mechanics"]["sheet"]["attacks"][0]["damage_dice"] == "1d4"
+
+    def test_backend_flat_sheet_roundtrip_preserves_hp(self):
+        """After save, DB stores canonical flat sheet; re-read must keep edited values."""
+        frontend = _frontend_dnd5e_sheet()
+        frontend["defense"]["hp"]["current"] = 7
+        frontend["defense"]["hp"]["max"] = 22
+        frontend["abilities"]["str"] = 16
+
+        document = _pc_document_with_typed_sheet(frontend)
+        normalized = normalize_entity_document_for_campaign(
+            campaign_game_system="dnd5e",
+            entity_type=EntityType.PC,
+            document=document,
+        )
+        stored = normalized["system_mechanics"]["sheet"]
+        assert stored["hp"]["current"] == 7
+        assert stored["hp"]["max"] == 22
+        assert stored["abilities"]["str"] == 16
+        assert stored["attacks"][0]["damage_dice"] == "1d4"

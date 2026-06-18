@@ -236,6 +236,8 @@ export function ChatComposer({
         {" · "}
         También: <code>@atacante ataca @objetivo</code>
         {" · "}
+        <code>@asistente tu pregunta</code> consulta lore (pool limitado)
+        {" · "}
         <code>@</code> para mencionar entidades
       </p>
     </form>

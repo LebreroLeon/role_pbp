@@ -6,6 +6,7 @@ MessageType = Literal["SPEAK", "ACTION", "CONTEXT", "MASTER", "NARRATIVE", "DICE
 PlayerMessageType = Literal["SPEAK", "ACTION", "CONTEXT"]
 SceneStatusType = Literal["ACTIVE", "PAUSED", "CLOSED"]
 SpeakerType = Literal["MASTER", "NPC", "PC", "NARRATOR"]
+TurnOrderSource = Literal["initiative", "attribute", "manual"]
 
 
 class MemorySettings(BaseModel):
@@ -50,6 +51,8 @@ class SceneContext(BaseModel):
 class TurnManagement(BaseModel):
     current_turn_player_id: str | None = None
     turn_order: list[str] = Field(default_factory=list)
+    pbp_enabled: bool = False
+    order_source: TurnOrderSource = "manual"
 
 
 class StateFlags(BaseModel):
@@ -137,7 +140,29 @@ class CombatAttackRequest(BaseModel):
 
 
 class CombatInitiativeRequest(BaseModel):
-    pass
+    activate_combat: bool = True
+
+
+class SceneTurnManagementUpdate(BaseModel):
+    pbp_enabled: bool | None = None
+    order_source: TurnOrderSource | None = None
+    turn_order: list[str] | None = None
+    initiative_order: list[InitiativeEntry] | None = None
+    current_turn_player_id: str | None = None
+    current_turn_entity_id: str | None = None
+    resort: bool = False
+
+
+class LoreAssistRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=2000)
+
+
+class LoreAssistResponse(BaseModel):
+    query: str
+    answer: str
+    remaining_tokens: int
+    generated_at: str
+    note: str | None = None
 
 
 class NpcPresenceEntry(BaseModel):
@@ -148,3 +173,8 @@ class NpcPresenceEntry(BaseModel):
 class ScenePresenceUpdate(BaseModel):
     add: list[NpcPresenceEntry] = Field(default_factory=list)
     remove: list[str] = Field(default_factory=list)
+
+
+class SceneAddPlayerRequest(BaseModel):
+    entity_id: str | None = None
+    user_id: str | None = None

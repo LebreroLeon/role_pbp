@@ -272,7 +272,7 @@ class TestSingleActiveSceneRule:
         db.refresh = AsyncMock(side_effect=lambda obj: obj)
 
         with patch(
-            "app.services.scenes.mark_campaign_players_present_for_scene",
+            "app.services.scenes.mark_all_campaign_pcs_present_for_scene",
             new=AsyncMock(),
         ):
             response = asyncio.run(
@@ -301,7 +301,11 @@ class TestSingleActiveSceneRule:
         db.commit = AsyncMock()
         db.refresh = AsyncMock(side_effect=lambda obj: obj)
 
-        response = asyncio.run(update_scene_status(db, current, "ACTIVE"))
+        with patch(
+            "app.services.scenes.mark_all_campaign_pcs_present_for_scene",
+            new=AsyncMock(),
+        ):
+            response = asyncio.run(update_scene_status(db, current, "ACTIVE"))
         assert other.status == "PAUSED"
         assert current.status == "ACTIVE"
         assert response.status == "ACTIVE"
@@ -325,7 +329,11 @@ class TestSingleActiveSceneRule:
         db.commit = AsyncMock()
         db.refresh = AsyncMock(side_effect=lambda obj: obj)
 
-        response = asyncio.run(start_active_scene(db, paused))
+        with patch(
+            "app.services.scenes.mark_all_campaign_pcs_present_for_scene",
+            new=AsyncMock(),
+        ):
+            response = asyncio.run(start_active_scene(db, paused))
         assert active.status == "PAUSED"
         assert paused.status == "ACTIVE"
         assert response.status == "ACTIVE"

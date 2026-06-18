@@ -20,6 +20,7 @@ from app.schemas.scene import (
     SceneResponse,
     SceneState,
     SceneStatusType,
+    SceneTurnManagementUpdate,
     StateFlags,
     TurnManagement,
 )
@@ -29,6 +30,16 @@ from app.services.combat_resolver import CombatResolverError, entity_display_nam
 from app.services.entities import CharacterSheetError, find_pc_by_user, get_campaign_or_error
 from app.services.llm import LLMError, LLMNotConfiguredError, chat_completion
 from app.services.master import utc_now_iso
+from app.services.pbp_turn import (
+    PbpTurnError,
+    advance_pbp_turn,
+    assert_pbp_post_allowed,
+    ensure_pbp_initiative_order,
+    fetch_entities_by_id,
+    is_pbp_enforcement_active,
+    sort_initiative_entries,
+    sync_turn_management_from_initiative,
+)
 from app.services.rag import rag_service
 
 ALLOWED_MESSAGE_TYPES = {"SPEAK", "ACTION", "CONTEXT", "MASTER", "NARRATIVE", "DICE_ROLL"}
@@ -90,6 +101,17 @@ def _coerce_state_flags(raw: object) -> dict:
     return StateFlags().model_dump()
 
 
+def _coerce_turn_management(raw: object) -> dict:
+    if isinstance(raw, dict):
+        return {
+            "current_turn_player_id": raw.get("current_turn_player_id"),
+            "turn_order": list(raw.get("turn_order") or []),
+            "pbp_enabled": bool(raw.get("pbp_enabled", False)),
+            "order_source": raw.get("order_source", "manual"),
+        }
+    return TurnManagement().model_dump()
+
+
 def _coerce_initiative_order(raw: object) -> list[dict]:
     if not isinstance(raw, list):
         return []
@@ -125,6 +147,7 @@ def migrate_scene_state(data: dict, *, scene_status: str | None = None) -> dict:
         state_flags = _coerce_state_flags(migrated.get("state_flags"))
         migrated["state_flags"] = state_flags
         migrated["combat"] = _coerce_combat(migrated.get("combat"), state_flags)
+        migrated["turn_management"] = _coerce_turn_management(migrated.get("turn_management"))
         if scene_status is not None and isinstance(migrated.get("metadata"), dict):
             migrated["metadata"]["status"] = scene_status
         context = migrated.get("context")
@@ -147,10 +170,12 @@ def migrate_scene_state(data: dict, *, scene_status: str | None = None) -> dict:
             "hidden_npc_ids": list(data.get("hidden_npc_ids") or []),
             "scene_objective": data.get("scene_objective"),
         },
-        "turn_management": {
-            "current_turn_player_id": data.get("current_turn_player_id"),
-            "turn_order": list(data.get("turn_order") or []),
-        },
+        "turn_management": _coerce_turn_management(
+            {
+                "current_turn_player_id": data.get("current_turn_player_id"),
+                "turn_order": list(data.get("turn_order") or []),
+            }
+        ),
         "memory_settings": memory_settings,
         "chat_buffer": data.get("chat_buffer", []),
         "state_flags": state_flags,
@@ -511,13 +536,7 @@ async def create_scene(
     await db.commit()
     await db.refresh(scene)
 
-    turn_user_ids: list[uuid.UUID] = []
-    for raw_user_id in turn_order:
-        try:
-            turn_user_ids.append(uuid.UUID(str(raw_user_id)))
-        except ValueError:
-            continue
-    await mark_campaign_players_present_for_scene(db, scene, turn_user_ids)
+    await mark_all_campaign_pcs_present_for_scene(db, scene)
 
     await db.refresh(scene)
     return scene_to_response(scene)
@@ -537,6 +556,15 @@ async def post_message(
     if msg_type == "MASTER" and sender_role != "MASTER":
         raise SceneServiceError("Master messages require MASTER role")
 
+    state = load_scene_state(scene)
+
+    try:
+        await assert_pbp_post_allowed(
+            db, scene.campaign_id, state, sender_id, sender_role
+        )
+    except PbpTurnError as exc:
+        raise SceneServiceError(str(exc)) from exc
+
     speaker_fields = await resolve_message_speaker_fields(
         db,
         scene,
@@ -545,8 +573,6 @@ async def post_message(
         sender_role=sender_role,
         msg_type=msg_type,
     )
-
-    state = load_scene_state(scene)
 
     combat_command = try_parse_combat_command(payload.text)
     if combat_command is not None:
@@ -600,6 +626,11 @@ async def post_message(
     trimmed = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
     state.chat_buffer = trimmed
 
+    if sender_role != "MASTER" and msg_type in NARRATIVE_MESSAGE_TYPES:
+        advance_pbp_turn(state)
+        if state.combat.initiative_order:
+            await sync_turn_management_from_initiative(db, scene.campaign_id, state)
+
     save_scene_state(scene, state)
     await db.commit()
     await db.refresh(scene)
@@ -619,10 +650,19 @@ async def roll_scene_dice(
     scene: Scene,
     sender_id: str,
     payload: DiceRollRequest,
+    *,
+    sender_role: str = "PLAYER",
 ) -> SceneResponse:
     ensure_scene_interactive(scene)
 
     state = load_scene_state(scene)
+
+    try:
+        await assert_pbp_post_allowed(
+            db, scene.campaign_id, state, sender_id, sender_role
+        )
+    except PbpTurnError as exc:
+        raise SceneServiceError(str(exc)) from exc
 
     try:
         result = roll_dice_expression(payload.dice_expression, payload.modifier)
@@ -685,6 +725,11 @@ async def update_scene_status(
     save_scene_state(scene, state)
     await db.commit()
     await db.refresh(scene)
+
+    if status == "ACTIVE":
+        await mark_all_campaign_pcs_present_for_scene(db, scene)
+        await db.refresh(scene)
+
     return scene_to_response(scene)
 
 
@@ -877,6 +922,194 @@ async def append_dice_roll_to_scene(
     return scene_to_response(scene)
 
 
+async def update_scene_turn_management(
+    db: AsyncSession,
+    scene: Scene,
+    payload: SceneTurnManagementUpdate,
+) -> SceneResponse:
+    state = load_scene_state(scene)
+
+    if payload.pbp_enabled is not None:
+        state.turn_management.pbp_enabled = payload.pbp_enabled
+        if payload.pbp_enabled:
+            await ensure_pbp_initiative_order(db, scene.campaign_id, state)
+    if payload.order_source is not None:
+        state.turn_management.order_source = payload.order_source
+
+    if payload.turn_order is not None:
+        state.turn_management.turn_order = [str(user_id) for user_id in payload.turn_order]
+        if payload.current_turn_player_id is None:
+            if state.turn_management.turn_order:
+                current = state.turn_management.current_turn_player_id
+                if current not in state.turn_management.turn_order:
+                    state.turn_management.current_turn_player_id = state.turn_management.turn_order[0]
+            else:
+                state.turn_management.current_turn_player_id = None
+
+    if payload.current_turn_player_id is not None:
+        state.turn_management.current_turn_player_id = payload.current_turn_player_id
+
+    if (
+        payload.current_turn_entity_id is not None
+        and payload.initiative_order is None
+    ):
+        if not state.combat.initiative_order:
+            await ensure_pbp_initiative_order(db, scene.campaign_id, state)
+        entity_id = str(payload.current_turn_entity_id)
+        known_ids = {str(entry.entity_id) for entry in state.combat.initiative_order}
+        if entity_id not in known_ids:
+            raise SceneServiceError("Entity is not in the current turn order")
+        state.combat.current_turn_entity_id = entity_id
+        await sync_turn_management_from_initiative(db, scene.campaign_id, state)
+
+    if payload.initiative_order is not None:
+        entries = list(payload.initiative_order)
+        entity_ids = [str(entry.entity_id) for entry in entries]
+        entities_by_id = await fetch_entities_by_id(db, scene.campaign_id, entity_ids)
+        order_source = state.turn_management.order_source
+        if payload.resort:
+            entries = sort_initiative_entries(entries, entities_by_id, order_source)
+        state.combat.initiative_order = entries
+        if payload.current_turn_entity_id is not None:
+            state.combat.current_turn_entity_id = payload.current_turn_entity_id
+        elif entries:
+            state.combat.current_turn_entity_id = entries[0].entity_id
+        await sync_turn_management_from_initiative(db, scene.campaign_id, state)
+    elif payload.resort and state.combat.initiative_order:
+        entity_ids = [str(entry.entity_id) for entry in state.combat.initiative_order]
+        entities_by_id = await fetch_entities_by_id(db, scene.campaign_id, entity_ids)
+        state.combat.initiative_order = sort_initiative_entries(
+            state.combat.initiative_order,
+            entities_by_id,
+            state.turn_management.order_source,
+        )
+        if state.combat.initiative_order:
+            state.combat.current_turn_entity_id = state.combat.initiative_order[0].entity_id
+        await sync_turn_management_from_initiative(db, scene.campaign_id, state)
+
+    save_scene_state(scene, state)
+    await db.commit()
+    await db.refresh(scene)
+    return scene_to_response(scene)
+
+
+async def advance_scene_pbp_turn(
+    db: AsyncSession,
+    scene: Scene,
+) -> SceneResponse:
+    state = load_scene_state(scene)
+    if not is_pbp_enforcement_active(state):
+        raise SceneServiceError("PBP mode is not enabled")
+
+    if not state.combat.initiative_order:
+        populated = await ensure_pbp_initiative_order(db, scene.campaign_id, state)
+        if not populated:
+            raise SceneServiceError("No turn order defined")
+
+    advance_pbp_turn(state)
+    await sync_turn_management_from_initiative(db, scene.campaign_id, state)
+    save_scene_state(scene, state)
+    await db.commit()
+    await db.refresh(scene)
+    return scene_to_response(scene)
+
+
+async def _append_pc_to_pbp_initiative_if_needed(
+    db: AsyncSession,
+    scene: Scene,
+    pc: CampaignEntity,
+    state: SceneState,
+) -> None:
+    """Keep PBP turn track in sync when a PC joins the active scene."""
+    if not is_pbp_enforcement_active(state):
+        return
+
+    entity_id = str(pc.id)
+    known_ids = {str(entry.entity_id) for entry in state.combat.initiative_order}
+    if entity_id in known_ids:
+        return
+
+    binding = pc.document.get("player_binding", {})
+    user_id = (
+        str(binding["user_id"])
+        if isinstance(binding, dict) and binding.get("user_id")
+        else None
+    )
+
+    if state.combat.initiative_order:
+        state.combat.initiative_order.append(
+            InitiativeEntry(
+                entity_id=entity_id,
+                entity_type="PC",
+                display_name=entity_display_name(pc),
+                is_active=True,
+            )
+        )
+        await sync_turn_management_from_initiative(db, scene.campaign_id, state)
+        return
+
+    if state.turn_management.turn_order and user_id:
+        if user_id not in state.turn_management.turn_order:
+            state.turn_management.turn_order.append(user_id)
+        return
+
+    populated = await ensure_pbp_initiative_order(db, scene.campaign_id, state)
+    if populated or entity_id in {str(entry.entity_id) for entry in state.combat.initiative_order}:
+        return
+
+    state.combat.initiative_order.append(
+        InitiativeEntry(
+            entity_id=entity_id,
+            entity_type="PC",
+            display_name=entity_display_name(pc),
+            is_active=True,
+        )
+    )
+    await sync_turn_management_from_initiative(db, scene.campaign_id, state)
+
+
+async def _apply_pc_presence_to_scene(
+    db: AsyncSession,
+    scene: Scene,
+    pc: CampaignEntity,
+    *,
+    state: SceneState | None = None,
+) -> SceneState:
+    from app.services.entities import set_pc_present_in_scene
+
+    if pc.entity_type != "PC" or pc.campaign_id != scene.campaign_id:
+        raise SceneServiceError("Entity is not a player character in this campaign")
+
+    await set_pc_present_in_scene(db, pc, present=True, commit=False)
+
+    if state is None:
+        state = load_scene_state(scene)
+    await _append_pc_to_pbp_initiative_if_needed(db, scene, pc, state)
+    save_scene_state(scene, state)
+    return state
+
+
+async def mark_all_campaign_pcs_present_for_scene(
+    db: AsyncSession,
+    scene: Scene,
+) -> None:
+    pcs = (
+        await db.scalars(
+            select(CampaignEntity).where(
+                CampaignEntity.campaign_id == scene.campaign_id,
+                CampaignEntity.entity_type == "PC",
+            )
+        )
+    ).all()
+    if not pcs:
+        return
+
+    state = load_scene_state(scene)
+    for pc in pcs:
+        await _apply_pc_presence_to_scene(db, scene, pc, state=state)
+    await db.commit()
+
+
 async def mark_campaign_players_present_for_scene(
     db: AsyncSession,
     scene: Scene,
@@ -885,8 +1118,7 @@ async def mark_campaign_players_present_for_scene(
     if not user_ids:
         return
 
-    from app.services.entities import set_pc_present_in_scene
-
+    state = load_scene_state(scene)
     for user_id in user_ids:
         pc = await db.scalar(
             select(CampaignEntity).where(
@@ -896,8 +1128,7 @@ async def mark_campaign_players_present_for_scene(
             )
         )
         if pc is not None:
-            await set_pc_present_in_scene(db, pc, present=True, commit=False)
-
+            await _apply_pc_presence_to_scene(db, scene, pc, state=state)
     await db.commit()
 
 
@@ -907,3 +1138,46 @@ async def ensure_player_pc_present_in_scene(
     user_id: uuid.UUID,
 ) -> None:
     await mark_campaign_players_present_for_scene(db, scene, [user_id])
+
+
+async def add_player_to_scene_presence(
+    db: AsyncSession,
+    scene: Scene,
+    *,
+    entity_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+) -> SceneResponse:
+    if entity_id is None and user_id is None:
+        raise SceneServiceError("entity_id or user_id is required")
+
+    pc: CampaignEntity | None = None
+    if entity_id is not None:
+        pc = await db.scalar(
+            select(CampaignEntity).where(
+                CampaignEntity.id == entity_id,
+                CampaignEntity.campaign_id == scene.campaign_id,
+            )
+        )
+        if pc is None:
+            raise SceneServiceError("Player character not found in campaign")
+    else:
+        assert user_id is not None
+        try:
+            pc = await find_pc_by_user(db, scene.campaign_id, user_id)
+        except CharacterSheetError as exc:
+            raise SceneServiceError(str(exc)) from exc
+        if pc is None:
+            raise SceneServiceError("Player character not found in campaign")
+
+    await _apply_pc_presence_to_scene(db, scene, pc)
+    await db.commit()
+    await db.refresh(scene)
+    response = scene_to_response(scene)
+
+    from app.services.scene_ws import scene_ws_manager
+
+    await scene_ws_manager.broadcast(
+        str(scene.id),
+        {"event": "scene_update", "scene": response.model_dump(mode="json")},
+    )
+    return response

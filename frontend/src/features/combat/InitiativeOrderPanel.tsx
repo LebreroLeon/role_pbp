@@ -1,61 +1,166 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import type { CombatInitiativeEntry, Scene } from "../../api/types";
-import { Button } from "../../components/ui";
-import { useRollCombatInitiativeMutation } from "../../hooks/mutations/useSceneMutations";
+import type { CampaignEntity, CombatInitiativeEntry, Scene, TurnOrderSource } from "../../api/types";
+import { Button, Modal, Switch } from "../../components/ui";
+import {
+  useAdvancePbpTurnMutation,
+  useRollCombatInitiativeMutation,
+  useUpdateSceneTurnManagementMutation,
+} from "../../hooks/mutations/useSceneMutations";
 import type { MemberLookup } from "../scene/ChatEntry";
 import {
   getCombatState,
   getCurrentCombatTurnIndex,
-  getCurrentTurnPlayerId,
-  getTurnOrder,
+  getCurrentTurnEntityId,
+  getOrderSource,
   isConflictModeActive,
+  isPbpEnabled,
   normalizeSceneState,
+  resolveCurrentTurnLabel,
   type SceneStateInput,
 } from "../scene/sceneState";
+import { buildSceneRoster, enrichInitiativeEntry, resolveInitiativeEntryDisplay } from "./sceneRoster";
 
 type InitiativeOrderPanelProps = {
   sceneId: string;
   campaignId: string;
   sceneState: SceneStateInput;
+  entities: CampaignEntity[];
   members: MemberLookup;
   isMaster?: boolean;
   onSceneUpdate?: (scene: Scene) => void;
 };
 
+const ORDER_SOURCE_OPTIONS: { value: TurnOrderSource; label: string }[] = [
+  { value: "initiative", label: "Iniciativa" },
+  { value: "attribute", label: "Destreza" },
+  { value: "manual", label: "Manual" },
+];
+
+function buildDisplayEntries(
+  sceneState: SceneStateInput,
+  entities: CampaignEntity[],
+  isMaster: boolean,
+): CombatInitiativeEntry[] {
+  const normalized = normalizeSceneState(sceneState);
+  if (normalized.combat.initiative_order.length > 0) {
+    return normalized.combat.initiative_order.map((entry) =>
+      enrichInitiativeEntry(entry, entities, sceneState, isMaster),
+    );
+  }
+
+  return buildSceneRoster(sceneState, entities, isMaster).map((entry) => ({
+    entity_id: entry.id,
+    display_name: entry.label,
+    entity_type: entry.entityType,
+  }));
+}
+
+function buildManageEntries(
+  sceneState: SceneStateInput,
+  entities: CampaignEntity[],
+  isMaster: boolean,
+): CombatInitiativeEntry[] {
+  return buildDisplayEntries(sceneState, entities, isMaster);
+}
+
 export function InitiativeOrderPanel({
   sceneId,
   campaignId,
   sceneState,
+  entities,
   members,
   isMaster = false,
   onSceneUpdate,
 }: InitiativeOrderPanelProps) {
   const state = normalizeSceneState(sceneState);
   const combat = getCombatState(state);
-  const turnOrder = getTurnOrder(state);
-  const currentTurnPlayerId = getCurrentTurnPlayerId(state);
+  const currentTurnEntityId = getCurrentTurnEntityId(state);
   const conflictActive = isConflictModeActive(state);
+  const pbpOn = isPbpEnabled(state);
+  const orderSource = getOrderSource(state);
+  const turnLabel = resolveCurrentTurnLabel(sceneState, members, entities, isMaster);
   const [manageOpen, setManageOpen] = useState(false);
+
   const rollInitiative = useRollCombatInitiativeMutation({ campaignId, onSceneUpdate });
+  const updateTurnManagement = useUpdateSceneTurnManagementMutation({ campaignId, onSceneUpdate });
+  const advancePbpTurn = useAdvancePbpTurnMutation({ campaignId, onSceneUpdate });
+
+  const displayEntries = useMemo(
+    () => buildDisplayEntries(sceneState, entities, isMaster),
+    [sceneState, entities, isMaster],
+  );
+
+  const manageEntries = useMemo(
+    () => buildManageEntries(sceneState, entities, isMaster),
+    [sceneState, entities, isMaster],
+  );
+
+  const isTurnBusy = updateTurnManagement.isPending || advancePbpTurn.isPending;
+
+  async function handleTogglePbp(enabled: boolean) {
+    await updateTurnManagement.mutateAsync({ sceneId, pbp_enabled: enabled });
+  }
+
+  async function handleAdvanceTurn() {
+    await advancePbpTurn.mutateAsync({ sceneId });
+  }
+
+  async function handleAssignTurn(entityId: string) {
+    await updateTurnManagement.mutateAsync({ sceneId, current_turn_entity_id: entityId });
+  }
+
+  const masterTurnControls = isMaster && pbpOn && displayEntries.length > 0 ? (
+    <div className="initiative-panel__master-actions">
+      <Button
+        type="button"
+        variant="secondary"
+        className="initiative-panel__advance"
+        disabled={isTurnBusy}
+        onClick={() => {
+          void handleAdvanceTurn().catch(() => undefined);
+        }}
+      >
+        {advancePbpTurn.isPending ? "Avanzando…" : "Siguiente turno"}
+      </Button>
+    </div>
+  ) : null;
 
   const manageModal = manageOpen ? (
     <InitiativeManageModal
-      entries={
-        combat.is_active && combat.initiative_order.length > 0
-          ? combat.initiative_order
-          : turnOrder.length > 0
-            ? turnOrder.map((userId) => ({
-                entity_id: userId,
-                display_name: members[userId]?.display_name ?? userId.slice(0, 8),
-                entity_type: members[userId]?.role === "MASTER" ? "MASTER" : "PC",
-              }))
-            : []
+      entries={manageEntries}
+      entities={entities}
+      sceneState={sceneState}
+      isMaster={isMaster}
+      orderSource={orderSource}
+      onOrderSourceChange={(next) =>
+        void updateTurnManagement.mutateAsync({ sceneId, order_source: next }).catch(() => undefined)
       }
       onClose={() => setManageOpen(false)}
-      onSave={() => rollInitiative.mutateAsync(sceneId).then(() => setManageOpen(false))}
-      isSaving={rollInitiative.isPending}
-      saveError={rollInitiative.error instanceof Error ? rollInitiative.error.message : null}
+      onRollAll={() =>
+        rollInitiative
+          .mutateAsync({ sceneId, activateCombat: false })
+          .then(() => setManageOpen(false))
+          .catch(() => undefined)
+      }
+      onSave={(entries, source) =>
+        updateTurnManagement
+          .mutateAsync({
+            sceneId,
+            order_source: source,
+            initiative_order: entries,
+            current_turn_entity_id: entries[0]?.entity_id ?? null,
+            resort: source !== "manual",
+          })
+          .then(() => setManageOpen(false))
+      }
+      isSaving={updateTurnManagement.isPending || rollInitiative.isPending}
+      saveError={
+        (updateTurnManagement.error ?? rollInitiative.error) instanceof Error
+          ? (updateTurnManagement.error ?? rollInitiative.error)?.message ?? null
+          : null
+      }
+      isRolling={rollInitiative.isPending}
     />
   ) : null;
 
@@ -65,63 +170,212 @@ export function InitiativeOrderPanel({
     </Button>
   ) : null;
 
+  const pbpControls = isMaster ? (
+    <Switch
+      className="initiative-panel__pbp-toggle"
+      checked={pbpOn}
+      onCheckedChange={(enabled) => {
+        void handleTogglePbp(enabled).catch(() => undefined);
+      }}
+      disabled={updateTurnManagement.isPending}
+      label="Modo PBP"
+      description="Turnos estrictos"
+      tone="teal"
+    />
+  ) : null;
+
+  const turnBanner =
+    pbpOn && turnLabel ? (
+      <p className="initiative-panel__turn-banner" role="status">
+        Turno de <strong>{turnLabel}</strong>
+      </p>
+    ) : null;
+
   if (combat.is_active && combat.initiative_order.length > 0) {
     return (
       <>
-        <CombatInitiativePanel combat={combat} manageButton={manageButton} />
+        <CombatInitiativePanel
+          combat={combat}
+          sceneState={sceneState}
+          entities={entities}
+          manageButton={manageButton}
+          pbpControls={pbpControls}
+          turnBanner={turnBanner}
+          masterTurnControls={masterTurnControls}
+          isMaster={isMaster}
+          pbpOn={pbpOn}
+          isTurnBusy={isTurnBusy}
+          onAssignTurn={handleAssignTurn}
+        />
         {manageModal}
       </>
     );
   }
 
-  if (turnOrder.length === 0) {
-    if (!conflictActive) return null;
+  if (displayEntries.length === 0) {
+    if (!conflictActive && !pbpOn) return null;
     return (
       <aside className="initiative-panel initiative-panel--empty" aria-label="Iniciativa">
-        <h3 className="initiative-panel__title">Iniciativa</h3>
-        <p className="muted">Modo conflicto activo — sin orden definido aún.</p>
+        <h3 className="initiative-panel__title">Turnos</h3>
+        {pbpControls}
+        {turnBanner}
+        <p className="muted">
+          {pbpOn
+            ? "PBP activo — añade PCs o PNJs a la escena para definir el orden."
+            : "Modo conflicto activo — sin orden definido aún."}
+        </p>
         {manageButton}
         {manageModal}
       </aside>
     );
   }
 
+  const currentIndex = displayEntries.findIndex((entry) => entry.entity_id === currentTurnEntityId);
+  const panelTitle = combat.initiative_order.length > 0 ? "Orden de turnos" : "Turno narrativo";
+
   return (
     <>
-      <aside className="initiative-panel" aria-label="Orden de turnos">
+      <aside className="initiative-panel" aria-label="Orden de turnos PBP">
         <div className="initiative-panel__head">
-          <h3 className="initiative-panel__title">Turno narrativo</h3>
+          <h3 className="initiative-panel__title">{panelTitle}</h3>
           {manageButton}
         </div>
-        <ol className="initiative-list">
-          {turnOrder.map((userId) => {
-            const member = members[userId];
-            const isCurrent = userId === currentTurnPlayerId;
-            return (
-              <li key={userId} className={`initiative-entry ${isCurrent ? "is-current" : ""}`}>
-                <span className="initiative-entry__marker" aria-hidden>
-                  {isCurrent ? "►" : "·"}
-                </span>
-                <span className="initiative-entry__name">{member?.display_name ?? userId.slice(0, 8)}</span>
-                {member?.role === "MASTER" && <span className="initiative-entry__tag">Máster</span>}
-              </li>
-            );
-          })}
-        </ol>
+        {pbpControls}
+        {turnBanner}
+        <EntityTurnList
+          entries={displayEntries}
+          entities={entities}
+          sceneState={sceneState}
+          currentIndex={currentIndex >= 0 ? currentIndex : 0}
+          isMaster={isMaster}
+          pbpOn={pbpOn}
+          isTurnBusy={isTurnBusy}
+          onAssignTurn={handleAssignTurn}
+        />
+        {masterTurnControls}
       </aside>
       {manageModal}
     </>
   );
 }
 
+type EntityTurnListProps = {
+  entries: CombatInitiativeEntry[];
+  entities: CampaignEntity[];
+  sceneState: SceneStateInput;
+  currentIndex: number;
+  isMaster: boolean;
+  pbpOn: boolean;
+  isTurnBusy: boolean;
+  onAssignTurn: (entityId: string) => Promise<void>;
+  showCombatDetails?: boolean;
+  combatHpById?: Map<string, { current?: number; max?: number }>;
+};
+
+function EntityTurnList({
+  entries,
+  entities,
+  sceneState,
+  currentIndex,
+  isMaster,
+  pbpOn,
+  isTurnBusy,
+  onAssignTurn,
+  showCombatDetails = false,
+  combatHpById,
+}: EntityTurnListProps) {
+  return (
+    <ol className="initiative-list">
+      {entries.map((entry, index) => {
+        const isCurrent = index === currentIndex;
+        const hp = combatHpById?.get(entry.entity_id);
+        const hpLabel =
+          hp?.current != null && hp?.max != null ? `${hp.current}/${hp.max}` : null;
+        const { label: displayName, entityType } = resolveInitiativeEntryDisplay(
+          entry,
+          entities,
+          sceneState,
+          isMaster,
+        );
+        const canAssign = isMaster && pbpOn && !isCurrent;
+
+        return (
+          <li
+            key={entry.entity_id}
+            className={`initiative-entry ${showCombatDetails ? "initiative-entry--combat" : ""} ${isCurrent ? "is-current" : ""} ${entry.is_active === false ? "is-inactive" : ""} ${canAssign ? "is-assignable" : ""}`}
+          >
+            {canAssign ? (
+              <button
+                type="button"
+                className="initiative-entry__assign"
+                disabled={isTurnBusy}
+                title={`Dar turno a ${displayName}`}
+                onClick={() => {
+                  void onAssignTurn(entry.entity_id).catch(() => undefined);
+                }}
+              >
+                <span className="initiative-entry__marker" aria-hidden>
+                  ·
+                </span>
+                <span className="initiative-entry__name">{displayName}</span>
+                {entry.initiative_score != null && (
+                  <span className="initiative-entry__score">{entry.initiative_score}</span>
+                )}
+                {entityType && <span className="initiative-entry__tag">{entityType}</span>}
+                {hpLabel && <span className="initiative-entry__hp">{hpLabel} PV</span>}
+              </button>
+            ) : (
+              <>
+                <span className="initiative-entry__marker" aria-hidden>
+                  {isCurrent ? "►" : "·"}
+                </span>
+                <span className="initiative-entry__name">{displayName}</span>
+                {entry.initiative_score != null && (
+                  <span className="initiative-entry__score">{entry.initiative_score}</span>
+                )}
+                {entityType && <span className="initiative-entry__tag">{entityType}</span>}
+                {hpLabel && <span className="initiative-entry__hp">{hpLabel} PV</span>}
+              </>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 function CombatInitiativePanel({
   combat,
+  sceneState,
+  entities,
   manageButton,
+  pbpControls,
+  turnBanner,
+  masterTurnControls,
+  isMaster,
+  pbpOn,
+  isTurnBusy,
+  onAssignTurn,
 }: {
   combat: ReturnType<typeof getCombatState>;
+  sceneState: SceneStateInput;
+  entities: CampaignEntity[];
   manageButton: ReactNode;
+  pbpControls: ReactNode;
+  turnBanner: ReactNode;
+  masterTurnControls: ReactNode;
+  isMaster: boolean;
+  pbpOn: boolean;
+  isTurnBusy: boolean;
+  onAssignTurn: (entityId: string) => Promise<void>;
 }) {
   const currentIndex = getCurrentCombatTurnIndex(combat);
+  const combatHpById = new Map(
+    combat.initiative_order.map((entry) => [
+      entry.entity_id,
+      { current: entry.hp_current, max: entry.hp_max },
+    ]),
+  );
 
   return (
     <aside className="initiative-panel initiative-panel--combat" aria-label="Iniciativa de combate">
@@ -129,57 +383,64 @@ function CombatInitiativePanel({
         <h3 className="initiative-panel__title">Iniciativa — Ronda {combat.round}</h3>
         {manageButton}
       </div>
-      <ol className="initiative-list">
-        {combat.initiative_order.map((entry, index) => {
-          const isCurrent = index === currentIndex;
-          const hpLabel =
-            entry.hp_current != null && entry.hp_max != null
-              ? `${entry.hp_current}/${entry.hp_max}`
-              : null;
-          const displayName = entry.display_name ?? entry.entity_id.slice(0, 8);
-
-          return (
-            <li
-              key={entry.entity_id}
-              className={`initiative-entry initiative-entry--combat ${isCurrent ? "is-current" : ""} ${entry.is_active === false ? "is-inactive" : ""}`}
-            >
-              <span className="initiative-entry__marker" aria-hidden>
-                {isCurrent ? "►" : "·"}
-              </span>
-              <span className="initiative-entry__name">{displayName}</span>
-              {entry.initiative_score != null && (
-                <span className="initiative-entry__score">{entry.initiative_score}</span>
-              )}
-              {entry.entity_type && <span className="initiative-entry__tag">{entry.entity_type}</span>}
-              {hpLabel && <span className="initiative-entry__hp">{hpLabel} PV</span>}
-            </li>
-          );
-        })}
-      </ol>
+      {pbpControls}
+      {turnBanner}
+      <EntityTurnList
+        entries={combat.initiative_order}
+        entities={entities}
+        sceneState={sceneState}
+        currentIndex={currentIndex}
+        isMaster={isMaster}
+        pbpOn={pbpOn}
+        isTurnBusy={isTurnBusy}
+        onAssignTurn={onAssignTurn}
+        showCombatDetails
+        combatHpById={combatHpById}
+      />
+      {masterTurnControls}
     </aside>
   );
 }
 
 type InitiativeManageModalProps = {
   entries: CombatInitiativeEntry[];
+  entities: CampaignEntity[];
+  sceneState: SceneStateInput;
+  isMaster: boolean;
+  orderSource: TurnOrderSource;
+  onOrderSourceChange: (source: TurnOrderSource) => void;
   onClose: () => void;
-  onSave: () => Promise<void>;
+  onRollAll: () => void;
+  onSave: (entries: CombatInitiativeEntry[], source: TurnOrderSource) => Promise<void>;
   isSaving?: boolean;
+  isRolling?: boolean;
   saveError?: string | null;
 };
 
 function InitiativeManageModal({
   entries,
+  entities,
+  sceneState,
+  isMaster,
+  orderSource,
+  onOrderSourceChange,
   onClose,
+  onRollAll,
   onSave,
   isSaving = false,
+  isRolling = false,
   saveError = null,
 }: InitiativeManageModalProps) {
   const [localEntries, setLocalEntries] = useState(entries);
+  const [localSource, setLocalSource] = useState(orderSource);
 
   useEffect(() => {
     setLocalEntries(entries);
   }, [entries]);
+
+  useEffect(() => {
+    setLocalSource(orderSource);
+  }, [orderSource]);
 
   function moveEntry(index: number, direction: -1 | 1) {
     const target = index + direction;
@@ -188,78 +449,109 @@ function InitiativeManageModal({
     const [item] = next.splice(index, 1);
     next.splice(target, 0, item);
     setLocalEntries(next);
+    setLocalSource("manual");
+    onOrderSourceChange("manual");
+  }
+
+  function handleSourceChange(next: TurnOrderSource) {
+    setLocalSource(next);
+    onOrderSourceChange(next);
   }
 
   return (
-    <div className="initiative-modal-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="initiative-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="initiative-modal-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="initiative-modal__header">
-          <h2 id="initiative-modal-title">Gestionar iniciativa</h2>
-          <button type="button" className="initiative-modal__close" onClick={onClose} aria-label="Cerrar">
-            ×
-          </button>
-        </header>
-
-        {localEntries.length === 0 ? (
-          <p className="muted">No hay entidades en el orden de iniciativa.</p>
-        ) : (
-          <ol className="initiative-manage-list">
-            {localEntries.map((entry, index) => (
-              <li key={entry.entity_id} className="initiative-manage-item">
-                <span className="initiative-manage-item__name">
-                  {entry.display_name ?? entry.entity_id.slice(0, 8)}
-                </span>
-                {entry.entity_type && <span className="initiative-entry__tag">{entry.entity_type}</span>}
-                <div className="initiative-manage-item__actions">
-                  <button
-                    type="button"
-                    disabled={index === 0}
-                    onClick={() => moveEntry(index, -1)}
-                    aria-label="Subir"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    disabled={index === localEntries.length - 1}
-                    onClick={() => moveEntry(index, 1)}
-                    aria-label="Bajar"
-                  >
-                    ↓
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
-
-        <footer className="initiative-modal__footer">
+    <Modal
+      title="Gestionar iniciativa"
+      titleId="initiative-modal-title"
+      onClose={onClose}
+      size="md"
+      footer={
+        <>
           <p className="muted initiative-modal__note">
-            Guardar tira iniciativa para las entidades en escena y actualiza el orden de combate.
+            Guardar orden actualiza el turno narrativo y la iniciativa en escena. El Máster siempre puede
+            escribir.
           </p>
           {saveError && <p className="error">{saveError}</p>}
-          <div className="initiative-modal__buttons">
-            <Button type="button" variant="secondary" onClick={onClose} disabled={isSaving}>
+          <div className="ui-modal__actions">
+            <Button type="button" variant="secondary" onClick={onClose} disabled={isSaving || isRolling}>
               Cerrar
             </Button>
             <Button
               type="button"
-              disabled={isSaving}
+              disabled={isSaving || isRolling || localEntries.length === 0}
               onClick={() => {
-                void onSave().catch(() => undefined);
+                void onSave(localEntries, localSource).catch(() => undefined);
               }}
             >
               {isSaving ? "Guardando…" : "Guardar orden"}
             </Button>
           </div>
-        </footer>
+        </>
+      }
+    >
+      <div className="initiative-modal__toolbar">
+        <label className="initiative-modal__sort">
+          Ordenar por
+          <select
+            value={localSource}
+            onChange={(event) => handleSourceChange(event.target.value as TurnOrderSource)}
+            disabled={isSaving || isRolling}
+          >
+            {ORDER_SOURCE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Button type="button" variant="secondary" disabled={isSaving || isRolling} onClick={onRollAll}>
+          {isRolling ? "Tirando…" : "Tirar iniciativa de todos"}
+        </Button>
       </div>
-    </div>
+
+      {localEntries.length === 0 ? (
+        <p className="muted">No hay entidades en escena. Añade PNJs o PCs presentes.</p>
+      ) : (
+        <ol className="initiative-manage-list">
+          {localEntries.map((entry, index) => {
+            const { label: displayName, entityType } = resolveInitiativeEntryDisplay(
+              entry,
+              entities,
+              sceneState,
+              isMaster,
+            );
+
+            return (
+            <li key={entry.entity_id} className="initiative-manage-item">
+              <span className="initiative-manage-item__name">
+                {displayName}
+              </span>
+              {entry.initiative_score != null && (
+                <span className="initiative-entry__score">{entry.initiative_score}</span>
+              )}
+              {entityType && <span className="initiative-entry__tag">{entityType}</span>}
+              <div className="initiative-manage-item__actions">
+                <button
+                  type="button"
+                  disabled={index === 0 || isSaving}
+                  onClick={() => moveEntry(index, -1)}
+                  aria-label="Subir"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  disabled={index === localEntries.length - 1 || isSaving}
+                  onClick={() => moveEntry(index, 1)}
+                  aria-label="Bajar"
+                >
+                  ↓
+                </button>
+              </div>
+            </li>
+            );
+          })}
+        </ol>
+      )}
+    </Modal>
   );
 }

@@ -2,15 +2,15 @@ import { useMemo, useState, type MouseEvent } from "react";
 import { Eye, EyeOff, Plus, Swords, UserMinus } from "lucide-react";
 
 import type { CampaignEntity, Scene } from "../../api/types";
-import { Button } from "../../components/ui";
+import { Button, Modal } from "../../components/ui";
 import { getGameSystemProfile } from "../campaign/gameSystems";
 import type { SceneStateInput } from "../scene/sceneState";
-import { useScenePresenceMutation } from "../../hooks/mutations/useSceneMutations";
+import { useAddPlayerToSceneMutation, useScenePresenceMutation } from "../../hooks/mutations/useSceneMutations";
 import { SceneAttackSheet } from "./SceneAttackSheet";
 import {
   buildSceneRoster,
   getOffSceneNpcs,
-  HIDDEN_NPC_HINT,
+  getOffScenePcs,
   type SceneRosterEntry,
 } from "./sceneRoster";
 
@@ -56,14 +56,19 @@ export function SceneRosterPanel({
   );
 
   const offSceneNpcs = useMemo(() => getOffSceneNpcs(sceneState, entities), [sceneState, entities]);
+  const offScenePcs = useMemo(() => getOffScenePcs(sceneState, entities), [sceneState, entities]);
 
   const [selectedAttackerId, setSelectedAttackerId] = useState<string | null>(null);
   const [attackPair, setAttackPair] = useState<AttackPair | null>(null);
-  const [addNpcOpen, setAddNpcOpen] = useState(false);
+  const [addToSceneOpen, setAddToSceneOpen] = useState(false);
+  const [addToSceneTab, setAddToSceneTab] = useState<"npc" | "pc">("npc");
   const [presenceError, setPresenceError] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ entry: SceneRosterEntry; x: number; y: number } | null>(null);
 
   const presenceMutation = useScenePresenceMutation({ campaignId, onSceneUpdate });
+  const addPlayerMutation = useAddPlayerToSceneMutation({ campaignId, onSceneUpdate });
+
+  const presencePending = presenceMutation.isPending || addPlayerMutation.isPending;
 
   const selectedAttacker = roster.find((entry) => entry.id === selectedAttackerId) ?? null;
 
@@ -78,9 +83,19 @@ export function SceneRosterPanel({
         sceneId,
         add: [{ entity_id: entityId, is_hidden_from_players: hidden }],
       });
-      setAddNpcOpen(false);
+      setAddToSceneOpen(false);
     } catch (err) {
       setPresenceError(err instanceof Error ? err.message : "No se pudo añadir el NPC");
+    }
+  }
+
+  async function handleAddPc(entityId: string) {
+    setPresenceError(null);
+    try {
+      await addPlayerMutation.mutateAsync({ sceneId, entity_id: entityId });
+      setAddToSceneOpen(false);
+    } catch (err) {
+      setPresenceError(err instanceof Error ? err.message : "No se pudo añadir el jugador");
     }
   }
 
@@ -93,13 +108,16 @@ export function SceneRosterPanel({
     }
   }
 
-  async function handleToggleHidden(entry: SceneRosterEntry) {
+  async function handleToggleHidden(entry: SceneRosterEntry, event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    if (entry.entityType !== "NPC") return;
+
     setPresenceError(null);
-    const reveal = entry.isHiddenFromPlayers;
+    const nextHidden = !entry.isHiddenFromPlayers;
     try {
       await presenceMutation.mutateAsync({
         sceneId,
-        add: [{ entity_id: entry.id, is_hidden_from_players: !reveal }],
+        add: [{ entity_id: entry.id, is_hidden_from_players: nextHidden }],
       });
     } catch (err) {
       setPresenceError(err instanceof Error ? err.message : "No se pudo cambiar la visibilidad");
@@ -214,10 +232,16 @@ export function SceneRosterPanel({
                       {entry.entityType}
                     </span>
                     <span className="scene-roster__name">
-                      <span>{entry.label}</span>
-                      {entry.isHiddenFromPlayers && entry.label !== entry.maskedLabel && (
-                        <span className="scene-roster__masked">{HIDDEN_NPC_HINT}</span>
-                      )}
+                      <span className="scene-roster__name-row">
+                        <span>{entry.label}</span>
+                        {isMaster && entry.playerVisibility && (
+                          <span
+                            className={`scene-roster__visibility scene-roster__visibility--${entry.playerVisibility.toLowerCase()}`}
+                          >
+                            {entry.playerVisibility}
+                          </span>
+                        )}
+                      </span>
                     </span>
                     {entry.hpLabel && <span className="scene-roster__hp">{entry.hpLabel} PV</span>}
                     {combatEnabled && canClick && (
@@ -230,21 +254,29 @@ export function SceneRosterPanel({
                       <button
                         type="button"
                         className="scene-roster__icon-btn"
-                        aria-label={entry.isHiddenFromPlayers ? "Revelar NPC" : "Ocultar NPC"}
-                        title={entry.isHiddenFromPlayers ? "Revelar" : "Ocultar"}
-                        disabled={disabled || presenceMutation.isPending}
-                        onClick={() => {
-                          void handleToggleHidden(entry);
+                        aria-label={
+                          entry.isHiddenFromPlayers
+                            ? "Revelar a jugadores"
+                            : "Ocultar (Desconocido)"
+                        }
+                        title={
+                          entry.isHiddenFromPlayers
+                            ? "Revelar a jugadores"
+                            : "Ocultar (Desconocido)"
+                        }
+                        disabled={disabled || presencePending}
+                        onClick={(event) => {
+                          void handleToggleHidden(entry, event);
                         }}
                       >
-                        {entry.isHiddenFromPlayers ? <Eye size={14} /> : <EyeOff size={14} />}
+                        {entry.isHiddenFromPlayers ? <Eye size={14} aria-hidden /> : <EyeOff size={14} aria-hidden />}
                       </button>
                       <button
                         type="button"
                         className="scene-roster__icon-btn scene-roster__icon-btn--danger"
                         aria-label="Quitar de escena"
                         title="Quitar de escena"
-                        disabled={disabled || presenceMutation.isPending}
+                        disabled={disabled || presencePending}
                         onClick={() => {
                           void handleRemoveNpc(entry.id);
                         }}
@@ -259,6 +291,33 @@ export function SceneRosterPanel({
           </ul>
         )}
 
+        {isMaster && offScenePcs.length > 0 && (
+          <div className="scene-roster__off-scene">
+            <h4 className="scene-roster__subtitle">Jugadores fuera de escena</h4>
+            <ul className="scene-roster__off-list">
+              {offScenePcs.map((pc) => {
+                const name =
+                  (pc.document.identity as { name?: string } | undefined)?.name ?? pc.id.slice(0, 8);
+                return (
+                  <li key={pc.id} className="scene-roster__off-item">
+                    <span>{name}</span>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={disabled || presencePending}
+                      onClick={() => {
+                        void handleAddPc(pc.id);
+                      }}
+                    >
+                      Añadir a escena
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
         {presenceError && <p className="scene-roster__error">{presenceError}</p>}
 
         {isMaster && (
@@ -267,38 +326,49 @@ export function SceneRosterPanel({
               type="button"
               variant="secondary"
               className="scene-roster__add-btn"
-              disabled={disabled || presenceMutation.isPending}
-              onClick={() => setAddNpcOpen(true)}
+              disabled={disabled || presencePending}
+              onClick={() => {
+                setAddToSceneTab(offSceneNpcs.length > 0 ? "npc" : "pc");
+                setAddToSceneOpen(true);
+              }}
             >
               <Plus size={14} aria-hidden />
-              Añadir NPC
+              Añadir a escena
             </Button>
           </div>
         )}
       </aside>
 
-      {addNpcOpen && (
-        <div className="scene-roster-modal-backdrop" role="presentation" onClick={() => setAddNpcOpen(false)}>
-          <div
-            className="scene-roster-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="add-npc-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="scene-roster-modal__header">
-              <h2 id="add-npc-title">Añadir NPC a escena</h2>
-              <button
-                type="button"
-                className="scene-roster-modal__close"
-                onClick={() => setAddNpcOpen(false)}
-                aria-label="Cerrar"
-              >
-                ×
-              </button>
-            </header>
+      {addToSceneOpen && (
+        <Modal
+          title="Añadir a escena"
+          titleId="add-to-scene-title"
+          onClose={() => setAddToSceneOpen(false)}
+          size="sm"
+        >
+          <div className="scene-roster-modal__tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={addToSceneTab === "npc"}
+              className={addToSceneTab === "npc" ? "is-active" : undefined}
+              onClick={() => setAddToSceneTab("npc")}
+            >
+              NPCs
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={addToSceneTab === "pc"}
+              className={addToSceneTab === "pc" ? "is-active" : undefined}
+              onClick={() => setAddToSceneTab("pc")}
+            >
+              Jugadores
+            </button>
+          </div>
 
-            {offSceneNpcs.length === 0 ? (
+          {addToSceneTab === "npc" ? (
+            offSceneNpcs.length === 0 ? (
               <p className="muted">No hay NPCs fuera de escena.</p>
             ) : (
               <ul className="scene-roster-modal__list">
@@ -312,7 +382,7 @@ export function SceneRosterPanel({
                         <Button
                           type="button"
                           variant="secondary"
-                          disabled={presenceMutation.isPending}
+                          disabled={presencePending}
                           onClick={() => {
                             void handleAddNpc(npc.id, false);
                           }}
@@ -322,7 +392,7 @@ export function SceneRosterPanel({
                         <Button
                           type="button"
                           variant="secondary"
-                          disabled={presenceMutation.isPending}
+                          disabled={presencePending}
                           onClick={() => {
                             void handleAddNpc(npc.id, true);
                           }}
@@ -334,9 +404,33 @@ export function SceneRosterPanel({
                   );
                 })}
               </ul>
-            )}
-          </div>
-        </div>
+            )
+          ) : offScenePcs.length === 0 ? (
+            <p className="muted">No hay jugadores fuera de escena.</p>
+          ) : (
+            <ul className="scene-roster-modal__list">
+              {offScenePcs.map((pc) => {
+                const name =
+                  (pc.document.identity as { name?: string } | undefined)?.name ?? pc.id.slice(0, 8);
+                return (
+                  <li key={pc.id} className="scene-roster-modal__item">
+                    <span>{name}</span>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={presencePending}
+                      onClick={() => {
+                        void handleAddPc(pc.id);
+                      }}
+                    >
+                      Añadir
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Modal>
       )}
 
       {contextMenu && (

@@ -216,6 +216,52 @@ async def fetch_scene_combat_entities(
     return entities
 
 
+def _format_d20_attack_roll_line(attack_roll: Any, *, hit: bool | None) -> str:
+    modifier = attack_roll.details.get("modifier", 0)
+    if not isinstance(modifier, int):
+        modifier = 0
+
+    mod_str = ""
+    if modifier > 0:
+        mod_str = f" + {modifier}"
+    elif modifier < 0:
+        mod_str = f" - {abs(modifier)}"
+
+    if attack_roll.details.get("advantage"):
+        dice_label = "2d20 (ventaja)"
+    elif attack_roll.details.get("disadvantage"):
+        dice_label = "2d20 (desventaja)"
+    else:
+        dice_label = "1d20"
+
+    line = f"{dice_label}{mod_str} = {attack_roll.total}"
+    target_ac = attack_roll.details.get("target_ac")
+    if target_ac is not None:
+        line += f" vs CA {target_ac}"
+    if hit is not None:
+        line += f" — {'Impacto' if hit else 'Fallo'}"
+    return line
+
+
+def _build_attack_roll_payload(attack_roll: Any, *, hit: bool) -> dict[str, Any]:
+    natural = attack_roll.rolls[-1] if attack_roll.rolls else None
+    modifier = attack_roll.details.get("modifier")
+    payload: dict[str, Any] = {
+        "total": attack_roll.total,
+        "hit": hit,
+        "expression": attack_roll.expression,
+        "rolls": attack_roll.rolls,
+        "target_ac": attack_roll.details.get("target_ac"),
+        "modifier": modifier if isinstance(modifier, int) else 0,
+        "chat_summary": _format_d20_attack_roll_line(attack_roll, hit=hit),
+    }
+    if natural == 20:
+        payload["natural_20"] = True
+    if natural == 1:
+        payload["natural_1"] = True
+    return payload
+
+
 def _persist_entity_sheet(
     entity: CampaignEntity,
     sheet: dict[str, Any],
@@ -246,38 +292,37 @@ def _build_attack_messages(
     defender: CampaignEntity,
     attack_result: Any,
     damage_application: Any | None,
+    weapon_name: str | None = None,
 ) -> list[dict[str, Any]]:
     attacker_name = entity_display_name(attacker)
     defender_name = entity_display_name(defender)
     attack_roll = attack_result.attack_roll
+    roll_line = _format_d20_attack_roll_line(attack_roll, hit=attack_result.hit)
+    resolved_weapon = weapon_name or attack_roll.details.get("attack_name")
+    if isinstance(resolved_weapon, str) and not resolved_weapon.strip():
+        resolved_weapon = None
 
     if attack_result.hit and attack_result.damage is not None:
         summary = (
             f"{attacker_name} ataca a {defender_name}: "
-            f"{attack_roll.total} vs CA — impacto. "
+            f"{roll_line}. "
             f"{attack_result.damage.amount} {attack_result.damage.damage_type}."
         )
         if damage_application is not None:
             summary += f" PV {damage_application.hp_before} → {damage_application.hp_after}."
     else:
-        target_ac = attack_roll.details.get("target_ac")
-        ac_label = f"CA {target_ac}" if target_ac is not None else "CA"
-        summary = (
-            f"{attacker_name} ataca a {defender_name}: "
-            f"{attack_roll.total} vs {ac_label} — fallo."
-        )
+        summary = f"{attacker_name} ataca a {defender_name}: {roll_line}."
 
     combat_event: dict[str, Any] = {
         "kind": "ATTACK_RESOLVED",
         "attacker_id": str(attacker.id),
+        "attacker_name": attacker_name,
         "defender_id": str(defender.id),
-        "attack_roll": {
-            "total": attack_roll.total,
-            "hit": attack_result.hit,
-            "expression": attack_roll.expression,
-            "rolls": attack_roll.rolls,
-        },
+        "defender_name": defender_name,
+        "attack_roll": _build_attack_roll_payload(attack_roll, hit=attack_result.hit),
     }
+    if isinstance(resolved_weapon, str):
+        combat_event["weapon_name"] = resolved_weapon
     if attack_result.damage is not None:
         combat_event["damage"] = {
             "amount": attack_result.damage.amount,
@@ -290,59 +335,22 @@ def _build_attack_messages(
             "before": damage_application.hp_before,
             "after": damage_application.hp_after,
         }
+        combat_event["defender_hp_remaining"] = damage_application.hp_after
 
-    messages: list[dict[str, Any]] = [
+    return [
         {
             "id": str(uuid.uuid4()),
             "timestamp": _utc_now_iso(),
             "sender_id": sender_id,
             "type": "COMBAT",
             "text": summary,
+            "chat_summary": roll_line,
+            "entity_id": str(attacker.id),
+            "entity_name": attacker_name,
             "combat_event": combat_event,
             "read_by": [sender_id],
         },
-        {
-            "id": str(uuid.uuid4()),
-            "timestamp": _utc_now_iso(),
-            "sender_id": sender_id,
-            "type": "DICE_ROLL",
-            "text": attack_roll.chat_summary,
-            "entity_id": str(attacker.id),
-            "roll_type": "attack_roll",
-            "roll_details": {
-                "total": attack_roll.total,
-                "hit": attack_result.hit,
-                "target_ac": attack_roll.details.get("target_ac"),
-                "rolls": attack_roll.rolls,
-                "expression": attack_roll.expression,
-            },
-            "final_result": attack_roll.total,
-            "read_by": [sender_id],
-        },
     ]
-
-    if attack_result.hit and attack_result.damage is not None:
-        messages.append(
-            {
-                "id": str(uuid.uuid4()),
-                "timestamp": _utc_now_iso(),
-                "sender_id": sender_id,
-                "type": "DICE_ROLL",
-                "text": attack_result.damage.expression,
-                "entity_id": str(attacker.id),
-                "roll_type": "damage",
-                "roll_details": {
-                    "amount": attack_result.damage.amount,
-                    "damage_type": attack_result.damage.damage_type,
-                    "rolls": attack_result.damage.rolls,
-                    "expression": attack_result.damage.expression,
-                },
-                "final_result": attack_result.damage.amount,
-                "read_by": [sender_id],
-            }
-        )
-
-    return messages
 
 
 def _sync_initiative_hp_flags(state: SceneState, entity: CampaignEntity) -> None:
@@ -404,6 +412,7 @@ async def execute_attack(
         defender=defender,
         attack_result=attack_result,
         damage_application=damage_application,
+        weapon_name=weapon_name,
     )
     return CombatExecutionResult(messages=messages, state=state)
 
@@ -456,12 +465,16 @@ async def execute_manual_damage(
             "combat_event": {
                 "kind": "DAMAGE_APPLIED",
                 "defender_id": str(target.id),
+                "defender_name": target_name,
                 "damage": {"amount": amount, "type": damage_type},
                 "hp": {
                     "before": damage_application.hp_before,
                     "after": damage_application.hp_after,
                 },
+                "defender_hp_remaining": damage_application.hp_after,
             },
+            "entity_id": str(target.id),
+            "entity_name": target_name,
             "read_by": [sender_id],
         }
     ]
@@ -475,6 +488,7 @@ async def execute_initiative(
     *,
     sender_id: str,
     sender_role: str,
+    activate_combat: bool = True,
 ) -> CombatExecutionResult:
     assert_master_only(sender_role, "initiative rolls")
     plugin = get_combat_plugin(campaign.game_system)
@@ -517,8 +531,15 @@ async def execute_initiative(
 
     entries.sort(key=lambda item: item.initiative_score or 0, reverse=True)
     _set_initiative_order(state, entries)
-    _set_combat_active(state, True)
-    _set_combat_round(state, 1)
+    if activate_combat:
+        _set_combat_active(state, True)
+        _set_combat_round(state, 1)
+    elif entries:
+        state.combat.current_turn_entity_id = entries[0].entity_id
+
+    from app.services.pbp_turn import sync_turn_management_from_initiative
+
+    await sync_turn_management_from_initiative(db, campaign.id, state)
 
     summary = "Iniciativa: " + ", ".join(
         f"{entry.display_name} ({entry.initiative_score})" for entry in entries

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
-import type { CombatAttackRequest, Scene, ScenePresenceUpdate } from "../../api/types";
+import type { CombatAttackRequest, Scene, ScenePresenceUpdate, SceneTurnManagementUpdate } from "../../api/types";
 import { normalizeScene } from "../../features/scene/sceneState";
 
 type SceneMutationOptions = {
@@ -17,7 +17,48 @@ export function useRollCombatInitiativeMutation({
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (sceneId: string) => api.rollCombatInitiative(sceneId),
+    mutationFn: ({
+      sceneId,
+      activateCombat = true,
+    }: {
+      sceneId: string;
+      activateCombat?: boolean;
+    }) => api.rollCombatInitiative(sceneId, { activateCombat }),
+    onSuccess: (scene) => {
+      const normalized = normalizeScene(scene);
+      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), normalized);
+      queryClient.invalidateQueries({ queryKey: queryKeys.scenes.detail(scene.id) });
+      onSceneUpdate?.(normalized);
+    },
+  });
+}
+
+export function useUpdateSceneTurnManagementMutation({
+  campaignId,
+  onSceneUpdate,
+}: SceneMutationOptions) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      sceneId,
+      ...payload
+    }: SceneTurnManagementUpdate & { sceneId: string }) =>
+      api.updateSceneTurnManagement(sceneId, payload),
+    onSuccess: (scene) => {
+      const normalized = normalizeScene(scene);
+      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), normalized);
+      queryClient.invalidateQueries({ queryKey: queryKeys.scenes.detail(scene.id) });
+      onSceneUpdate?.(normalized);
+    },
+  });
+}
+
+export function useAdvancePbpTurnMutation({ campaignId, onSceneUpdate }: SceneMutationOptions) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ sceneId }: { sceneId: string }) => api.advancePbpTurn(sceneId),
     onSuccess: (scene) => {
       const normalized = normalizeScene(scene);
       queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), normalized);
@@ -51,11 +92,28 @@ export function useScenePresenceMutation({ campaignId, onSceneUpdate }: SceneMut
 
   return useMutation({
     mutationFn: ({ sceneId, ...payload }: ScenePresenceVariables) => api.updateScenePresence(sceneId, payload),
-    onSuccess: (scene) => {
+    onSuccess: async (scene) => {
       const normalized = normalizeScene(scene);
       queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), normalized);
       queryClient.invalidateQueries({ queryKey: queryKeys.scenes.detail(scene.id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.entities.all(campaignId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.entities.all(campaignId) });
+      onSceneUpdate?.(normalized);
+    },
+  });
+}
+
+type SceneAddPlayerVariables = { sceneId: string; entity_id?: string; user_id?: string };
+
+export function useAddPlayerToSceneMutation({ campaignId, onSceneUpdate }: SceneMutationOptions) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ sceneId, ...payload }: SceneAddPlayerVariables) => api.addPlayerToScene(sceneId, payload),
+    onSuccess: async (scene) => {
+      const normalized = normalizeScene(scene);
+      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), normalized);
+      queryClient.invalidateQueries({ queryKey: queryKeys.scenes.detail(scene.id) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.entities.all(campaignId) });
       onSceneUpdate?.(normalized);
     },
   });

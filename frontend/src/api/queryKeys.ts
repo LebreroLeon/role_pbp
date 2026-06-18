@@ -22,4 +22,7 @@ export const queryKeys = {
     mySheet: (campaignId: string) => ["entities", campaignId, "mine"] as const,
     campaignSheets: (campaignId: string) => ["entities", campaignId, "sheets"] as const,
   },
+  systemManuals: {
+    status: (systemId: string) => ["system-manuals", systemId, "status"] as const,
+  },
 } as const;

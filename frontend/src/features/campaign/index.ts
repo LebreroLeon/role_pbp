@@ -1,5 +1,6 @@
 export { CampaignList } from "./CampaignList";
 export { CampaignMemberList } from "./CampaignMemberList";
+export { CampaignSettingsForm } from "./CampaignSettingsForm";
 export { CampaignSceneLog, formatSceneLabel } from "./CampaignSceneLog";
 export { CreateCampaignForm } from "./CreateCampaignForm";
 export { CreateCampaignWizard } from "./CreateCampaignWizard";

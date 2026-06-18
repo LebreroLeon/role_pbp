@@ -15,6 +15,8 @@ class MemoryDocumentType(str, enum.Enum):
     WORLDLOG = "WORLDLOG"
     NPC_LORE = "NPC_LORE"
     SCENE_SUMMARY = "SCENE_SUMMARY"
+    RULES = "RULES"
+    ADVENTURE = "ADVENTURE"
 
 
 class Campaign(Base):

@@ -55,6 +55,11 @@ export const api = {
   login: (payload: LoginPayload) =>
     http<AuthResponse>("/api/v1/auth/login", { method: "POST", body: JSON.stringify(payload) }),
   me: () => http<AuthResponse["user"]>("/api/v1/auth/me"),
+  updateMe: (displayName: string) =>
+    http<AuthResponse["user"]>("/api/v1/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify({ display_name: displayName }),
+    }),
   listCampaigns: () => http<Campaign[]>("/api/v1/campaigns"),
   getCampaign: (campaignId: string) => http<Campaign>(`/api/v1/campaigns/${campaignId}`),
   createCampaign: (payload: CreateCampaignPayload) =>
@@ -128,10 +133,19 @@ export const api = {
     http<Scene>(`/api/v1/scenes/${sceneId}/messages/${messageId}`, {
       method: "DELETE",
     }),
-  rollCombatInitiative: (sceneId: string) =>
+  rollCombatInitiative: (sceneId: string, options?: { activateCombat?: boolean }) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/combat/initiative`, {
       method: "POST",
-      body: JSON.stringify({}),
+      body: JSON.stringify({ activate_combat: options?.activateCombat ?? true }),
+    }),
+  updateSceneTurnManagement: (sceneId: string, payload: import("./types").SceneTurnManagementUpdate) =>
+    http<Scene>(`/api/v1/scenes/${sceneId}/turn-management`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  advancePbpTurn: (sceneId: string) =>
+    http<Scene>(`/api/v1/scenes/${sceneId}/turn-management/advance`, {
+      method: "POST",
     }),
   combatAttack: (sceneId: string, payload: CombatAttackRequest) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/combat/attack`, {
@@ -141,6 +155,11 @@ export const api = {
   updateScenePresence: (sceneId: string, payload: ScenePresenceUpdate) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/presence`, {
       method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  addPlayerToScene: (sceneId: string, payload: import("./types").SceneAddPlayerRequest) =>
+    http<Scene>(`/api/v1/scenes/${sceneId}/presence/add-player`, {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
   masterAssist: (campaignId: string, sceneId: string, query: string) =>
@@ -198,6 +217,20 @@ export const api = {
   deleteDocument: (documentId: string) =>
     http<void>(`/api/v1/documents/${documentId}`, { method: "DELETE" }),
   documentDownloadUrl: (documentId: string) => `${import.meta.env.VITE_API_URL ?? ""}/api/v1/documents/${documentId}/download`,
+  updateCampaign: (campaignId: string, payload: { name?: string; tone?: string }) =>
+    http<Campaign>(`/api/v1/campaigns/${campaignId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  removeCampaignMember: (campaignId: string, userId: string) =>
+    http<void>(`/api/v1/campaigns/${campaignId}/members/${userId}`, { method: "DELETE" }),
+  loreAssist: (sceneId: string, query: string) =>
+    http<import("./types").LoreAssistResponse>(`/api/v1/scenes/${sceneId}/lore-assist`, {
+      method: "POST",
+      body: JSON.stringify({ query }),
+    }),
+  getSystemManualStatus: (systemId: string) =>
+    http<import("./types").SystemManualStatusResponse>(`/api/v1/system-manuals/${systemId}/status`),
 };
 
 export type { AuthResponse, Campaign, CampaignDocument, CampaignEntity, CampaignMember, CharacterSheetUpsert, ChatMessage, Dnd5eRollType, DocumentType, EntityExportBundle, EntityType, MasterAssistResponse, MessageType, PcIdentity, PublicProfile, PcStateFlags, Scene, SceneState, SheetRollContext, SheetRollRequest, SheetRollResponse, TypedSystemMechanics } from "./types";

@@ -122,7 +122,8 @@ def test_search_include_system_manuals_appends_manual_chunks():
     campaign_result.scalars.return_value.all.return_value = ["Party entered the tavern."]
     manual_result = MagicMock()
     manual_result.scalars.return_value.all.return_value = ["Fireball deals 8d6 fire damage."]
-    db.execute = AsyncMock(side_effect=[campaign_result, manual_result])
+    db.execute = AsyncMock(side_effect=[campaign_result, manual_result, MagicMock()])
+    db.scalar = AsyncMock(return_value=None)
     service = RagService()
 
     async def run_test():

@@ -7,8 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.campaign import CampaignDocument
 from app.schemas.documents import DocumentResponse, DocumentType
+from app.services.document_indexer import chunk_text, extract_document_text
+from app.services.rag import rag_service
 
 ALLOWED_EXTENSIONS = {".pdf", ".md", ".txt", ".json", ".docx", ".zip"}
+INDEXABLE_TYPES = {DocumentType.RULES, DocumentType.ADVENTURE}
 
 
 class DocumentServiceError(ValueError):
@@ -86,7 +89,38 @@ async def save_campaign_document(
     db.add(record)
     await db.commit()
     await db.refresh(record)
+
+    if document_type in INDEXABLE_TYPES:
+        await index_campaign_document_content(db, record)
+
     return document_to_response(record)
+
+
+async def index_campaign_document_content(db: AsyncSession, doc: CampaignDocument) -> int:
+    from app.models.campaign import MemoryDocumentType
+
+    path = resolve_document_path(doc)
+    text = extract_document_text(path)
+    if not text:
+        return 0
+
+    memory_type = (
+        MemoryDocumentType.RULES
+        if doc.document_type == DocumentType.RULES.value
+        else MemoryDocumentType.ADVENTURE
+    )
+    chunks = chunk_text(text)
+    return await rag_service.index_text_chunks(
+        db,
+        campaign_id=str(doc.campaign_id),
+        chunks=chunks,
+        document_type=memory_type,
+        metadata={
+            "document_id": str(doc.id),
+            "original_name": doc.original_name,
+            "source": "campaign_library",
+        },
+    )
 
 
 async def get_campaign_document(

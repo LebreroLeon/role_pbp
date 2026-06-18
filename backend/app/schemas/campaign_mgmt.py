@@ -27,3 +27,8 @@ class CampaignMemberResponse(BaseModel):
     email: str
     display_name: str
     role: str
+
+
+class CampaignUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    tone: str | None = None

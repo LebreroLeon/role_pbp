@@ -241,9 +241,16 @@ class TestExecuteAttack:
         )
 
         assert defender.document["system_mechanics"]["sheet"]["hp"]["current"] == 8
-        assert any(message["type"] == "COMBAT" for message in result.messages)
-        assert any(message["type"] == "DICE_ROLL" for message in result.messages)
-        combat = next(message for message in result.messages if message["type"] == "COMBAT")
+        assert len(result.messages) == 1
+        combat = result.messages[0]
+        assert combat["type"] == "COMBAT"
         assert combat["combat_event"]["kind"] == "ATTACK_RESOLVED"
         assert combat["combat_event"]["attack_roll"]["hit"] is True
+        assert combat["combat_event"]["attacker_name"] == entity_display_name(attacker)
+        assert combat["combat_event"]["defender_name"] == entity_display_name(defender)
+        assert combat["combat_event"]["attack_roll"]["target_ac"] is not None
+        assert "modifier" in combat["combat_event"]["attack_roll"]
+        assert combat["combat_event"]["attack_roll"]["rolls"]
+        assert "vs CA" in combat["combat_event"]["attack_roll"]["chat_summary"]
         assert entity_display_name(attacker) in combat["text"]
+        assert "1d20" in combat["chat_summary"]

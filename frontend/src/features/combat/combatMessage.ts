@@ -1,6 +1,7 @@
-import type { ChatMessage, CombatEvent } from "../../api/types";
-
-const COMBAT_ROLL_TYPES = new Set(["attack", "attack_roll", "damage", "initiative"]);
+import type { CampaignEntity, ChatMessage, CombatEvent } from "../../api/types";
+import { getEntityDisplayName } from "../entities/entityDefaults";
+import type { SceneStateInput } from "../scene/sceneState";
+import { HIDDEN_NPC_LABEL, isNpcHiddenFromPlayer } from "./sceneRoster";
 
 export function isCombatMessage(message: ChatMessage): boolean {
   return message.type === "COMBAT" || Boolean(message.combat_event);
@@ -11,7 +12,9 @@ export function isCombatEnrichedDiceRoll(message: ChatMessage): boolean {
   if (message.combat_event) return true;
 
   const rollType = message.roll_type?.toLowerCase();
-  if (rollType && COMBAT_ROLL_TYPES.has(rollType)) return true;
+  if (rollType === "attack_roll" || rollType === "attack" || rollType === "damage") {
+    return true;
+  }
 
   const details = message.roll_details;
   if (!details) return false;
@@ -25,7 +28,8 @@ export function isCombatEnrichedDiceRoll(message: ChatMessage): boolean {
 }
 
 export function shouldRenderCombatEntry(message: ChatMessage): boolean {
-  return isCombatMessage(message) || isCombatEnrichedDiceRoll(message);
+  if (isCombatMessage(message)) return true;
+  return isCombatEnrichedDiceRoll(message);
 }
 
 export function resolveCombatEvent(message: ChatMessage): CombatEvent | null {
@@ -61,8 +65,10 @@ export function resolveCombatEvent(message: ChatMessage): CombatEvent | null {
         natural_20: details.natural_20 as boolean | undefined,
         natural_1: details.natural_1 as boolean | undefined,
         target_ac: details.target_ac as number | undefined,
+        modifier: details.modifier as number | undefined,
         expression: message.dice_expression,
         rolls: message.roll_details?.rolls as number[] | undefined,
+        chat_summary: message.chat_summary,
       },
       damage:
         details.damage_amount != null
@@ -78,6 +84,55 @@ export function resolveCombatEvent(message: ChatMessage): CombatEvent | null {
   }
 
   return null;
+}
+
+export function resolveCombatEntityName(
+  entityId: string | undefined,
+  storedName: string | undefined,
+  entities: CampaignEntity[] | undefined,
+  sceneState: SceneStateInput | null | undefined,
+  isMaster: boolean,
+): string {
+  if (!entityId) {
+    return storedName?.trim() || "Desconocido";
+  }
+
+  const entity = entities?.find((entry) => entry.id === entityId);
+  if (entity && !isMaster && isNpcHiddenFromPlayer(entityId, entity, sceneState ?? {})) {
+    return HIDDEN_NPC_LABEL;
+  }
+
+  if (storedName?.trim()) return storedName.trim();
+  if (entity) return getEntityDisplayName(entity);
+  return "Desconocido";
+}
+
+export function resolveCombatSpeakerEntityId(event: CombatEvent): string | undefined {
+  if (event.kind === "ATTACK_RESOLVED") return event.attacker_id;
+  if (event.kind === "DAMAGE_APPLIED") return event.defender_id;
+  return undefined;
+}
+
+export function formatAttackRollLine(
+  attackRoll: NonNullable<CombatEvent["attack_roll"]>,
+): string {
+  if (attackRoll.chat_summary?.trim()) {
+    return attackRoll.chat_summary.trim();
+  }
+
+  const modifier = attackRoll.modifier ?? 0;
+  let modStr = "";
+  if (modifier > 0) modStr = ` + ${modifier}`;
+  else if (modifier < 0) modStr = ` - ${Math.abs(modifier)}`;
+
+  let line = `1d20${modStr} = ${attackRoll.total}`;
+  if (attackRoll.target_ac != null) {
+    line += ` vs CA ${attackRoll.target_ac}`;
+  }
+  if (attackRoll.hit != null) {
+    line += ` — ${attackRoll.hit ? "Impacto" : "Fallo"}`;
+  }
+  return line;
 }
 
 export function formatDamageType(type?: string): string {

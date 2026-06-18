@@ -90,6 +90,25 @@ El Máster dispondrá de un panel de control para alimentar a la IA con fichas d
 * **Flujo de los Jugadores:** Sistema de interacción en el chat de juego, consultas privadas de reglas e interactividad con su ficha.
 
 ### 5. Especificaciones Técnicas (Stack sugerido)
-* **Capa de Datos:** Base de datos relacional (PostgreSQL) para datos estructurados + Base de datos Vectorial (ChromaDB / Pinecone) para embeddings de texto.
+* **Capa de Datos:** Base de datos relacional (PostgreSQL) para datos estructurados + pgvector (`campaign_memory`) para embeddings de texto.
 * **API / Backend:** Desarrollado en Python utilizando FastAPI.
 * **Frontend / Cliente:** Interfaz multiplataforma (React Native / PWA).
+
+### Configuración rápida — OpenAI (opcional)
+
+Copia `.env.example` a `.env` en la raíz del repo. Para RAG, Shadow Master y `@asistente` jugador:
+
+```env
+OPENAI_API_KEY=sk-...
+EMBEDDING_MODEL=text-embedding-3-small
+LLM_MODEL=gpt-4o-mini
+```
+
+Sin clave, el backend funciona en modo degradado (respuestas stub / sin embeddings). **No commitees `.env`**.
+
+Manuales D&D: copia PDFs a `data/manuals/dnd5e/` (ver `data/manuals/dnd5e/README.md`) e indexa con:
+
+```bash
+python backend/scripts/index_system_manuals.py --system dnd5e --dry-run
+python backend/scripts/index_system_manuals.py --system dnd5e
+```

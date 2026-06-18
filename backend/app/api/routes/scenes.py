@@ -17,19 +17,25 @@ from app.schemas.scene import (
     CombatAttackRequest,
     CombatInitiativeRequest,
     DiceRollRequest,
+    LoreAssistRequest,
+    LoreAssistResponse,
     MarkReadRequest,
     PostMessageRequest,
+    SceneAddPlayerRequest,
     SceneCreate,
     ScenePresenceUpdate,
     SceneResponse,
     SceneStatusUpdate,
+    SceneTurnManagementUpdate,
     SceneUpdate,
 )
 from app.services.combat_resolver import CombatResolverError, execute_attack, execute_initiative
 from app.services.entities import CharacterSheetError, get_campaign_or_error
+from app.services.lore_assist import build_player_lore_response
 from app.services.scene_ws import scene_ws_manager
 from app.services.scenes import (
     SceneServiceError,
+    add_player_to_scene_presence,
     close_scene,
     create_scene,
     delete_scene_message,
@@ -44,6 +50,8 @@ from app.services.scenes import (
     update_scene_display_name,
     update_scene_npc_presence,
     update_scene_status,
+    update_scene_turn_management,
+    advance_scene_pbp_turn,
 )
 
 router = APIRouter(prefix="/scenes", tags=["scenes"])
@@ -111,7 +119,7 @@ async def roll_scene_dice_route(
 ) -> SceneResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     try:
-        response = await roll_scene_dice(db, scene, str(current_user.id), payload)
+        response = await roll_scene_dice(db, scene, str(current_user.id), payload, sender_role=role)
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
@@ -280,6 +288,30 @@ async def patch_scene_presence_route(
     return await _presence_route(scene_id, payload, current_user, db)
 
 
+@router.post("/{scene_id}/presence/add-player", response_model=SceneResponse)
+async def add_player_to_scene_presence_route(
+    scene_id: str,
+    payload: SceneAddPlayerRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> SceneResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_campaign_master(db, current_user, scene.campaign_id)
+
+    entity_uuid = parse_uuid(payload.entity_id, "entity_id") if payload.entity_id else None
+    user_uuid = parse_uuid(payload.user_id, "user_id") if payload.user_id else None
+
+    try:
+        return await add_player_to_scene_presence(
+            db,
+            scene,
+            entity_id=entity_uuid,
+            user_id=user_uuid,
+        )
+    except SceneServiceError as exc:
+        raise scene_service_error_to_http(exc) from exc
+
+
 async def _append_combat_messages_and_save(
     db: AsyncSession,
     scene,
@@ -296,6 +328,61 @@ async def _append_combat_messages_and_save(
     return scene_to_response(scene)
 
 
+@router.post("/{scene_id}/lore-assist", response_model=LoreAssistResponse)
+async def lore_assist_route(
+    scene_id: str,
+    payload: LoreAssistRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> LoreAssistResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    try:
+        return await build_player_lore_response(db, scene, current_user.id, payload)
+    except SceneServiceError as exc:
+        raise scene_service_error_to_http(exc) from exc
+
+
+@router.patch("/{scene_id}/turn-management", response_model=SceneResponse)
+async def patch_turn_management_route(
+    scene_id: str,
+    payload: SceneTurnManagementUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> SceneResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_campaign_master(db, current_user, scene.campaign_id)
+    try:
+        response = await update_scene_turn_management(db, scene, payload)
+    except SceneServiceError as exc:
+        raise scene_service_error_to_http(exc) from exc
+
+    await scene_ws_manager.broadcast(
+        scene_id,
+        {"event": "scene_update", "scene": response.model_dump(mode="json")},
+    )
+    return response
+
+
+@router.post("/{scene_id}/turn-management/advance", response_model=SceneResponse)
+async def advance_turn_management_route(
+    scene_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> SceneResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_campaign_master(db, current_user, scene.campaign_id)
+    try:
+        response = await advance_scene_pbp_turn(db, scene)
+    except SceneServiceError as exc:
+        raise scene_service_error_to_http(exc) from exc
+
+    await scene_ws_manager.broadcast(
+        scene_id,
+        {"event": "scene_update", "scene": response.model_dump(mode="json")},
+    )
+    return response
+
+
 @router.post("/{scene_id}/combat/initiative", response_model=SceneResponse)
 async def roll_combat_initiative_route(
     scene_id: str,
@@ -303,7 +390,6 @@ async def roll_combat_initiative_route(
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
 ) -> SceneResponse:
-    del payload
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     role = await require_campaign_member(db, current_user, scene.campaign_id)
     if role != "MASTER":
@@ -322,6 +408,7 @@ async def roll_combat_initiative_route(
             state,
             sender_id=str(current_user.id),
             sender_role=role,
+            activate_combat=payload.activate_combat,
         )
     except CombatResolverError as exc:
         raise scene_service_error_to_http(SceneServiceError(str(exc))) from exc
