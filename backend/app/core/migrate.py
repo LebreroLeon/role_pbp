@@ -30,6 +30,10 @@ def run_migrations() -> None:
     if result.returncode != 0:
         sys.exit(result.returncode)
 
+    from app.core.seed_manuals import seed_system_manuals_if_enabled
+
+    seed_system_manuals_if_enabled()
+
 
 if __name__ == "__main__":
     run_migrations()

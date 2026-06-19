@@ -16,7 +16,7 @@ Guía paso a paso para tener la app **pública 24/7** con tier gratuito. Ideal p
 
 - Cuenta GitHub con el repo `role_pbp` subido.
 - Clave **OpenAI** (embeddings, Shadow Master, resúmenes). Sin ella: RAG y IA en fallback limitado.
-- PDFs de manuales en `data/manuals/dnd5e/` (no se suben a Render; se indexan desde tu PC).
+- PDFs de manuales en `data/manuals/dnd5e/` (no se suben a Render; en **Docker local** se indexan solos al arrancar si `SEED_MANUALS=true`).
 - **15–30 min** la primera vez.
 
 ---
@@ -85,6 +85,8 @@ Con Docker (recomendado) el `CMD` del Dockerfile ya hace migrate + uvicorn en `$
 | `CORS_ORIGINS` | `https://TU-APP.vercel.app` (sin barra final) | sí |
 | `UPLOAD_DIR` | `/tmp/campaign_uploads` | sí |
 | `SYSTEM_MANUALS_DIR` | `/tmp/manuals` | sí |
+| `SEED_MANUALS` | `false` (por defecto; no indexa en Render sin PDFs en la imagen) | opcional |
+| `SEED_MANUALS_SYSTEMS` | `dnd5e` o `dnd5e,vtm_v5` (vacío = todos los sistemas conocidos) | opcional |
 | `EMBEDDING_MODEL` | `text-embedding-3-small` | opcional |
 | `EMBEDDING_DIMENSIONS` | `1536` | opcional |
 | `LLM_MODEL` | `gpt-4o-mini` | opcional |
@@ -144,9 +146,20 @@ https://rolepbp-xxx.vercel.app
 
 ---
 
-## Paso 5 — Indexar manuales (una vez, desde tu PC)
+## Paso 5 — Manuales del sistema (RAG)
 
-Los PDFs **no** van a Render. Los indexas en local apuntando a Neon:
+### Docker local (desarrollo)
+
+Con `docker compose up`, el backend arranca con `SEED_MANUALS=true`: tras las migraciones Alembic, indexa automáticamente los PDFs montados en `data/manuals/{system_id}/` **solo la primera vez** (si la BD no tiene chunks para ese sistema). Necesitas `OPENAI_API_KEY` en `.env` y los PDFs en disco.
+
+- Reindexar todo: `SEED_MANUALS=force` en `docker-compose.yml` (un arranque) o el script manual abajo.
+- Solo D&D: `SEED_MANUALS_SYSTEMS=dnd5e`.
+
+### Render / Neon (producción)
+
+Los PDFs **no van en la imagen Docker de Render** (`/tmp/manuals` está vacío). `SEED_MANUALS=true` en Render **no sirve** sin copiar PDFs al servidor — el arranque lo detecta y continúa sin error.
+
+Indexa **una vez desde tu PC** apuntando a Neon (los chunks persisten en la BD; no hace falta repetir en cada deploy):
 
 1. Copia PDFs a `data/manuals/dnd5e/` (ver `data/manuals/dnd5e/README.md`).
 2. En la raíz del repo, crea/edita `.env` (o exporta variables):
@@ -240,7 +253,7 @@ La PWA usa `vite-plugin-pwa` con `display: standalone`. Las actualizaciones del 
 | **Sin push notifications** | Aún no implementadas. Los amigos deben entrar por su cuenta o por WhatsApp/email de campaña. |
 | **Render duerme** | Free tier: cold start ~50 s. Aceptable para PBP async, no para tiempo real. |
 | **Uploads efímeros** | Avatares y documentos en `/tmp` se pierden al reiniciar Render. |
-| **Manuales** | Indexación manual desde local; PDFs no en la nube. |
+| **Manuales** | Docker dev: auto con `SEED_MANUALS=true`. Render: indexación manual desde PC (PDFs no en la nube). |
 | **OpenAI coste** | Embeddings + LLM consumen crédito según uso. |
 
 ---

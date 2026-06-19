@@ -29,6 +29,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://rolepbp:rolepbp@postgres:5432/rolepbp
       UPLOAD_DIR: /app/campaign_uploads
       SYSTEM_MANUALS_DIR: /app/data/manuals
+      SEED_MANUALS: "true"
     volumes:
       - ./backend/app:/app/app
       - ./backend/alembic:/app/alembic

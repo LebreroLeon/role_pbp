@@ -28,10 +28,24 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7
+    seed_manuals: str = "false"
+    seed_manuals_systems: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def seed_manuals_mode(self) -> str | None:
+        """Return 'true', 'force', or None when seeding is disabled."""
+        normalized = self.seed_manuals.strip().lower()
+        if normalized in ("", "0", "false", "no", "off"):
+            return None
+        if normalized in ("true", "1", "yes", "on"):
+            return "true"
+        if normalized == "force":
+            return "force"
+        return None
 
 
 settings = Settings()
