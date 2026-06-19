@@ -154,7 +154,7 @@ export function CreateEntityForm({
         icon={MapPin}
         iconTone="teal"
         title="Nueva entidad del mundo"
-        description="Añade un NPC, una ubicación o el PJ de un jugador."
+        description="Añade NPCs, ubicaciones, facciones, relaciones o el PJ de un jugador."
       />
       <form className="auth-form" onSubmit={handleSubmit}>
         <label className="form-field">
@@ -168,7 +168,9 @@ export function CreateEntityForm({
           </select>
         </label>
 
-        <Input label="Nombre" value={name} onChange={(event) => setName(event.target.value)} required />
+        {entityType !== "RELATIONSHIP" && (
+          <Input label="Nombre" value={name} onChange={(event) => setName(event.target.value)} required />
+        )}
 
         {entityType === "FACTION" && (
           <>
@@ -189,7 +191,7 @@ export function CreateEntityForm({
                 <option value="">Selecciona origen</option>
                 {relationshipCandidates.map((entity) => (
                   <option key={entity.id} value={entity.id}>
-                    {getEntityDisplayName(entity)} ({entity.entity_type})
+                    {getEntityDisplayName(entity, entities)} ({entity.entity_type})
                   </option>
                 ))}
               </select>
@@ -200,7 +202,7 @@ export function CreateEntityForm({
                 <option value="">Selecciona destino</option>
                 {relationshipCandidates.map((entity) => (
                   <option key={entity.id} value={entity.id}>
-                    {getEntityDisplayName(entity)} ({entity.entity_type})
+                    {getEntityDisplayName(entity, entities)} ({entity.entity_type})
                   </option>
                 ))}
               </select>
@@ -270,15 +272,17 @@ export function CreateEntityForm({
           </label>
         )}
 
-        <label className="form-field">
-          <span>{entityType === "PC" ? "Descripción pública del PJ" : "Descripción pública"}</span>
-          <textarea
-            value={publicText}
-            onChange={(event) => setPublicText(event.target.value)}
-            rows={3}
-            required
-          />
-        </label>
+        {entityType !== "RELATIONSHIP" && (
+          <label className="form-field">
+            <span>{entityType === "PC" ? "Descripción pública del PJ" : "Descripción pública"}</span>
+            <textarea
+              value={publicText}
+              onChange={(event) => setPublicText(event.target.value)}
+              rows={3}
+              required
+            />
+          </label>
+        )}
 
         {entityType !== "PC" && entityType !== "RELATIONSHIP" && (
           <label className="form-field">
@@ -307,7 +311,7 @@ export function CreateEntityForm({
           type="submit"
           disabled={
             mutation.isPending ||
-            !name.trim() ||
+            (entityType !== "RELATIONSHIP" && !name.trim()) ||
             (entityType === "PC" && !playerUserId) ||
             (entityType === "RELATIONSHIP" && (!sourceId || !targetId))
           }

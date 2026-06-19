@@ -12,7 +12,7 @@
 - Campañas: crear, listar, detalle, `PATCH` (nombre, tono, `game_system`), miembros (invitar, listar, expulsar)
 - Escenas: crear, activar, pausar, **cerrar** (`POST /scenes/{id}/close`), numeración, `display_name`
 - `SceneState` anidado alineado con schema (`metadata`, `context`, `turn_management`, `memory_settings`, `state_flags`, `combat`)
-- Entidades JSONB: CRUD NPC/PC/LOCATION + editor en `WorldPage`
+- Entidades JSONB: CRUD NPC/PC/LOCATION/FACTION/RELATIONSHIP + editor en `WorldPage` (NPC ficha; ubicación/facción/relación `WorldEntityEditor`)
 - **Avatares de entidad**: subida/eliminación vía API, retrato en ficha, chat, combate y dados
 - Chat REST + WebSocket; mensajes, dados, lectura, borrado de mensaje
 - **Chat OOC** por campaña: mensajes públicos y susurros, REST + WebSocket, pestaña «Fuera de personaje»
@@ -56,7 +56,8 @@
 - Nav campaña: pestaña «Fuera de personaje» (hint OOC)
 - WebSocket escena/OOC: reconexión con backoff exponencial (5 reintentos)
 - Páginas huérfanas retiradas (`MasterPanelPage`, `MasterScreenPage`, `EntitiesPage`, `CreateCampaignForm`)
-- CI GitHub Actions: `pytest` backend + `npm run build` frontend
+- Docker Compose prod: `docker-compose.prod.yml`, `frontend/Dockerfile.prod`, nginx estático
+- `.env.production.example` + `docs/DEPLOY.md`
 - Tests backend: auth, combate, PBP, escenas, RAG, fichas, manuales, documentos (~12 suites)
 
 ---
@@ -86,13 +87,13 @@
 ### Calidad y deuda
 
 - Validación entidades: refs cruzadas (`faction_id`, `location_id`); 1 `ARC_MANIFEST` por campaña; auto-crear al crear campaña
-- Formularios `FACTION`, `RELATIONSHIP`, `ARC_MANIFEST` en `CreateEntityForm`
+- **ARC_MANIFEST**: schema + CRUD backend; sin formulario UI ni auto-creación en campaña nueva
+- **Conocimiento PJ / RAG NPC**: no priorizado — el chat de escena es la fuente principal; las entidades van al snapshot de Shadow Master, no a chunks RAG dedicados por NPC
 - Rate limiting ampliado: `@asistente`, cierre escena, Redis en prod (hoy solo `/master/assist` en memoria)
 - Auth: recuperación de contraseña; refresh token
 - TanStack Query: hooks dedicados donde aún hay llamadas inline (`useMasterAssistMutation`, etc.)
 - Zod/RHF en formularios de entidad/campaña/escena
 - PWA: iconos PNG 192/512, `apple-touch-icon`, verificar SW en prod
-- Docker prod: backend sin `--reload`, frontend build estático + nginx
 - Docs: sincronizar `docs/04_data_persistence.md`, `README.md` (quitar refs ChromaDB); retirar `CHROMA_PERSIST_DIR` de `.env.example`
 - Tests: vitest frontend; E2E Playwright; más cobertura integración API
 
@@ -128,6 +129,8 @@
 | Chat OOC | ✅ REST + WS + susurros |
 | Fichas + combate | ✅ 3 sistemas |
 | Manuales sistema | ✅ infra; ⏳ PDFs + indexación manual |
+| Mundo (facción/relación) | ✅ crear + editar UI; Shadow Master snapshot |
+| ARC_MANIFEST | ⏳ schema/CRUD; sin UI |
 | WS reconexión básica | ✅ escena + OOC |
 | Tests + CI | ✅ backend; frontend build only |
 | ChromaDB | ❌ retirado |
@@ -138,10 +141,11 @@
 
 Checklist mínimo antes de desplegar:
 
-- [ ] `docker-compose.prod.yml` o perfil prod: backend sin `--reload`, nginx sirviendo `frontend/dist`
+- [x] `docker-compose.prod.yml` + `frontend/Dockerfile.prod`: backend sin `--reload`, nginx sirviendo `frontend/dist`
+- [x] `.env.production.example` y `docs/DEPLOY.md`
 - [ ] Variables en plataforma: `DATABASE_URL`, `JWT_SECRET`, `OPENAI_API_KEY`, `UPLOAD_DIR` persistente
-- [ ] Migraciones Alembic en entrypoint del contenedor backend
-- [ ] CORS / `VITE_API_URL` apuntando al host del API
-- [ ] Healthcheck `/health` para el orquestador
+- [x] Migraciones Alembic en entrypoint del contenedor backend
+- [x] CORS / `VITE_API_URL` documentados (proxy nginx same-origin en compose prod)
+- [x] Healthcheck `/health` para el orquestador
 
 Sugerencia de stack gratuito: **Vercel** (frontend estático + PWA) + **Railway** o **Render** free tier (FastAPI + Postgres; Render Postgres expira a los 90 días — Railway suele ser más estable para hobby). Alternativa todo-en-uno: **Fly.io** (app + volume para uploads) o **Render** web service + Postgres externo (Neon free tier).

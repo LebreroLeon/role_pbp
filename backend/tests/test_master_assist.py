@@ -8,6 +8,7 @@ from app.models.campaign import Campaign
 from app.schemas.master import MasterAssistRequest
 from app.services.master import (
     apply_language_instruction,
+    build_entity_flags_snapshot,
     build_manual_search_query,
     build_master_assist_response,
     build_shadow_master_system_prompt,
@@ -595,3 +596,61 @@ async def test_build_master_assist_campaign_mode_uses_campaign_prompt_and_skips_
 
     assert response.query_kind == "campaign"
     assert response.suggestions
+
+
+class TestEntityFlagsSnapshot:
+    def _entity(self, entity_type: str, document: dict, entity_id: str = "e1"):
+        entity = MagicMock()
+        entity.id = entity_id
+        entity.entity_type = entity_type
+        entity.document = document
+        return entity
+
+    def test_snapshot_includes_world_lore_entity_types(self):
+        entities = [
+            self._entity(
+                "LOCATION",
+                {
+                    "identity": {"name": "Puerto Gris"},
+                    "narrative_profile": {"public_description": "Un muelle lluvioso"},
+                    "state_flags": {"is_accessible_to_party": True},
+                },
+                "loc-1",
+            ),
+            self._entity(
+                "FACTION",
+                {
+                    "identity": {"name": "Gremio de ladrones"},
+                    "narrative_profile": {"public_description": "Controlan el mercado negro"},
+                    "state_flags": {"is_active": True},
+                },
+                "fac-1",
+            ),
+            self._entity(
+                "RELATIONSHIP",
+                {
+                    "connection": {"source_id": "npc-1", "target_id": "fac-1"},
+                    "narrative_bond": {"bond_type": "rivalidad", "public_status": "tensa"},
+                    "state_flags": {"is_active": True},
+                },
+                "rel-1",
+            ),
+        ]
+
+        snapshot = build_entity_flags_snapshot(entities, include_secrets=True)
+        types = {item["entity_type"] for item in snapshot}
+
+        assert types == {"LOCATION", "FACTION", "RELATIONSHIP"}
+        assert snapshot[0]["document"]["identity"]["name"] == "Puerto Gris"
+        assert snapshot[2]["document"]["narrative_bond"]["bond_type"] == "rivalidad"
+
+    def test_focus_entity_id_filters_snapshot(self):
+        entities = [
+            self._entity("NPC", {"identity": {"name": "Arturo"}}, "npc-a"),
+            self._entity("NPC", {"identity": {"name": "Bruna"}}, "npc-b"),
+        ]
+
+        snapshot = build_entity_flags_snapshot(entities, include_secrets=True, focus_entity_id="npc-b")
+
+        assert len(snapshot) == 1
+        assert snapshot[0]["entity_id"] == "npc-b"

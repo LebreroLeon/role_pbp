@@ -34,14 +34,14 @@ export function EntityList({ entities, isMaster, onEdit, editingId, onDelete, de
             {items.map((entity) => (
               <li key={entity.id} className={`entity-card ${editingId === entity.id ? "is-editing" : ""}`}>
                 <div>
-                  <strong>{getEntityDisplayName(entity)}</strong>
+                  <strong>{getEntityDisplayName(entity, entities)}</strong>
                   <p className="muted entity-summary">{summarizeEntity(entity)}</p>
                 </div>
                 {isMaster && (
                   <div className="entity-card__actions">
-                    {onEdit && entity.entity_type === "NPC" && (
+                    {onEdit && (entity.entity_type === "NPC" || isWorldEntity(entity.entity_type)) && (
                       <Button className="secondary" onClick={() => onEdit(entity)}>
-                        {editingId === entity.id ? "Editando" : "Editar ficha"}
+                        {editingId === entity.id ? "Editando" : editLabel(entity.entity_type)}
                       </Button>
                     )}
                     {onDelete && (
@@ -64,6 +64,15 @@ export function EntityList({ entities, isMaster, onEdit, editingId, onDelete, de
   );
 }
 
+function isWorldEntity(entityType: EntityType): boolean {
+  return entityType === "LOCATION" || entityType === "FACTION" || entityType === "RELATIONSHIP";
+}
+
+function editLabel(entityType: EntityType): string {
+  if (entityType === "NPC") return "Editar ficha";
+  return "Editar";
+}
+
 function summarizeEntity(entity: CampaignEntity): string {
   if (entity.entity_type === "NPC") {
     const profile = entity.document.ai_narrative_profile as { public_description?: string } | undefined;
@@ -72,6 +81,14 @@ function summarizeEntity(entity: CampaignEntity): string {
   if (entity.entity_type === "LOCATION") {
     const profile = entity.document.narrative_profile as { public_description?: string } | undefined;
     return profile?.public_description?.slice(0, 120) ?? "";
+  }
+  if (entity.entity_type === "FACTION") {
+    const profile = entity.document.narrative_profile as { public_description?: string } | undefined;
+    return profile?.public_description?.slice(0, 120) ?? "";
+  }
+  if (entity.entity_type === "RELATIONSHIP") {
+    const bond = entity.document.narrative_bond as { public_status?: string } | undefined;
+    return bond?.public_status?.slice(0, 120) ?? "";
   }
   if (entity.entity_type === "PC") {
     const profile = entity.document.public_profile as { description?: string } | undefined;

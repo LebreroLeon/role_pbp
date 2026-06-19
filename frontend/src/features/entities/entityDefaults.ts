@@ -22,7 +22,25 @@ export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
 
 export const PLACEHOLDER_UUID = "00000000-0000-0000-0000-000000000001";
 
-export function getEntityDisplayName(entity: CampaignEntity): string {
+export function getEntityDisplayName(entity: CampaignEntity, allEntities?: CampaignEntity[]): string {
+  if (entity.entity_type === "RELATIONSHIP") {
+    const connection = entity.document.connection as
+      | { source_id?: string; target_id?: string }
+      | undefined;
+    const bond = entity.document.narrative_bond as
+      | { bond_type?: string; public_status?: string }
+      | undefined;
+    if (allEntities && connection?.source_id && connection?.target_id) {
+      const source = allEntities.find((item) => item.id === connection.source_id);
+      const target = allEntities.find((item) => item.id === connection.target_id);
+      const sourceName = source ? getEntityDisplayName(source, allEntities) : connection.source_id.slice(0, 8);
+      const targetName = target ? getEntityDisplayName(target, allEntities) : connection.target_id.slice(0, 8);
+      const bondLabel = bond?.bond_type ?? "vínculo";
+      return `${sourceName} ↔ ${targetName} (${bondLabel})`;
+    }
+    return bond?.public_status?.trim() || bond?.bond_type || entity.id.slice(0, 8);
+  }
+
   const identity = entity.document.identity as { name?: string } | undefined;
   const plotLine = entity.document.plot_line as { title?: string } | undefined;
   return identity?.name ?? plotLine?.title ?? entity.id.slice(0, 8);

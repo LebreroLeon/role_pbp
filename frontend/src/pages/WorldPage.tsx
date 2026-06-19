@@ -4,7 +4,8 @@ import { useParams } from "react-router-dom";
 import { SECTION_ICONS } from "../components/icons";
 import { Panel, PanelHeader, SlideOver, Toast } from "../components/ui";
 import { EntitySheetEditor } from "../features/character-sheet/EntitySheetEditor";
-import { CreateEntityForm, EntityList, ImportExportPanel } from "../features/entities";
+import { CreateEntityForm, EntityList, ImportExportPanel, WorldEntityEditor } from "../features/entities";
+import { ENTITY_TYPE_LABELS, getEntityDisplayName } from "../features/entities/entityDefaults";
 import { useDeleteEntityMutation } from "../hooks/mutations/useEntityMutations";
 import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
 import { useEntitiesQuery } from "../hooks/queries/useEntityQueries";
@@ -48,15 +49,26 @@ export function WorldPage() {
 
   function handleSaved() {
     closeEditor();
+    const label = editingEntity ? ENTITY_TYPE_LABELS[editingEntity.entity_type] : "Entidad";
     setToastMessage(
-      editorMode === "create" ? "NPC creado y guardado correctamente." : "NPC actualizado correctamente.",
+      editorMode === "create"
+        ? `${label} creado y guardado correctamente.`
+        : `${label} actualizado correctamente.`,
     );
   }
 
-  const editorTitle =
-    editorMode === "create"
-      ? `Nuevo NPC — ${(editingEntity?.document.identity as { name?: string })?.name ?? "Sin nombre"}`
-      : `Editar NPC — ${(editingEntity?.document.identity as { name?: string })?.name ?? "Sin nombre"}`;
+  const isWorldEntity =
+    editingEntity?.entity_type === "LOCATION" ||
+    editingEntity?.entity_type === "FACTION" ||
+    editingEntity?.entity_type === "RELATIONSHIP";
+
+  const editorTitle = editingEntity
+    ? editingEntity.entity_type === "NPC"
+      ? editorMode === "create"
+        ? `Nuevo NPC — ${(editingEntity.document.identity as { name?: string })?.name ?? "Sin nombre"}`
+        : `Editar NPC — ${(editingEntity.document.identity as { name?: string })?.name ?? "Sin nombre"}`
+      : `Editar ${ENTITY_TYPE_LABELS[editingEntity.entity_type]} — ${getEntityDisplayName(editingEntity, entities)}`
+    : "";
 
   return (
     <div className="world-page">
@@ -69,7 +81,7 @@ export function WorldPage() {
           title="Mundo"
           description={
             isMaster
-              ? "NPCs y ubicaciones de la campaña. Edita fichas mecánicas y lore secreto aquí; los jugadores solo ven lo público."
+              ? "NPCs, ubicaciones, facciones y relaciones. Edita lore y fichas aquí; los jugadores solo ven lo público."
               : "Personajes y lugares que tu PJ conoce. Los secretos del Máster no se muestran aquí."
           }
         />
@@ -100,6 +112,24 @@ export function WorldPage() {
             entity={editingEntity}
             gameSystem={gameSystem}
             mode={editorMode}
+            onSaved={handleSaved}
+            onCancel={closeEditor}
+          />
+        </SlideOver>
+      )}
+
+      {isMaster && editingEntity && isWorldEntity && (
+        <SlideOver
+          open
+          title={editorTitle}
+          description="Lore y vínculos del mundo. Shadow Master recibe estos datos en modo campaña."
+          onClose={closeEditor}
+        >
+          <WorldEntityEditor
+            key={`${editingEntity.id}-${editingEntity.updated_at}`}
+            campaignId={campaignId}
+            entity={editingEntity}
+            entities={entities}
             onSaved={handleSaved}
             onCancel={closeEditor}
           />
