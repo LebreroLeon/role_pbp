@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: rolepbp-postgres-prod
+    environment:
+      POSTGRES_USER: rolepbp
+      POSTGRES_PASSWORD: rolepbp
+      POSTGRES_DB: rolepbp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rolepbp -d rolepbp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    container_name: rolepbp-backend-prod
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      DATABASE_URL: postgresql+asyncpg://rolepbp:rolepbp@postgres:5432/rolepbp
+      UPLOAD_DIR: /app/campaign_uploads
+      SYSTEM_MANUALS_DIR: /app/data/manuals
+    command: ["sh", "-c", "python -m app.core.migrate && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    volumes:
+      - campaign_uploads:/app/campaign_uploads
+      - ./data/manuals:/app/data/manuals:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_URL: ""
+    container_name: rolepbp-frontend-prod
+    ports:
+      - "8080:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  campaign_uploads:

@@ -112,3 +112,12 @@ Manuales D&D: copia PDFs a `data/manuals/dnd5e/` (ver `data/manuals/dnd5e/README
 python backend/scripts/index_system_manuals.py --system dnd5e --dry-run
 python backend/scripts/index_system_manuals.py --system dnd5e
 ```
+
+### Despliegue producción ($0)
+
+Ver [docs/DEPLOY.md](docs/DEPLOY.md). Plantilla de variables: `.env.production.example`. Stack mínimo:
+
+```bash
+cp .env.production.example .env
+docker compose -f docker-compose.prod.yml up -d --build
+```
