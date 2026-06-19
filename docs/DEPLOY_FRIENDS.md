@@ -119,6 +119,8 @@ Con Docker (recomendado) el `CMD` del Dockerfile ya hace migrate + uvicorn en `$
 |---|---|
 | `VITE_API_URL` | `https://rolepbp-api.onrender.com` (tu URL Render, **sin** barra final) |
 
+> **Importante:** `VITE_API_URL` se embebe en el JS en **build time**. Si la añades después del primer deploy, debes hacer **Redeploy** en Vercel. Sin ella, login/registro fallan con `Request failed: 405` (ver sección de troubleshooting al final).
+
 4. Deploy. Anota la URL: `https://rolepbp-xxx.vercel.app`.
 
 5. El archivo `frontend/vercel.json` ya reescribe rutas SPA (`/campaigns/...` → `index.html`).
@@ -274,5 +276,23 @@ Health  → https://rolepbp-api.onrender.com/api/v1/health
 ```
 
 Si algo falla: revisa logs en Render (Events / Logs) y Vercel (Deployments → Build Logs). Errores frecuentes:
+
+### Login / registro: `Request failed: 405`
+
+**Causa:** el frontend hace `POST /api/v1/auth/login` contra el **origen de Vercel** porque `VITE_API_URL` estaba vacío en el **build**. `frontend/vercel.json` reescribe todas las rutas (incluido `/api/...`) a `index.html`; un `POST` al HTML estático devuelve **405 Method Not Allowed**.
+
+**Comprobar:** en DevTools → Network, la petición de login debe ir a `https://rolepbp-api.onrender.com/api/v1/auth/login`, **no** a `https://role-pbp.vercel.app/api/v1/auth/login`.
+
+**Arreglo:**
+
+1. Vercel → Project → **Settings** → **Environment Variables**.
+2. Añade `VITE_API_URL` = `https://rolepbp-api.onrender.com` (sin barra final), entorno **Production** (y Preview si quieres).
+3. **Redeploy** obligatorio: Vite inyecta `VITE_*` en tiempo de build; cambiar la variable sin redeploy no actualiza el bundle.
+4. En Render, confirma `CORS_ORIGINS` incluye `https://role-pbp.vercel.app` (tu URL real de Vercel).
+
+Desde una versión reciente del repo, el build en Vercel **falla** si falta `VITE_API_URL`, para evitar desplegar un bundle roto.
+
+### Otros errores frecuentes
+
 - `CORS_ORIGINS` sin coincidir con la URL de Vercel.
 - `TypeError: connect() got an unexpected keyword argument 'sslmode'` → despliega la versión actual del repo (el backend traduce `sslmode` para asyncpg) o usa la URI de Neon tal cual con `?sslmode=require` tras el deploy.

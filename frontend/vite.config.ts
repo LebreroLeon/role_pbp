@@ -2,6 +2,14 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
+// Vercel has no /api proxy; without VITE_API_URL the SPA rewrite answers POST with 405.
+if (process.env.VERCEL === "1" && !process.env.VITE_API_URL?.trim()) {
+  throw new Error(
+    "VITE_API_URL must be set in Vercel Environment Variables (Production) before build. " +
+      "Example: https://rolepbp-api.onrender.com — see docs/DEPLOY_FRIENDS.md",
+  );
+}
+
 export default defineConfig({
   plugins: [
     react(),
