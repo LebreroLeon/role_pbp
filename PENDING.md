@@ -1,4 +1,4 @@
-> Actualizado jun 2026 — refleja el código en `main` (commit ~526e8e1). No es sprint plan.
+> Actualizado jun 2026 — refleja el código en `main` (post avatares + polish v1-prep). No es sprint plan.
 
 # PENDING — RolePBP
 
@@ -13,7 +13,9 @@
 - Escenas: crear, activar, pausar, **cerrar** (`POST /scenes/{id}/close`), numeración, `display_name`
 - `SceneState` anidado alineado con schema (`metadata`, `context`, `turn_management`, `memory_settings`, `state_flags`, `combat`)
 - Entidades JSONB: CRUD NPC/PC/LOCATION + editor en `WorldPage`
+- **Avatares de entidad**: subida/eliminación vía API, retrato en ficha, chat, combate y dados
 - Chat REST + WebSocket; mensajes, dados, lectura, borrado de mensaje
+- **Chat OOC** por campaña: mensajes públicos y susurros, REST + WebSocket, pestaña «Fuera de personaje»
 - Biblioteca de documentos: subida, extracción TXT/MD/PDF/DOCX, indexación RAG al subir
 - Docker Compose: PostgreSQL pgvector, volúmenes `campaign_uploads` y `data/manuals`
 
@@ -23,8 +25,9 @@
 - **semantic_cache** (migración 009) con lookup/store en búsquedas
 - Embeddings OpenAI (`text-embedding-3-small`) cuando hay clave
 - Shadow Master: LLM + RAG + manuales de sistema + `focus_entity_id` en backend
+- **Modos Shadow Master**: `narrative`, `rules`, `campaign` con detección de intención y respuestas acotadas
 - **`@asistente` jugador**: endpoint `POST /scenes/{id}/lore-assist`, pool `remaining_player_lore_tokens`, UI en `ChatComposer`
-- Resumen de cierre de escena (LLM o fallback) indexado como `SCENE_SUMMARY`
+- Resumen de cierre de escena (LLM o fallback) indexado como `SCENE_SUMMARY`; visible en hub (`CampaignSceneLog`)
 - Purga de `semantic_cache` al cerrar escena
 - Borrado de chunks RAG al eliminar documento de biblioteca
 
@@ -48,7 +51,11 @@
 ### UI / DX
 
 - Componentes `Modal`, `ConfirmDialog`, `Switch`
-- `MasterDeskPage`: escena, jugadores, asistente, ajustes de campaña
+- `MasterDeskPage`: escena, jugadores, asistente (modos SM), ajustes de campaña
+- Hub: resumen destacado de última escena cerrada en `CampaignSceneLog`
+- Nav campaña: pestaña «Fuera de personaje» (hint OOC)
+- WebSocket escena/OOC: reconexión con backoff exponencial (5 reintentos)
+- Páginas huérfanas retiradas (`MasterPanelPage`, `MasterScreenPage`, `EntitiesPage`, `CreateCampaignForm`)
 - CI GitHub Actions: `pytest` backend + `npm run build` frontend
 - Tests backend: auth, combate, PBP, escenas, RAG, fichas, manuales, documentos (~12 suites)
 
@@ -74,11 +81,10 @@
 3. **Comandos de chat** — parser `@npc ataca @pc`, `/attack` (backend + autocompletado `@` en compositor)
 4. **Gestión campaña** — `DELETE /campaigns/{id}`; `PATCH` rol miembro (`MASTER` ↔ `PLAYER`); invitación por link/email
 5. **Selector `focus_entity_id`** en pestaña Asistente de `MasterDeskPage` (backend ya lo usa)
-6. **WebSocket** — reconexión con backoff; reauth en cierre `4401`; rate limit acciones WS
+6. **WebSocket avanzado** — reauth en cierre `4401`; rate limit acciones WS
 
 ### Calidad y deuda
 
-- Eliminar páginas huérfanas: `MasterPanelPage`, `MasterScreenPage`, `EntitiesPage`, `CreateCampaignForm`
 - Validación entidades: refs cruzadas (`faction_id`, `location_id`); 1 `ARC_MANIFEST` por campaña; auto-crear al crear campaña
 - Formularios `FACTION`, `RELATIONSHIP`, `ARC_MANIFEST` en `CreateEntityForm`
 - Rate limiting ampliado: `@asistente`, cierre escena, Redis en prod (hoy solo `/master/assist` en memoria)
@@ -117,8 +123,25 @@
 | SceneState anidado | ✅ |
 | Cierre escena + WorldLog | ✅ (resumen LLM/fallback → RAG) |
 | `@asistente` | ✅ endpoint + UI |
-| Shadow Master LLM | ✅ (requiere clave) |
+| Shadow Master LLM | ✅ modos narrative/rules/campaign |
+| Avatares entidad | ✅ upload + chat/ficha |
+| Chat OOC | ✅ REST + WS + susurros |
 | Fichas + combate | ✅ 3 sistemas |
 | Manuales sistema | ✅ infra; ⏳ PDFs + indexación manual |
+| WS reconexión básica | ✅ escena + OOC |
 | Tests + CI | ✅ backend; frontend build only |
 | ChromaDB | ❌ retirado |
+
+---
+
+## 🚀 Prep producción $0 (repo only — sin deploy)
+
+Checklist mínimo antes de desplegar:
+
+- [ ] `docker-compose.prod.yml` o perfil prod: backend sin `--reload`, nginx sirviendo `frontend/dist`
+- [ ] Variables en plataforma: `DATABASE_URL`, `JWT_SECRET`, `OPENAI_API_KEY`, `UPLOAD_DIR` persistente
+- [ ] Migraciones Alembic en entrypoint del contenedor backend
+- [ ] CORS / `VITE_API_URL` apuntando al host del API
+- [ ] Healthcheck `/health` para el orquestador
+
+Sugerencia de stack gratuito: **Vercel** (frontend estático + PWA) + **Railway** o **Render** free tier (FastAPI + Postgres; Render Postgres expira a los 90 días — Railway suele ser más estable para hobby). Alternativa todo-en-uno: **Fly.io** (app + volume para uploads) o **Render** web service + Postgres externo (Neon free tier).

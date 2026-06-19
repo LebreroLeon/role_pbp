@@ -30,8 +30,13 @@ export function CampaignSceneLog({ campaignId, activeSceneId, isMaster = false }
   const [resumingId, setResumingId] = useState<string | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
 
-  const closedCount = scenes.filter((scene) => scene.status === "CLOSED").length;
+  const closedScenes = scenes.filter((scene) => scene.status === "CLOSED");
+  const closedCount = closedScenes.length;
   const orderedScenes = [...scenes].sort((a, b) => b.scene_number - a.scene_number);
+  const latestClosed = closedScenes.reduce<Scene | null>(
+    (latest, scene) => (!latest || scene.scene_number > latest.scene_number ? scene : latest),
+    null,
+  );
 
   async function handleResume(sceneId: string) {
     setResumingId(sceneId);
@@ -61,6 +66,18 @@ export function CampaignSceneLog({ campaignId, activeSceneId, isMaster = false }
 
   return (
     <div className="scene-log">
+      {latestClosed && (
+        <div className="scene-log__latest-closed">
+          <p className="scene-log__latest-label">Última escena cerrada</p>
+          <strong>{formatSceneLabel(latestClosed)}</strong>
+          {latestClosed.summary ? (
+            <p className="scene-log__summary-text">{latestClosed.summary}</p>
+          ) : (
+            <p className="scene-log__summary-missing muted">Sin resumen registrado.</p>
+          )}
+        </div>
+      )}
+
       <div className="status-row scene-log__summary">
         <StatusBadge label="Escenas cerradas" value={String(closedCount)} ok={closedCount > 0} />
         <StatusBadge label="Total" value={String(scenes.length)} ok />
@@ -86,8 +103,12 @@ export function CampaignSceneLog({ campaignId, activeSceneId, isMaster = false }
                   {STATUS_LABELS[status] ?? scene.status}
                 </span>
               </div>
-              {scene.status === "CLOSED" && scene.summary && (
-                <p className="scene-log__summary-text muted">{scene.summary}</p>
+              {scene.status === "CLOSED" && (
+                scene.summary ? (
+                  <p className="scene-log__summary-text">{scene.summary}</p>
+                ) : (
+                  <p className="scene-log__summary-missing muted">Sin resumen registrado.</p>
+                )
               )}
               {isMaster && scene.status === "PAUSED" && (
                 <div className="scene-log__actions">

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { OocMessage } from "../api/types";
 import { useAuthStore } from "../stores/authStore";
+import { connectWebSocketWithRetry } from "./wsReconnect";
 
 type OocWsEvent =
   | { event: "ooc_snapshot"; messages: OocMessage[] }
@@ -52,24 +53,24 @@ export function useOocWebSocket({
       return;
     }
 
-    const socket = new WebSocket(buildWsUrl(campaignId, token));
-
-    socket.onopen = () => setConnected(true);
-    socket.onerror = () => setConnected(false);
-    socket.onclose = () => setConnected(false);
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data) as OocWsEvent;
-      if (data.event === "ooc_snapshot") {
-        onSnapshotRef.current(data.messages);
-      } else if (data.event === "ooc_message") {
-        onMessageRef.current(data.message);
-      } else if (data.event === "error" && data.detail) {
-        onErrorRef.current?.(data.detail);
-      }
-    };
+    const handle = connectWebSocketWithRetry({
+      buildUrl: () => buildWsUrl(campaignId, token),
+      onOpen: () => setConnected(true),
+      onMessage: (event) => {
+        const data = JSON.parse(event.data) as OocWsEvent;
+        if (data.event === "ooc_snapshot") {
+          onSnapshotRef.current(data.messages);
+        } else if (data.event === "ooc_message") {
+          onMessageRef.current(data.message);
+        } else if (data.event === "error" && data.detail) {
+          onErrorRef.current?.(data.detail);
+        }
+      },
+      onDisconnected: () => setConnected(false),
+    });
 
     return () => {
-      socket.close();
+      handle.close();
       setConnected(false);
     };
   }, [campaignId, token]);

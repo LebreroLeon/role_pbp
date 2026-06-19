@@ -103,13 +103,19 @@ class TestSceneLabelsAndSummary:
                 )
             ],
         )
-        summary = asyncio.run(
-            generate_scene_closure_summary(
-                state,
-                scene_number=1,
-                display_name="Posada",
+        from app.services.llm import LLMNotConfiguredError
+
+        with patch(
+            "app.services.scenes.chat_completion",
+            new=AsyncMock(side_effect=LLMNotConfiguredError("no key")),
+        ):
+            summary = asyncio.run(
+                generate_scene_closure_summary(
+                    state,
+                    scene_number=1,
+                    display_name="Posada",
+                )
             )
-        )
         assert "Escena 1: Posada" in summary
         assert "Buenas noches." in summary
 

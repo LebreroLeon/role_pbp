@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Scene } from "../api/types";
 import { normalizeScene } from "../features/scene/sceneState";
 import { useAuthStore } from "../stores/authStore";
+import { connectWebSocketWithRetry } from "./wsReconnect";
 
 type SceneWsEvent =
   | { event: "scene_snapshot"; scene: Scene }
@@ -43,31 +44,26 @@ export function useSceneWebSocket({ sceneId, onSceneUpdate, onError }: UseSceneW
       return;
     }
 
-    const socket = new WebSocket(buildWsUrl(sceneId, token));
-    socketRef.current = socket;
-
-    socket.onopen = () => setConnected(true);
-    socket.onerror = () => setConnected(false);
-    socket.onclose = () => {
-      setConnected(false);
-      if (socketRef.current === socket) {
-        socketRef.current = null;
-      }
-    };
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data) as SceneWsEvent;
-      if (data.event === "scene_snapshot" || data.event === "scene_update") {
-        onSceneUpdateRef.current(normalizeScene(data.scene));
-      } else if (data.event === "error" && data.detail) {
-        onErrorRef.current?.(data.detail);
-      }
-    };
+    const handle = connectWebSocketWithRetry({
+      buildUrl: () => buildWsUrl(sceneId, token),
+      onOpen: (socket) => {
+        socketRef.current = socket;
+        setConnected(true);
+      },
+      onMessage: (event) => {
+        const data = JSON.parse(event.data) as SceneWsEvent;
+        if (data.event === "scene_snapshot" || data.event === "scene_update") {
+          onSceneUpdateRef.current(normalizeScene(data.scene));
+        } else if (data.event === "error" && data.detail) {
+          onErrorRef.current?.(data.detail);
+        }
+      },
+      onDisconnected: () => setConnected(false),
+    });
 
     return () => {
-      socket.close();
-      if (socketRef.current === socket) {
-        socketRef.current = null;
-      }
+      handle.close();
+      socketRef.current = null;
       setConnected(false);
     };
   }, [sceneId, token]);
