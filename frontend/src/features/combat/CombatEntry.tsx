@@ -1,7 +1,9 @@
 import type { CampaignEntity, ChatMessage } from "../../api/types";
 import type { MemberLookup } from "../scene/ChatEntry";
 import { ChatMessageDeleteButton } from "../scene/ChatMessageDeleteButton";
-import { getInitials, formatChatTimestamp } from "../scene/messageTypes";
+import { resolveEntityAvatarUrl } from "../entities/entityAvatar";
+import { ChatAvatar } from "../scene/ChatAvatar";
+import { formatChatTimestamp } from "../scene/messageTypes";
 import type { SceneStateInput } from "../scene/sceneState";
 import {
   formatAttackRollLine,
@@ -69,14 +71,14 @@ export function CombatEntry({
         )
       : storedSpeakerName?.trim() || FALLBACK_NARRATOR_NAME);
 
+  const avatarUrl = resolveEntityAvatarUrl(speakerEntityId, entities);
+
   if (!event) {
     return (
       <article className={`chat-card combat-card ${isOwn ? "chat-card--own combat-card--own" : ""}`}>
         <header className="chat-card__header">
           <div className="chat-card__identity">
-            <span className="chat-card__avatar" aria-hidden>
-              {getInitials(characterName)}
-            </span>
+            <ChatAvatar name={characterName} avatarUrl={avatarUrl} />
             <div className="chat-card__identity-text">
               <strong className="chat-card__character">{characterName}</strong>
               <span className="chat-card__type chat-card__type--action">Combate</span>
@@ -120,9 +122,7 @@ export function CombatEntry({
     >
       <header className="chat-card__header">
         <div className="chat-card__identity">
-          <span className="chat-card__avatar" aria-hidden>
-            {getInitials(characterName)}
-          </span>
+          <ChatAvatar name={characterName} avatarUrl={avatarUrl} />
           <div className="chat-card__identity-text">
             <strong className="chat-card__character">{characterName}</strong>
             <span className="chat-card__type chat-card__type--action">Combate</span>

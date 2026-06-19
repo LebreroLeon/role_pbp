@@ -1,11 +1,13 @@
 import type { ChatMessage } from "../../api/types";
 import { ChatMessageDeleteButton } from "./ChatMessageDeleteButton";
-import { MESSAGE_TYPE_META, getInitials } from "./messageTypes";
+import { ChatAvatar } from "./ChatAvatar";
+import { MESSAGE_TYPE_META } from "./messageTypes";
 
 type DiceRollCardProps = {
   message: ChatMessage;
   characterName: string;
   playerName: string;
+  avatarUrl?: string;
   timestamp: string;
   isOwn: boolean;
   isMaster?: boolean;
@@ -16,6 +18,7 @@ export function DiceRollCard({
   message,
   characterName,
   playerName,
+  avatarUrl,
   timestamp,
   isOwn,
   isMaster = false,
@@ -38,9 +41,7 @@ export function DiceRollCard({
     <article className={`chat-card dice-roll-card ${isOwn ? "chat-card--own" : ""} chat-card--${meta.color}`}>
       <header className="chat-card__header">
         <div className="chat-card__identity">
-          <span className="chat-card__avatar" aria-hidden>
-            {getInitials(characterName)}
-          </span>
+          <ChatAvatar name={characterName} avatarUrl={avatarUrl} />
           <div className="chat-card__identity-text">
             <strong className="chat-card__character">{characterName}</strong>
             <span className={`chat-card__type chat-card__type--${meta.color}`}>{meta.label}</span>

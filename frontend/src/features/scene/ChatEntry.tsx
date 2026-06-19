@@ -4,9 +4,10 @@ import { shouldRenderCombatEntry } from "../combat/combatMessage";
 import type { SceneStateInput } from "./sceneState";
 import { Eye } from "../../components/icons";
 import { ChatMessageDeleteButton } from "./ChatMessageDeleteButton";
+import { resolveMessageAvatarUrl } from "../entities/entityAvatar";
+import { ChatAvatar } from "./ChatAvatar";
 import {
   formatChatTimestamp,
-  getInitials,
   MESSAGE_TYPE_META,
   normalizeMessageType,
 } from "./messageTypes";
@@ -91,11 +92,13 @@ export function ChatEntry({
   if (type === "DICE_ROLL") {
     const characterName = resolveDiceRollCharacterName(message, members);
     const playerName = resolvePlayerName(message, members);
+    const avatarUrl = resolveMessageAvatarUrl(message, entities);
     return (
       <DiceRollCard
         message={message}
         characterName={characterName}
         playerName={playerName}
+        avatarUrl={avatarUrl}
         timestamp={formatChatTimestamp(message.timestamp)}
         isOwn={message.sender_id === currentUserId}
         isMaster={isMaster}
@@ -108,6 +111,7 @@ export function ChatEntry({
   const characterName = resolveCharacterName(message, members, type);
   const playerName = resolvePlayerName(message, members);
   const masterVoice = isMasterVoice(message, members, type);
+  const avatarUrl = resolveMessageAvatarUrl(message, entities);
   const meta = MESSAGE_TYPE_META[type] ?? MESSAGE_TYPE_META.ACTION;
   const readBy = message.read_by ?? [];
   const readersExcludingSender = readBy.filter((id) => id !== message.sender_id);
@@ -124,9 +128,7 @@ export function ChatEntry({
     >
       <header className="chat-card__header">
         <div className="chat-card__identity">
-          <span className="chat-card__avatar" aria-hidden>
-            {getInitials(characterName)}
-          </span>
+          <ChatAvatar name={characterName} avatarUrl={avatarUrl} />
           <div className="chat-card__identity-text">
             <strong className="chat-card__character">{characterName}</strong>
             <span className={`chat-card__type chat-card__type--${meta.color}`}>{meta.label}</span>

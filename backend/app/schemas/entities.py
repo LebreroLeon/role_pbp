@@ -60,6 +60,7 @@ class AINarrativeProfile(BaseModel):
     secret_lore_master: str
     personality_traits: list[str]
     voice_and_tone: str
+    avatar_url: str | None = None
 
 
 class NPCStateFlags(BaseModel):
@@ -101,6 +102,7 @@ class PlayerBinding(BaseModel):
 class PublicProfile(BaseModel):
     description: str
     personality_traits: list[str] = Field(default_factory=list)
+    avatar_url: str | None = None
 
 
 class PCStateFlags(BaseModel):

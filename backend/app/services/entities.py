@@ -250,6 +250,7 @@ def mask_hidden_npc_document(document: dict) -> dict:
         profile["personality_traits"] = []
         profile["voice_and_tone"] = HIDDEN_NPC_PLACEHOLDER
         profile.pop("secret_lore_master", None)
+        profile.pop("avatar_url", None)
 
     mechanics = sanitized.get("system_mechanics")
     if isinstance(mechanics, dict):

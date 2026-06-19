@@ -21,3 +21,16 @@ export async function downloadAuthenticatedFile(path: string, filename: string):
   anchor.click();
   URL.revokeObjectURL(url);
 }
+
+export async function fetchAuthenticatedBlob(path: string): Promise<Blob> {
+  const token = useAuthStore.getState().token;
+  const headers: HeadersInit = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(`${API_BASE}${path}`, { headers });
+  if (!response.ok) {
+    throw new ApiError(`Request failed: ${response.status}`, response.status);
+  }
+
+  return response.blob();
+}

@@ -18,6 +18,8 @@ import { VtmSheetForm } from "./systems/vtm_v5/VtmSheetForm";
 import { parseVtmV5Sheet } from "./systems/vtm_v5/schema";
 import type { CampaignEntity } from "../entities/entityDefaults";
 import { ensureNpcTypedMechanics } from "../entities/npcDocument";
+import { extractAvatarUrl } from "../entities/entityAvatar";
+import { EntityAvatarField } from "./EntityAvatarField";
 
 type EntitySheetEditorProps = {
   campaignId: string;
@@ -80,6 +82,7 @@ export function EntitySheetEditor({
   const [secretLore, setSecretLore] = useState("");
   const [voiceAndTone, setVoiceAndTone] = useState("");
   const [personalityTraits, setPersonalityTraits] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
 
   useEffect(() => {
     const identity = workingDocument.identity as { name?: string; concept?: string } | undefined;
@@ -103,6 +106,7 @@ export function EntitySheetEditor({
     setSecretLore(narrativeProfile?.secret_lore_master ?? "");
     setVoiceAndTone(narrativeProfile?.voice_and_tone ?? "");
     setPersonalityTraits((narrativeProfile?.personality_traits ?? []).join(", "));
+    setAvatarUrl(extractAvatarUrl(entity) ?? "");
     setFormError(null);
   }, [entity.id, entity.updated_at, entity.entity_type, workingDocument]);
 
@@ -125,6 +129,7 @@ export function EntitySheetEditor({
       secretLore,
       voiceAndTone,
       personalityTraits: traits.length > 0 ? traits : ["misterioso"],
+      avatarUrl,
     };
   }
 
@@ -185,6 +190,17 @@ export function EntitySheetEditor({
             rows={3}
           />
         </label>
+
+        {(entity.entity_type === "PC" || entity.entity_type === "NPC") && (
+          <EntityAvatarField
+            campaignId={campaignId}
+            entityId={entity.id}
+            entityName={name}
+            avatarUrl={avatarUrl}
+            onAvatarUrlChange={setAvatarUrl}
+            disabled={updateMutation.isPending}
+          />
+        )}
 
         {entity.entity_type === "NPC" && (
           <>

@@ -1,7 +1,8 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +28,12 @@ from app.services.entities import (
     set_pc_present_in_scene,
     strip_master_secrets,
     validate_entity_document,
+)
+from app.services.entity_avatars import (
+    EntityAvatarError,
+    clear_entity_avatar_file,
+    resolve_entity_avatar_path,
+    save_entity_avatar_file,
 )
 
 router = APIRouter(prefix="/entities", tags=["entities"])
@@ -255,6 +262,67 @@ async def update_entity(
     await db.commit()
     await db.refresh(entity)
     return _entity_to_response(entity, include_secrets=True)
+
+
+@router.post("/{entity_id}/avatar", response_model=EntityResponse)
+async def upload_entity_avatar(
+    entity_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+    file: UploadFile = File(...),
+) -> EntityResponse:
+    entity = await _get_entity_or_404(entity_id, db)
+    await require_campaign_master(db, current_user, entity.campaign_id)
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Missing filename")
+
+    content = await file.read()
+    try:
+        await save_entity_avatar_file(
+            db,
+            entity,
+            original_name=file.filename,
+            content=content,
+            mime_type=file.content_type,
+        )
+    except EntityAvatarError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return _entity_to_response(entity, include_secrets=True)
+
+
+@router.get("/{entity_id}/avatar")
+async def get_entity_avatar(
+    entity_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> FileResponse:
+    entity = await _get_entity_or_404(entity_id, db)
+    await require_campaign_member(db, current_user, entity.campaign_id)
+
+    path = resolve_entity_avatar_path(entity)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Avatar not found")
+
+    media_types = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+    }
+    return FileResponse(path, media_type=media_types.get(path.suffix.lower(), "application/octet-stream"))
+
+
+@router.delete("/{entity_id}/avatar", status_code=204)
+async def remove_entity_avatar(
+    entity_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    entity = await _get_entity_or_404(entity_id, db)
+    await require_campaign_master(db, current_user, entity.campaign_id)
+    await clear_entity_avatar_file(db, entity)
 
 
 @router.delete("/{entity_id}", status_code=204)

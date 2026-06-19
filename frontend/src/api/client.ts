@@ -214,6 +214,13 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
+  uploadEntityAvatar: (entityId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return httpUpload<CampaignEntity>(`/api/v1/entities/${entityId}/avatar`, form);
+  },
+  removeEntityAvatar: (entityId: string) =>
+    http<void>(`/api/v1/entities/${entityId}/avatar`, { method: "DELETE" }),
   deleteEntity: (entityId: string) =>
     http<void>(`/api/v1/entities/${entityId}`, { method: "DELETE" }),
   exportEntities: (campaignId: string) =>

@@ -15,7 +15,13 @@ type NarrativeFields = {
   secretLore?: string;
   voiceAndTone?: string;
   personalityTraits?: string[];
+  avatarUrl?: string;
 };
+
+function normalizeAvatarUrl(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed || undefined;
+}
 
 function buildNpcPutDocument(
   workingDocument: Record<string, unknown>,
@@ -26,6 +32,20 @@ function buildNpcPutDocument(
       ? narrative.personalityTraits
       : ["misterioso"];
 
+  const profile: Record<string, unknown> = {
+    ...(workingDocument.ai_narrative_profile as Record<string, unknown>),
+    public_description: narrative.publicDescription.trim(),
+    secret_lore_master: narrative.secretLore?.trim() ?? "",
+    voice_and_tone: narrative.voiceAndTone?.trim() || "Neutral",
+    personality_traits: traits,
+  };
+  const avatarUrl = normalizeAvatarUrl(narrative.avatarUrl);
+  if (avatarUrl) {
+    profile.avatar_url = avatarUrl;
+  } else {
+    delete profile.avatar_url;
+  }
+
   return {
     ...workingDocument,
     identity: {
@@ -33,13 +53,7 @@ function buildNpcPutDocument(
       name: narrative.name.trim(),
       concept: narrative.concept.trim(),
     },
-    ai_narrative_profile: {
-      ...(workingDocument.ai_narrative_profile as Record<string, unknown>),
-      public_description: narrative.publicDescription.trim(),
-      secret_lore_master: narrative.secretLore?.trim() ?? "",
-      voice_and_tone: narrative.voiceAndTone?.trim() || "Neutral",
-      personality_traits: traits,
-    },
+    ai_narrative_profile: profile,
   };
 }
 
@@ -56,12 +70,21 @@ function buildPcPutDocument(
       name: narrative.name.trim(),
       concept: narrative.concept.trim(),
     },
-    public_profile: {
-      ...((workingDocument.public_profile as Record<string, unknown> | undefined) ?? {}),
-      description: narrative.publicDescription.trim(),
-      personality_traits:
-        (workingDocument.public_profile as { personality_traits?: string[] } | undefined)?.personality_traits ?? [],
-    },
+    public_profile: (() => {
+      const publicProfile: Record<string, unknown> = {
+        ...((workingDocument.public_profile as Record<string, unknown> | undefined) ?? {}),
+        description: narrative.publicDescription.trim(),
+        personality_traits:
+          (workingDocument.public_profile as { personality_traits?: string[] } | undefined)?.personality_traits ?? [],
+      };
+      const avatarUrl = normalizeAvatarUrl(narrative.avatarUrl);
+      if (avatarUrl) {
+        publicProfile.avatar_url = avatarUrl;
+      } else {
+        delete publicProfile.avatar_url;
+      }
+      return publicProfile;
+    })(),
   };
 
   if (sheet) {

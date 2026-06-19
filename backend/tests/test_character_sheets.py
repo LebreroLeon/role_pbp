@@ -213,3 +213,15 @@ class TestPcSheetValidation:
         assert stored["hp"]["max"] == 22
         assert stored["abilities"]["str"] == 16
         assert stored["attacks"][0]["damage_dice"] == "1d4"
+
+    def test_pc_public_profile_accepts_avatar_url(self):
+        document = _pc_document_with_typed_sheet()
+        document["public_profile"]["avatar_url"] = "https://example.com/portrait.png"
+        validated = validate_entity_document(EntityType.PC, document)
+        assert validated.public_profile.avatar_url == "https://example.com/portrait.png"
+
+    def test_npc_narrative_profile_accepts_avatar_url(self):
+        document = _npc_document_with_typed_sheet()
+        document["ai_narrative_profile"]["avatar_url"] = "/api/v1/entities/test/avatar"
+        validated = validate_entity_document(EntityType.NPC, document)
+        assert validated.ai_narrative_profile.avatar_url == "/api/v1/entities/test/avatar"
