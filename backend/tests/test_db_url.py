@@ -15,6 +15,17 @@ def test_neon_sslmode_is_mapped_to_asyncpg_ssl():
     assert clean_url.startswith("postgresql+asyncpg://user:secret@")
 
 
+def test_neon_host_without_sslmode_enables_ssl():
+    url = (
+        "postgresql+asyncpg://neondb_owner:secret@"
+        "ep-noisy-violet-assbeg1l-pooler.c-4.eu-central-1.aws.neon.tech/neondb"
+    )
+    clean_url, connect_args = prepare_asyncpg_url(url)
+
+    assert clean_url == url
+    assert connect_args == {"ssl": True}
+
+
 def test_local_url_without_sslmode_unchanged():
     url = "postgresql+asyncpg://rolepbp:rolepbp@localhost:5432/rolepbp"
     clean_url, connect_args = prepare_asyncpg_url(url)

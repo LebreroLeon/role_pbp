@@ -15,6 +15,10 @@ _SSLMODE_TO_ASYNCPG_SSL: dict[str, bool] = {
 }
 
 
+def _is_neon_host(hostname: str | None) -> bool:
+    return bool(hostname and hostname.endswith(".neon.tech"))
+
+
 def prepare_asyncpg_url(database_url: str) -> tuple[str, dict]:
     """Return (url, connect_args) safe for create_async_engine with asyncpg."""
     parsed = urlparse(database_url)
@@ -28,6 +32,10 @@ def prepare_asyncpg_url(database_url: str) -> tuple[str, dict]:
 
     for key in _STRIP_QUERY_PARAMS:
         query.pop(key, None)
+
+    # Neon always requires TLS; asyncpg ignores libpq sslmode unless we pass ssl=.
+    if "ssl" not in connect_args and _is_neon_host(parsed.hostname):
+        connect_args["ssl"] = True
 
     flat_query = urlencode([(key, values[-1]) for key, values in sorted(query.items())])
     clean_url = urlunparse(parsed._replace(query=flat_query))
