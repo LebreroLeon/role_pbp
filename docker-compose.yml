@@ -35,6 +35,7 @@ services:
       - ./backend/alembic.ini:/app/alembic.ini
       - campaign_uploads:/app/campaign_uploads
       - ./data/manuals:/app/data/manuals:ro
+    command: ["sh", "-c", "python -m app.core.migrate && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
     depends_on:
       postgres:
         condition: service_healthy

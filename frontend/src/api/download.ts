@@ -1,7 +1,9 @@
 import { useAuthStore } from "../stores/authStore";
 import { ApiError } from "./http";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
+import { getApiBase } from "./apiBase";
+
+const API_BASE = getApiBase();
 
 export async function downloadAuthenticatedFile(path: string, filename: string): Promise<void> {
   const token = useAuthStore.getState().token;

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Scene } from "../api/types";
 import { normalizeScene } from "../features/scene/sceneState";
 import { useAuthStore } from "../stores/authStore";
+import { buildWsUrl as buildApiWsUrl } from "../api/apiBase";
 import { connectWebSocketWithRetry } from "./wsReconnect";
 
 type SceneWsEvent =
@@ -17,10 +18,8 @@ type UseSceneWebSocketOptions = {
 };
 
 function buildWsUrl(sceneId: string, token: string): string {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const host = window.location.host;
   const params = new URLSearchParams({ token });
-  return `${protocol}//${host}/api/v1/ws/scenes/${sceneId}?${params.toString()}`;
+  return buildApiWsUrl(`/api/v1/ws/scenes/${sceneId}`, params);
 }
 
 export function useSceneWebSocket({ sceneId, onSceneUpdate, onError }: UseSceneWebSocketOptions) {

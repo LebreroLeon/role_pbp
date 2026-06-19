@@ -1,6 +1,7 @@
 import { useAuthStore } from "../stores/authStore";
+import { getApiBase } from "./apiBase";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
+const API_BASE = getApiBase();
 
 export class ApiError extends Error {
   constructor(

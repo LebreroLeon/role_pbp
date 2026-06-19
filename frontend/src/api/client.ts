@@ -1,3 +1,4 @@
+import { getApiBase } from "./apiBase";
 import { http, httpUpload } from "./http";
 import type {
   AuthResponse,
@@ -241,7 +242,7 @@ export const api = {
   },
   deleteDocument: (documentId: string) =>
     http<void>(`/api/v1/documents/${documentId}`, { method: "DELETE" }),
-  documentDownloadUrl: (documentId: string) => `${import.meta.env.VITE_API_URL ?? ""}/api/v1/documents/${documentId}/download`,
+  documentDownloadUrl: (documentId: string) => `${getApiBase()}/api/v1/documents/${documentId}/download`,
   updateCampaign: (campaignId: string, payload: { name?: string; tone?: string }) =>
     http<Campaign>(`/api/v1/campaigns/${campaignId}`, {
       method: "PATCH",

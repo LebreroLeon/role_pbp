@@ -1,0 +1,34 @@
+# Render Blueprint — backend API only (frontend on Vercel).
+# Docs: docs/DEPLOY_FRIENDS.md
+
+services:
+  - type: web
+    name: rolepbp-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: UPLOAD_DIR
+        value: /tmp/campaign_uploads
+      - key: SYSTEM_MANUALS_DIR
+        value: /tmp/manuals
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: EMBEDDING_DIMENSIONS
+        value: "1536"
+      - key: LLM_MODEL
+        value: gpt-4o-mini

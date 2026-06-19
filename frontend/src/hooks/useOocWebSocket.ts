@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { OocMessage } from "../api/types";
 import { useAuthStore } from "../stores/authStore";
+import { buildWsUrl as buildApiWsUrl } from "../api/apiBase";
 import { connectWebSocketWithRetry } from "./wsReconnect";
 
 type OocWsEvent =
@@ -17,10 +18,8 @@ type UseOocWebSocketOptions = {
 };
 
 function buildWsUrl(campaignId: string, token: string): string {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const host = window.location.host;
   const params = new URLSearchParams({ token });
-  return `${protocol}//${host}/api/v1/ws/campaigns/${campaignId}?${params.toString()}`;
+  return buildApiWsUrl(`/api/v1/ws/campaigns/${campaignId}`, params);
 }
 
 export function useOocWebSocket({
