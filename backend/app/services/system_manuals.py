@@ -183,8 +183,11 @@ async def index_system_manual_pdf(
     else:
         source.path = rel_path
         await db.execute(delete(SystemManualMemory).where(SystemManualMemory.source_id == source.id))
+        await db.commit()
 
+    batch_commit_size = 25
     chunk_count = 0
+    pending = 0
     for content, metadata in chunks:
         embedding = await embed_text(content)
         if embedding is None:
@@ -202,6 +205,11 @@ async def index_system_manual_pdf(
             )
         )
         chunk_count += 1
+        pending += 1
+        if pending >= batch_commit_size:
+            source.chunk_count = chunk_count
+            await db.commit()
+            pending = 0
 
     source.chunk_count = chunk_count
     source.indexed_at = utc_now()
