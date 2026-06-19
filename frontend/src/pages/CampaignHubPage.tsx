@@ -1,24 +1,36 @@
 import { Link, useParams } from "react-router-dom";
 
-import { Activity, Crown, UserPlus, Users } from "../components/icons";
+import { Activity, CheckCircle2, Circle, Crown, UserPlus, Users } from "../components/icons";
 import { Panel, PanelHeader, StatusBadge } from "../components/ui";
 import { CampaignMemberList, CampaignSceneLog, formatSceneLabel, InviteMemberForm } from "../features/campaign";
 import { gameSystemLabel } from "../features/campaign/gameSystems";
 import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
+import { useEntitiesQuery } from "../hooks/queries/useEntityQueries";
 import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
+import { useAuthStore } from "../stores/authStore";
 
 export function CampaignHubPage() {
   const { campaignId = "" } = useParams();
   const base = `/campaigns/${campaignId}`;
+  const currentUserId = useAuthStore((state) => state.user?.id ?? "");
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
   const { data: openScene } = useOpenSceneQuery(campaignId);
+  const { data: entities = [] } = useEntitiesQuery(campaignId);
 
   if (!campaign) return null;
 
   const isMaster = campaign.role === "MASTER";
   const players = members.filter((m) => m.role === "PLAYER");
   const closedScenesHint = openScene ? formatSceneLabel(openScene) : null;
+  const playerSheet = entities.find(
+    (entity) =>
+      entity.entity_type === "PC" &&
+      (entity.document.player_binding as { user_id?: string } | undefined)?.user_id === currentUserId,
+  );
+  const hasPlayerSheet = Boolean(playerSheet);
+  const hasActiveScene = openScene?.status === "ACTIVE";
+  const onboardingComplete = hasPlayerSheet && hasActiveScene;
 
   return (
     <div className="campaign-hub">
@@ -99,8 +111,46 @@ export function CampaignHubPage() {
             icon={Crown}
             iconTone="amber"
             title="Tu rol: jugador"
-            description="Escribe en el chat cuando te toque. El Máster dirige la escena; la IA le asiste en privado."
+            description="Completa estos pasos para unirte a la partida."
           />
+          <ul className="player-onboarding">
+            <li className={hasPlayerSheet ? "is-done" : ""}>
+              {hasPlayerSheet ? <CheckCircle2 aria-hidden /> : <Circle aria-hidden />}
+              <span>
+                {hasPlayerSheet ? "Ficha creada" : "Crea tu ficha de personaje"}
+                {!hasPlayerSheet && (
+                  <>
+                    {" — "}
+                    <Link to={`${base}/ficha`}>Ir a Ficha</Link>
+                  </>
+                )}
+              </span>
+            </li>
+            <li className={hasActiveScene ? "is-done" : ""}>
+              {hasActiveScene ? <CheckCircle2 aria-hidden /> : <Circle aria-hidden />}
+              <span>
+                {hasActiveScene ? "Escena activa" : "Espera a que el Máster inicie la escena"}
+                {hasActiveScene && (
+                  <>
+                    {" — "}
+                    <Link to={`${base}/chat`}>Ir a Jugar</Link>
+                  </>
+                )}
+              </span>
+            </li>
+            <li>
+              <Circle aria-hidden className="onboarding-optional" />
+              <span>
+                Coordínate fuera de escena en <Link to={`${base}/ooc`}>Chat OOC</Link>
+              </span>
+            </li>
+          </ul>
+          {onboardingComplete && (
+            <p className="muted hub-hint">
+              Todo listo. Entra al <Link to={`${base}/chat`}>chat de escena</Link> o revisa el{" "}
+              <Link to={`${base}/ooc`}>OOC</Link>.
+            </p>
+          )}
         </Panel>
       )}
     </div>

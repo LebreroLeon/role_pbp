@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import { queryKeys } from "../api/queryKeys";
-import type { MessageType, Scene } from "../api/types";
+import type { LoreAssistResponse, MessageType, Scene } from "../api/types";
 import { SECTION_ICONS } from "../components/icons";
 import {
   Button,
@@ -63,6 +63,7 @@ export function ChatPage() {
   const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
   const [deletingMessage, setDeletingMessage] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [loreAssistHistory, setLoreAssistHistory] = useState<LoreAssistResponse[]>([]);
 
   const currentScene = scene ?? openScene ?? null;
   const isMaster = campaign?.role === "MASTER";
@@ -162,6 +163,7 @@ export function ChatPage() {
       setMessage("");
       try {
         const response = await api.loreAssist(currentScene.id, loreMatch[1].trim());
+        setLoreAssistHistory((current) => [response, ...current].slice(0, 3));
         setToastMessage(
           `${response.answer}${response.note ? ` (${response.note})` : ""} — Quedan ${response.remaining_tokens} consultas.`,
         );
@@ -308,6 +310,24 @@ export function ChatPage() {
             isMaster={Boolean(isMaster)}
             onSceneUpdate={handleSceneUpdate}
           />
+          {!isMaster && loreAssistHistory.length > 0 && (
+            <aside className="lore-assist-panel" aria-label="Respuestas del asistente">
+              <h3 className="lore-assist-panel__title">@asistente</h3>
+              <p className="muted lore-assist-panel__hint">Últimas consultas en esta sesión.</p>
+              <ul className="lore-assist-panel__list">
+                {loreAssistHistory.map((entry) => (
+                  <li key={entry.generated_at} className="lore-assist-panel__item">
+                    <p className="lore-assist-panel__query">{entry.query}</p>
+                    <p className="lore-assist-panel__answer">{entry.answer}</p>
+                    {entry.note && <p className="muted lore-assist-panel__note">{entry.note}</p>}
+                    <p className="muted lore-assist-panel__meta">
+                      Quedan {entry.remaining_tokens} consultas
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </aside>
+          )}
         </aside>
       )}
 

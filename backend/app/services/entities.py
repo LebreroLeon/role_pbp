@@ -22,6 +22,98 @@ class EntityValidationError(ValueError):
     pass
 
 
+class EntityReferenceError(ValueError):
+    pass
+
+
+def _is_nonempty_ref(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+async def validate_entity_cross_references(
+    db: AsyncSession,
+    *,
+    campaign_id: uuid.UUID,
+    entity_type: EntityType,
+    document: dict,
+    entity_id: uuid.UUID | None = None,
+) -> None:
+    """Ensure referenced entity IDs exist in the same campaign."""
+    refs: list[tuple[str, str, EntityType | None]] = []
+
+    identity = document.get("identity")
+    if isinstance(identity, dict):
+        if _is_nonempty_ref(identity.get("faction_id")):
+            refs.append(("identity.faction_id", identity["faction_id"], EntityType.FACTION))
+        if _is_nonempty_ref(identity.get("current_location_id")):
+            refs.append(("identity.current_location_id", identity["current_location_id"], EntityType.LOCATION))
+        if _is_nonempty_ref(identity.get("headquarters_location_id")):
+            refs.append(
+                ("identity.headquarters_location_id", identity["headquarters_location_id"], EntityType.LOCATION),
+            )
+        if _is_nonempty_ref(identity.get("parent_location_id")):
+            refs.append(("identity.parent_location_id", identity["parent_location_id"], EntityType.LOCATION))
+
+    connection = document.get("connection")
+    if isinstance(connection, dict):
+        if _is_nonempty_ref(connection.get("source_id")):
+            refs.append(("connection.source_id", connection["source_id"], None))
+        if _is_nonempty_ref(connection.get("target_id")):
+            refs.append(("connection.target_id", connection["target_id"], None))
+        if entity_id is not None:
+            entity_id_str = str(entity_id)
+            for field, ref_id, _ in refs:
+                if field.startswith("connection.") and ref_id == entity_id_str:
+                    raise EntityReferenceError(f"{field}: an entity cannot reference itself")
+
+    if not refs:
+        return
+
+    ref_ids = {uuid.UUID(ref_id) for _, ref_id, _ in refs}
+    found = (
+        await db.scalars(
+            select(CampaignEntity).where(
+                CampaignEntity.campaign_id == campaign_id,
+                CampaignEntity.id.in_(ref_ids),
+            )
+        )
+    ).all()
+    found_by_id = {entity.id: entity for entity in found}
+
+    for field, ref_id, expected_type in refs:
+        try:
+            ref_uuid = uuid.UUID(ref_id)
+        except ValueError as exc:
+            raise EntityReferenceError(f"{field}: invalid UUID {ref_id!r}") from exc
+
+        target = found_by_id.get(ref_uuid)
+        if target is None:
+            raise EntityReferenceError(f"{field}: no entity with id {ref_id} in this campaign")
+        if expected_type is not None and target.entity_type != expected_type.value:
+            raise EntityReferenceError(
+                f"{field}: entity {ref_id} is {target.entity_type}, expected {expected_type.value}",
+            )
+
+
+async def ensure_single_arc_manifest(
+    db: AsyncSession,
+    *,
+    campaign_id: uuid.UUID,
+    entity_type: EntityType,
+) -> None:
+    if entity_type != EntityType.ARC_MANIFEST:
+        return
+
+    existing = await db.scalar(
+        select(CampaignEntity.id).where(
+            CampaignEntity.campaign_id == campaign_id,
+            CampaignEntity.entity_type == EntityType.ARC_MANIFEST.value,
+        )
+    )
+    if existing is not None:
+        raise EntityReferenceError("Only one ARC_MANIFEST entity is allowed per campaign")
+
+
 class CharacterSheetError(ValueError):
     pass
 

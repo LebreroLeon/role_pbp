@@ -65,7 +65,12 @@ export function EntityList({ entities, isMaster, onEdit, editingId, onDelete, de
 }
 
 function isWorldEntity(entityType: EntityType): boolean {
-  return entityType === "LOCATION" || entityType === "FACTION" || entityType === "RELATIONSHIP";
+  return (
+    entityType === "LOCATION" ||
+    entityType === "FACTION" ||
+    entityType === "RELATIONSHIP" ||
+    entityType === "ARC_MANIFEST"
+  );
 }
 
 function editLabel(entityType: EntityType): string {
@@ -93,6 +98,10 @@ function summarizeEntity(entity: CampaignEntity): string {
   if (entity.entity_type === "PC") {
     const profile = entity.document.public_profile as { description?: string } | undefined;
     return profile?.description?.slice(0, 120) ?? "";
+  }
+  if (entity.entity_type === "ARC_MANIFEST") {
+    const plotLine = entity.document.plot_line as { global_summary?: string; title?: string } | undefined;
+    return plotLine?.global_summary?.slice(0, 120) ?? plotLine?.title ?? "";
   }
   const identity = entity.document.identity as { concept?: string } | undefined;
   return identity?.concept?.slice(0, 120) ?? "";

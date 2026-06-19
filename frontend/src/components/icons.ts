@@ -2,7 +2,9 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   BookOpen,
+  CheckCircle2,
   ChevronRight,
+  Circle,
   Clapperboard,
   Crown,
   Dices,
@@ -34,7 +36,9 @@ import {
 export {
   Activity,
   BookOpen,
+  CheckCircle2,
   ChevronRight,
+  Circle,
   Clapperboard,
   Crown,
   Dices,

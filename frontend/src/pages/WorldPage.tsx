@@ -2,11 +2,11 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { SECTION_ICONS } from "../components/icons";
-import { Panel, PanelHeader, SlideOver, Toast } from "../components/ui";
+import { Panel, PanelHeader, SlideOver, Toast, Button, ErrorBanner } from "../components/ui";
 import { EntitySheetEditor } from "../features/character-sheet/EntitySheetEditor";
-import { CreateEntityForm, EntityList, ImportExportPanel, WorldEntityEditor } from "../features/entities";
-import { ENTITY_TYPE_LABELS, getEntityDisplayName } from "../features/entities/entityDefaults";
-import { useDeleteEntityMutation } from "../hooks/mutations/useEntityMutations";
+import { CreateEntityForm, EntityList, ImportExportPanel, WorldEntityEditor, ArcManifestEditor } from "../features/entities";
+import { ENTITY_TYPE_LABELS, buildArcManifestDocument, getEntityDisplayName } from "../features/entities/entityDefaults";
+import { useCreateEntityMutation, useDeleteEntityMutation } from "../hooks/mutations/useEntityMutations";
 import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
 import { useEntitiesQuery } from "../hooks/queries/useEntityQueries";
 
@@ -16,6 +16,7 @@ export function WorldPage() {
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
   const { data: entities = [] } = useEntitiesQuery(campaignId);
   const deleteMutation = useDeleteEntityMutation(campaignId);
+  const createArcMutation = useCreateEntityMutation(campaignId);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
   const [editorMode, setEditorMode] = useState<"create" | "edit">("edit");
@@ -23,6 +24,7 @@ export function WorldPage() {
 
   const isMaster = campaign?.role === "MASTER";
   const gameSystem = campaign?.game_system ?? "generic";
+  const arcManifest = entities.find((entity) => entity.entity_type === "ARC_MANIFEST") ?? null;
   const editingEntity = editingEntityId ? entities.find((entity) => entity.id === editingEntityId) ?? null : null;
 
   function openEditor(entityId: string, mode: "create" | "edit" = "edit") {
@@ -60,7 +62,21 @@ export function WorldPage() {
   const isWorldEntity =
     editingEntity?.entity_type === "LOCATION" ||
     editingEntity?.entity_type === "FACTION" ||
-    editingEntity?.entity_type === "RELATIONSHIP";
+    editingEntity?.entity_type === "RELATIONSHIP" ||
+    editingEntity?.entity_type === "ARC_MANIFEST";
+
+  async function handleCreateArcManifest() {
+    if (arcManifest) return;
+    try {
+      const created = await createArcMutation.mutateAsync({
+        entity_type: "ARC_MANIFEST",
+        document: buildArcManifestDocument(),
+      });
+      openEditor(created.id, "create");
+    } catch {
+      // ApiError shown via mutation state if needed
+    }
+  }
 
   const editorTitle = editingEntity
     ? editingEntity.entity_type === "NPC"
@@ -85,6 +101,31 @@ export function WorldPage() {
               : "Personajes y lugares que tu PJ conoce. Los secretos del Máster no se muestran aquí."
           }
         />
+        {isMaster && (
+          <div className="world-arc-panel">
+            {arcManifest ? (
+              <p className="muted">
+                Arco narrativo: <strong>{getEntityDisplayName(arcManifest, entities)}</strong>
+                {" · "}
+                <button type="button" className="link-button" onClick={() => openEditor(arcManifest.id, "edit")}>
+                  Editar macrotrama
+                </button>
+              </p>
+            ) : (
+              <div className="world-arc-panel__create">
+                <p className="muted">
+                  Sin arco narrativo. Shadow Master usa este documento para la macrotrama y misiones activas.
+                </p>
+                <Button onClick={handleCreateArcManifest} disabled={createArcMutation.isPending}>
+                  {createArcMutation.isPending ? "Creando..." : "Crear arco narrativo"}
+                </Button>
+                {createArcMutation.error && (
+                  <ErrorBanner message={createArcMutation.error instanceof Error ? createArcMutation.error.message : "Error al crear arco"} />
+                )}
+              </div>
+            )}
+          </div>
+        )}
         <EntityList
           entities={entities}
           isMaster={Boolean(isMaster)}
@@ -111,6 +152,7 @@ export function WorldPage() {
             campaignId={campaignId}
             entity={editingEntity}
             gameSystem={gameSystem}
+            entities={entities}
             mode={editorMode}
             onSaved={handleSaved}
             onCancel={closeEditor}
@@ -118,7 +160,7 @@ export function WorldPage() {
         </SlideOver>
       )}
 
-      {isMaster && editingEntity && isWorldEntity && (
+      {isMaster && editingEntity && isWorldEntity && editingEntity.entity_type !== "ARC_MANIFEST" && (
         <SlideOver
           open
           title={editorTitle}
@@ -130,6 +172,23 @@ export function WorldPage() {
             campaignId={campaignId}
             entity={editingEntity}
             entities={entities}
+            onSaved={handleSaved}
+            onCancel={closeEditor}
+          />
+        </SlideOver>
+      )}
+
+      {isMaster && editingEntity?.entity_type === "ARC_MANIFEST" && (
+        <SlideOver
+          open
+          title={editorTitle || "Editar arco narrativo"}
+          description="Macrotrama, misiones activas y notas secretas para Shadow Master."
+          onClose={closeEditor}
+        >
+          <ArcManifestEditor
+            key={`${editingEntity.id}-${editingEntity.updated_at}`}
+            campaignId={campaignId}
+            entity={editingEntity}
             onSaved={handleSaved}
             onCancel={closeEditor}
           />

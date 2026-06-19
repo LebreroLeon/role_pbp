@@ -227,3 +227,30 @@ export function buildRelationshipDocument(input: {
     },
   };
 }
+
+export function buildArcManifestDocument(input?: {
+  title?: string;
+  globalSummary?: string;
+  currentAct?: number;
+  narrativeTone?: string;
+}): Record<string, unknown> {
+  return {
+    metadata: { type: "ARC_MANIFEST" },
+    plot_line: {
+      title: input?.title?.trim() || "Arco principal",
+      global_summary: input?.globalSummary?.trim() || "",
+      current_act: input?.currentAct ?? 1,
+      narrative_tone: input?.narrativeTone?.trim() || "Aventura",
+    },
+    active_quests: [],
+    completed_milestones: [],
+    state_flags: {
+      is_main_plot_derailed: false,
+      world_threat_level: 1,
+    },
+  };
+}
+
+export function newQuestId(): string {
+  return crypto.randomUUID();
+}

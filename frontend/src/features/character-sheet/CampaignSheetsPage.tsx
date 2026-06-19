@@ -10,6 +10,7 @@ import { getEntityDisplayName, buildPcDocumentForGameSystem } from "../entities/
 import { useCreateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 import { useCampaignMembersQuery, useCampaignQuery } from "../../hooks/queries/useCampaignQueries";
 import { useCampaignSheetsQuery } from "../../hooks/queries/useCampaignSheetsQueries";
+import { useEntitiesQuery } from "../../hooks/queries/useEntityQueries";
 import { EntitySheetEditor } from "./EntitySheetEditor";
 
 export function CampaignSheetsPage() {
@@ -17,6 +18,7 @@ export function CampaignSheetsPage() {
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
   const { data: sheets = [], isLoading, isError, error } = useCampaignSheetsQuery(campaignId);
+  const { data: entities = [] } = useEntitiesQuery(campaignId);
   const createMutation = useCreateEntityMutation(campaignId);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -183,6 +185,7 @@ export function CampaignSheetsPage() {
                   entity={selected}
                   gameSystem={gameSystem}
                   members={members}
+                  entities={entities}
                   onSaved={() => {
                     setToastMessage(`Ficha de ${getEntityDisplayName(selected)} guardada correctamente.`);
                   }}

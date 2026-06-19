@@ -17,6 +17,7 @@ import { parseDnd5eSheet } from "./systems/dnd5e/schema";
 import { VtmSheetForm } from "./systems/vtm_v5/VtmSheetForm";
 import { parseVtmV5Sheet } from "./systems/vtm_v5/schema";
 import type { CampaignEntity } from "../entities/entityDefaults";
+import { getEntityDisplayName } from "../entities/entityDefaults";
 import { ensureNpcTypedMechanics } from "../entities/npcDocument";
 import { extractAvatarUrl } from "../entities/entityAvatar";
 import { EntityAvatarField } from "./EntityAvatarField";
@@ -26,6 +27,7 @@ type EntitySheetEditorProps = {
   entity: CampaignEntity;
   gameSystem: string;
   members?: CampaignMember[];
+  entities?: CampaignEntity[];
   mode?: "create" | "edit";
   onSaved?: () => void;
   onCancel?: () => void;
@@ -62,6 +64,7 @@ export function EntitySheetEditor({
   entity,
   gameSystem,
   members,
+  entities = [],
   mode = "edit",
   onSaved,
   onCancel,
@@ -83,6 +86,17 @@ export function EntitySheetEditor({
   const [voiceAndTone, setVoiceAndTone] = useState("");
   const [personalityTraits, setPersonalityTraits] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [factionId, setFactionId] = useState("");
+  const [locationId, setLocationId] = useState("");
+
+  const factionOptions = useMemo(
+    () => entities.filter((item) => item.entity_type === "FACTION"),
+    [entities],
+  );
+  const locationOptions = useMemo(
+    () => entities.filter((item) => item.entity_type === "LOCATION"),
+    [entities],
+  );
 
   useEffect(() => {
     const identity = workingDocument.identity as { name?: string; concept?: string } | undefined;
@@ -107,6 +121,11 @@ export function EntitySheetEditor({
     setVoiceAndTone(narrativeProfile?.voice_and_tone ?? "");
     setPersonalityTraits((narrativeProfile?.personality_traits ?? []).join(", "));
     setAvatarUrl(extractAvatarUrl(entity) ?? "");
+    const identityRefs = workingDocument.identity as
+      | { faction_id?: string | null; current_location_id?: string }
+      | undefined;
+    setFactionId(identityRefs?.faction_id ?? "");
+    setLocationId(identityRefs?.current_location_id ?? "");
     setFormError(null);
   }, [entity.id, entity.updated_at, entity.entity_type, workingDocument]);
 
@@ -130,6 +149,8 @@ export function EntitySheetEditor({
       voiceAndTone,
       personalityTraits: traits.length > 0 ? traits : ["misterioso"],
       avatarUrl,
+      factionId: factionId || null,
+      locationId: locationId || "",
     };
   }
 
@@ -175,6 +196,33 @@ export function EntitySheetEditor({
       <form className="auth-form sheet-narrative-form" onSubmit={handleNarrativeSubmit}>
         <Input label="Nombre" value={name} onChange={(event) => setName(event.target.value)} required />
         <Input label="Concepto" value={concept} onChange={(event) => setConcept(event.target.value)} />
+
+        {(entity.entity_type === "NPC" || entity.entity_type === "PC") && (
+          <>
+            <label className="form-field">
+              <span>Facción (opcional)</span>
+              <select value={factionId} onChange={(event) => setFactionId(event.target.value)}>
+                <option value="">Sin facción</option>
+                {factionOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {getEntityDisplayName(item, entities)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-field">
+              <span>Ubicación actual</span>
+              <select value={locationId} onChange={(event) => setLocationId(event.target.value)}>
+                <option value="">Sin ubicación</option>
+                {locationOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {getEntityDisplayName(item, entities)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
 
         {entity.entity_type === "PC" && (
           <p className="muted sheet-bound-player">

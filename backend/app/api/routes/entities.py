@@ -20,13 +20,16 @@ from datetime import UTC, datetime
 from app.schemas.entities import EntityCreate, EntityImportItem, EntityImportRequest, EntityImportResponse, EntityPresencePatch, EntityResponse, EntityType, EntityUpdate, EntityExportResponse
 from app.services.entities import (
     CharacterSheetError,
+    EntityReferenceError,
     EntityValidationError,
+    ensure_single_arc_manifest,
     get_active_scene_hidden_npc_ids,
     get_campaign_or_error,
     mask_hidden_npc_document,
     normalize_entity_document_for_campaign,
     set_pc_present_in_scene,
     strip_master_secrets,
+    validate_entity_cross_references,
     validate_entity_document,
 )
 from app.services.entity_avatars import (
@@ -76,12 +79,21 @@ async def create_entity(
     campaign = await get_campaign_or_error(db, campaign_id)
 
     try:
+        await ensure_single_arc_manifest(db, campaign_id=campaign_id, entity_type=payload.entity_type)
         document = normalize_entity_document_for_campaign(
             campaign_game_system=campaign.game_system,
             entity_type=payload.entity_type,
             document=payload.document,
         )
         validated = validate_entity_document(payload.entity_type, document)
+        await validate_entity_cross_references(
+            db,
+            campaign_id=campaign_id,
+            entity_type=payload.entity_type,
+            document=validated.model_dump(mode="json"),
+        )
+    except EntityReferenceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except EntityValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -248,13 +260,23 @@ async def update_entity(
     await require_campaign_master(db, current_user, entity.campaign_id)
     campaign = await get_campaign_or_error(db, entity.campaign_id)
 
+    entity_type = EntityType(entity.entity_type)
     try:
         document = normalize_entity_document_for_campaign(
             campaign_game_system=campaign.game_system,
-            entity_type=EntityType(entity.entity_type),
+            entity_type=entity_type,
             document=payload.document,
         )
-        validated = validate_entity_document(EntityType(entity.entity_type), document)
+        validated = validate_entity_document(entity_type, document)
+        await validate_entity_cross_references(
+            db,
+            campaign_id=entity.campaign_id,
+            entity_type=entity_type,
+            document=validated.model_dump(mode="json"),
+            entity_id=entity.id,
+        )
+    except EntityReferenceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except EntityValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

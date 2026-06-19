@@ -16,6 +16,8 @@ type NarrativeFields = {
   voiceAndTone?: string;
   personalityTraits?: string[];
   avatarUrl?: string;
+  factionId?: string | null;
+  locationId?: string;
 };
 
 function normalizeAvatarUrl(value: string | undefined): string | undefined {
@@ -52,6 +54,8 @@ function buildNpcPutDocument(
       ...(workingDocument.identity as Record<string, unknown>),
       name: narrative.name.trim(),
       concept: narrative.concept.trim(),
+      faction_id: narrative.factionId?.trim() || "",
+      current_location_id: narrative.locationId?.trim() || "",
     },
     ai_narrative_profile: profile,
   };
@@ -69,6 +73,8 @@ function buildPcPutDocument(
       ...(workingDocument.identity as Record<string, unknown>),
       name: narrative.name.trim(),
       concept: narrative.concept.trim(),
+      faction_id: narrative.factionId?.trim() || null,
+      current_location_id: narrative.locationId?.trim() || "",
     },
     public_profile: (() => {
       const publicProfile: Record<string, unknown> = {
