@@ -306,6 +306,35 @@ https://role-pbp.vercel.app
 
 Desde una versión reciente del repo, el build en Vercel **falla** si falta `VITE_API_URL`, para evitar desplegar un bundle roto. `vercel.json` también proxifica `/api/*` a Render como respaldo para bundles viejos en caché.
 
+### Login / registro: no pasa nada (incógnito, sin mensaje de error)
+
+**Causa:** el build ya llama a `https://rolepbp-api.onrender.com`, pero **CORS** en Render no incluye tu URL de Vercel. El navegador bloquea la petición antes de llegar al servidor (`Failed to fetch`); en versiones antiguas del frontend eso no se mostraba en pantalla.
+
+**Comprobar (incógnito → F12 → Network):**
+
+1. Al pulsar Entrar/Registrarse debe aparecer `OPTIONS` y luego `POST` a `rolepbp-api.onrender.com/api/v1/auth/login` (o `register`).
+2. Si `OPTIONS` devuelve **400** con cuerpo `Disallowed CORS origin`, falta `CORS_ORIGINS`.
+3. Si la petición va a `role-pbp.vercel.app/api/...` con **405**, el navegador usa un bundle viejo (Service Worker) — ver arriba.
+
+**Arreglo (Render — obligatorio):**
+
+En Render → servicio `rolepbp-api` → **Environment** → `CORS_ORIGINS`:
+
+```
+https://role-pbp.vercel.app
+```
+
+Manual Deploy en Render. Prueba de preflight (PowerShell / bash):
+
+```bash
+curl.exe -X OPTIONS "https://rolepbp-api.onrender.com/api/v1/auth/login" ^
+  -H "Origin: https://role-pbp.vercel.app" ^
+  -H "Access-Control-Request-Method: POST" ^
+  -H "Access-Control-Request-Headers: content-type" -i
+```
+
+Debe responder **200 OK** con `access-control-allow-origin: https://role-pbp.vercel.app`.
+
 ### Otros errores frecuentes
 
 - `CORS_ORIGINS` sin coincidir con la URL de Vercel.

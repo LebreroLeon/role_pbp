@@ -3,6 +3,23 @@ import { getApiBase } from "./apiBase";
 
 const API_BASE = getApiBase();
 
+function networkErrorMessage(): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://role-pbp.vercel.app";
+  const apiHint = API_BASE || "https://rolepbp-api.onrender.com";
+  return (
+    `No se pudo conectar con la API (${apiHint}). ` +
+    `Comprueba en Render → Environment → CORS_ORIGINS=${origin} (sin barra final) y redeploy del backend.`
+  );
+}
+
+export function formatHttpError(error: unknown): string | null {
+  if (!error) return null;
+  if (error instanceof ApiError) return error.message;
+  if (error instanceof TypeError) return networkErrorMessage();
+  if (error instanceof Error) return error.message;
+  return "Error inesperado";
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -24,7 +41,12 @@ export async function http<T>(path: string, init?: RequestInit): Promise<T> {
     (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  } catch {
+    throw new ApiError(networkErrorMessage(), 0);
+  }
 
   if (!response.ok) {
     const text = await response.text();
@@ -64,7 +86,12 @@ export async function httpUpload<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, { ...init, method: "POST", headers, body: formData });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { ...init, method: "POST", headers, body: formData });
+  } catch {
+    throw new ApiError(networkErrorMessage(), 0);
+  }
 
   if (!response.ok) {
     const text = await response.text();

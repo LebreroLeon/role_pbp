@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 
-import { ApiError } from "../../api/http";
+import { formatHttpError } from "../../api/http";
 import { LogIn } from "../../components/icons";
 import { Button, ErrorBanner, Input, Panel, PanelHeader } from "../../components/ui";
 import { useLoginMutation } from "../../hooks/mutations/useAuthMutations";
@@ -16,7 +16,7 @@ export function LoginForm() {
     formState: { errors },
   } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
 
-  const apiError = mutation.error instanceof ApiError ? mutation.error.message : null;
+  const apiError = formatHttpError(mutation.error);
 
   return (
     <Panel>

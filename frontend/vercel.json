@@ -1,9 +1,9 @@
 {
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://rolepbp-api.onrender.com/api/:path*"
+      "source": "/api/(.*)",
+      "destination": "https://rolepbp-api.onrender.com/api/$1"
     },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
