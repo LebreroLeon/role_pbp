@@ -604,6 +604,80 @@
   cursor: not-allowed;
 }
 
+.chat-composer__input-wrap textarea,
+.ooc-chat__composer textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--bg-elevated);
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+}
+
+.ooc-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 14rem);
+  min-height: 22rem;
+  max-width: 720px;
+}
+
+.ooc-chat.chat-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ooc-chat__messages {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  margin-bottom: 0;
+}
+
+.ooc-chat__composer {
+  flex-shrink: 0;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ooc-chat__card--whisper {
+  border-color: rgba(201, 160, 255, 0.35);
+  background: rgba(201, 160, 255, 0.08);
+}
+
+.ooc-chat__whisper-label {
+  display: inline-block;
+  margin-left: 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #c9a0ff;
+}
+
+.ooc-chat__recipient {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.ooc-chat__recipient-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ooc-chat__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .chat-composer__row {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -1769,6 +1843,7 @@
 }
 
 .chat-page .panel,
+.ooc-page .panel,
 .master-screen .panel {
   max-width: 720px;
 }

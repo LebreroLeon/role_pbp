@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import PLAYER_NO_ACTIVE_SCENE_DETAIL, get_user_from_token, require_campaign_member
 from app.core.database import SessionLocal
 from app.schemas.scene import DiceRollRequest, PostMessageRequest
+from app.services.campaign_ws import campaign_ws_manager
+from app.services.ooc import OocServiceError, list_ooc_messages, post_ooc_public, post_ooc_whisper
 from app.services.scene_ws import scene_ws_manager
 from app.services.scenes import (
     SceneServiceError,
@@ -134,3 +136,80 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
         pass
     finally:
         scene_ws_manager.disconnect(scene_id, websocket)
+
+
+@router.websocket("/ws/campaigns/{campaign_id}")
+async def campaign_websocket(campaign_id: str, websocket: WebSocket, token: str = "") -> None:
+    try:
+        campaign_uuid = uuid.UUID(campaign_id)
+    except ValueError:
+        await websocket.close(code=4400)
+        return
+
+    async with SessionLocal() as db:
+        try:
+            user = await _authenticate_ws(token, db)
+            await require_campaign_member(db, user, campaign_uuid)
+            initial_messages = await list_ooc_messages(db, campaign_uuid, user.id)
+        except HTTPException:
+            await websocket.close(code=4401)
+            return
+        except OocServiceError:
+            await websocket.close(code=4404)
+            return
+
+    await campaign_ws_manager.connect(campaign_id, websocket, user.id)
+
+    try:
+        await websocket.send_json(
+            {
+                "event": "ooc_snapshot",
+                "messages": [message.model_dump(mode="json") for message in initial_messages],
+            },
+        )
+
+        while True:
+            data = await websocket.receive_json()
+            action = data.get("action")
+
+            async with SessionLocal() as db:
+                user = await _authenticate_ws(token, db)
+                await require_campaign_member(db, user, campaign_uuid)
+
+                try:
+                    if action == "ooc_public":
+                        text = str(data.get("content", "")).strip()
+                        if not text:
+                            await websocket.send_json({"event": "error", "detail": "Empty message"})
+                            continue
+                        message = await post_ooc_public(db, campaign_uuid, user.id, text)
+                    elif action == "ooc_whisper":
+                        text = str(data.get("content", "")).strip()
+                        target_user_id = data.get("target_user_id")
+                        if not text:
+                            await websocket.send_json({"event": "error", "detail": "Empty message"})
+                            continue
+                        if not target_user_id:
+                            await websocket.send_json({"event": "error", "detail": "Missing target_user_id"})
+                            continue
+                        try:
+                            target_uuid = uuid.UUID(str(target_user_id))
+                        except ValueError:
+                            await websocket.send_json({"event": "error", "detail": "Invalid target_user_id"})
+                            continue
+                        message = await post_ooc_whisper(db, campaign_uuid, user.id, target_uuid, text)
+                    else:
+                        await websocket.send_json({"event": "error", "detail": "Unknown action"})
+                        continue
+                except OocServiceError as exc:
+                    await websocket.send_json({"event": "error", "detail": str(exc)})
+                    continue
+
+            await campaign_ws_manager.broadcast_ooc_message(
+                campaign_id,
+                message.model_dump(mode="json"),
+            )
+    except WebSocketDisconnect:
+        pass
+    finally:
+        campaign_ws_manager.disconnect(campaign_id, websocket)

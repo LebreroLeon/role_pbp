@@ -5,6 +5,7 @@ from app.models.campaign import (
     CampaignDocument,
     CampaignEntity,
     CampaignMemory,
+    CampaignOocMessage,
     MemoryDocumentType,
     Scene,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "CampaignDocument",
     "CampaignEntity",
     "CampaignMemory",
+    "CampaignOocMessage",
     "CampaignMember",
     "MemoryDocumentType",
     "Scene",

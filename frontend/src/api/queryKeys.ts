@@ -7,6 +7,7 @@ export const queryKeys = {
     all: ["campaigns"] as const,
     detail: (id: string) => ["campaigns", id] as const,
     members: (id: string) => ["campaigns", id, "members"] as const,
+    oocMessages: (id: string) => ["campaigns", id, "ooc", "messages"] as const,
     activeScene: (id: string) => ["campaigns", id, "scenes", "active"] as const,
     scenes: (id: string) => ["campaigns", id, "scenes"] as const,
   },

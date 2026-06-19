@@ -15,6 +15,7 @@ import { HomePage } from "./pages/HomePage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MasterDeskPage } from "./pages/MasterDeskPage";
+import { OocChatPage } from "./pages/OocChatPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { WorldPage } from "./pages/WorldPage";
 import "./App.css";
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="campaigns/:campaignId" element={<CampaignLayout />}>
             <Route index element={<CampaignHubPage />} />
             <Route path="chat" element={<ChatPage />} />
+            <Route path="ooc" element={<OocChatPage />} />
             <Route path="ficha" element={<PlayerFichaRoute />} />
             <Route path="fichas" element={<CampaignSheetsPage />} />
             <Route path="mundo" element={<WorldPage />} />

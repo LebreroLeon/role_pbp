@@ -84,6 +84,34 @@ export type CampaignMember = {
 
 
 
+export type OocMessageType = "OOC_PUBLIC" | "OOC_WHISPER";
+
+
+
+export type OocMessage = {
+
+  id: string;
+
+  campaign_id: string;
+
+  author_user_id: string;
+
+  author_display_name: string;
+
+  content: string;
+
+  message_type: OocMessageType;
+
+  target_user_id: string | null;
+
+  target_display_name: string | null;
+
+  created_at: string;
+
+};
+
+
+
 export type MessageType = "SPEAK" | "ACTION" | "CONTEXT" | "MASTER" | "DICE_ROLL" | "NARRATIVE" | "COMBAT";
 
 

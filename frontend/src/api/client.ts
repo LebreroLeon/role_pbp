@@ -67,6 +67,18 @@ export const api = {
     http<Campaign>("/api/v1/campaigns", { method: "POST", body: JSON.stringify(payload) }),
   listCampaignMembers: (campaignId: string) =>
     http<CampaignMember[]>(`/api/v1/campaigns/${campaignId}/members`),
+  listOocMessages: (campaignId: string) =>
+    http<import("./types").OocMessage[]>(`/api/v1/campaigns/${campaignId}/ooc/messages`),
+  postOocMessage: (campaignId: string, content: string) =>
+    http<import("./types").OocMessage>(`/api/v1/campaigns/${campaignId}/ooc/messages`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    }),
+  postOocWhisper: (campaignId: string, content: string, targetUserId: string) =>
+    http<import("./types").OocMessage>(`/api/v1/campaigns/${campaignId}/ooc/whispers`, {
+      method: "POST",
+      body: JSON.stringify({ content, target_user_id: targetUserId }),
+    }),
   inviteMember: (campaignId: string, payload: InviteMemberPayload) =>
     http<CampaignMember>(`/api/v1/campaigns/${campaignId}/members`, {
       method: "POST",
@@ -239,5 +251,5 @@ export const api = {
     http<import("./types").SystemManualStatusResponse>(`/api/v1/system-manuals/${systemId}/status`),
 };
 
-export type { AuthResponse, Campaign, CampaignDocument, CampaignEntity, CampaignMember, CharacterSheetUpsert, ChatMessage, Dnd5eRollType, DocumentType, EntityExportBundle, EntityType, MasterAssistMode, MasterAssistResponse, MessageType, PcIdentity, PublicProfile, PcStateFlags, Scene, SceneState, SheetRollContext, SheetRollRequest, SheetRollResponse, TypedSystemMechanics } from "./types";
+export type { AuthResponse, Campaign, CampaignDocument, CampaignEntity, CampaignMember, CharacterSheetUpsert, ChatMessage, Dnd5eRollType, DocumentType, EntityExportBundle, EntityType, MasterAssistMode, MasterAssistResponse, MessageType, OocMessage, OocMessageType, PcIdentity, PublicProfile, PcStateFlags, Scene, SceneState, SheetRollContext, SheetRollRequest, SheetRollResponse, TypedSystemMechanics } from "./types";
 export type { AuthUser, MemberRole } from "../types/auth";

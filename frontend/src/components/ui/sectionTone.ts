@@ -5,6 +5,7 @@ export const DEFAULT_SECTION_TONE: SectionTone = "violet";
 /** Tono visual por ruta de campaña — una sola fuente de verdad. */
 export function getToneFromPath(path: string): SectionTone {
   if (path.includes("/chat")) return "rose";
+  if (path.includes("/ooc")) return "amber";
   if (path.includes("/fichas")) return "sky";
   if (path.includes("/ficha")) return "sky";
   if (path.includes("/biblioteca")) return "amber";
