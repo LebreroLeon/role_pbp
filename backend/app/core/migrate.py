@@ -5,13 +5,12 @@ import subprocess
 import sys
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.core.config import settings
+from app.core.database import create_db_engine
 
 
 async def legacy_tables_without_alembic() -> bool:
-    engine = create_async_engine(settings.database_url)
+    engine = create_db_engine(echo=False)
     try:
         async with engine.connect() as conn:
             campaigns = (await conn.execute(text("SELECT to_regclass('public.campaigns')"))).scalar()

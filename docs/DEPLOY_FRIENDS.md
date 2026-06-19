@@ -26,9 +26,10 @@ Guía paso a paso para tener la app **pública 24/7** con tier gratuito. Ideal p
 1. Entra en [console.neon.tech](https://console.neon.tech) → **New Project**.
 2. Nombre: `rolepbp`. Región: la más cercana a tus amigos (ej. `Frankfurt`).
 3. En **Dashboard** → tu base de datos → **Connection string** → copia la URI **pooled** (recomendada para serverless/Render).
-4. Convierte el prefijo para asyncpg:
+4. Convierte el prefijo para asyncpg (Neon suele incluir `?sslmode=require`; el backend lo traduce a SSL de asyncpg):
    - Neon te da: `postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require`
    - Tú necesitas: `postgresql+asyncpg://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require`
+   - **No quites** `sslmode=require`: asyncpg no lo entiende en la URL, pero la app lo elimina y pasa `ssl=True` al conectar.
 5. En Neon **SQL Editor**, ejecuta una vez:
 
 ```sql
@@ -78,7 +79,7 @@ Con Docker (recomendado) el `CMD` del Dockerfile ya hace migrate + uvicorn en `$
 |---|---|---|
 | `APP_ENV` | `production` | sí |
 | `APP_DEBUG` | `false` | sí |
-| `DATABASE_URL` | `postgresql+asyncpg://...neon...?sslmode=require` | sí |
+| `DATABASE_URL` | `postgresql+asyncpg://USER:PASS@ep-xxx.neon.tech/neondb?sslmode=require` (URI pooled de Neon, prefijo `+asyncpg`) | sí |
 | `JWT_SECRET` | string aleatorio largo (`openssl rand -hex 32`) | sí |
 | `OPENAI_API_KEY` | `sk-...` | sí (para IA/RAG) |
 | `CORS_ORIGINS` | `https://TU-APP.vercel.app` (sin barra final) | sí |
@@ -272,4 +273,6 @@ Render  → OPENAI_API_KEY=sk-...
 Health  → https://rolepbp-api.onrender.com/api/v1/health
 ```
 
-Si algo falla: revisa logs en Render (Events / Logs) y Vercel (Deployments → Build Logs). El error más común es `CORS_ORIGINS` sin coincidir con la URL de Vercel.
+Si algo falla: revisa logs en Render (Events / Logs) y Vercel (Deployments → Build Logs). Errores frecuentes:
+- `CORS_ORIGINS` sin coincidir con la URL de Vercel.
+- `TypeError: connect() got an unexpected keyword argument 'sslmode'` → despliega la versión actual del repo (el backend traduce `sslmode` para asyncpg) o usa la URI de Neon tal cual con `?sslmode=require` tras el deploy.

@@ -24,6 +24,7 @@ if (-not $TestOnly) {
     Write-Host ""
     Write-Host "3. Convert prefix for asyncpg (Render / local backend):"
     Write-Host "   postgresql+asyncpg://user:pass@ep-xxx...?sslmode=require" -ForegroundColor Green
+    Write-Host "   (backend strips sslmode and enables SSL for asyncpg automatically)"
     Write-Host ""
     Write-Host "4. In Neon SQL Editor, run once:"
     Write-Host "   CREATE EXTENSION IF NOT EXISTS vector;" -ForegroundColor Green
@@ -46,16 +47,17 @@ if ($DatabaseUrl) {
     Write-Host "Converted asyncpg URL:" -ForegroundColor Cyan
     Write-Host $asyncUrl
     Write-Host ""
+    $env:DATABASE_URL = $asyncUrl
 
     $testScript = @"
 import asyncio
 import sys
 sys.path.insert(0, r'$RepoRoot\backend')
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from app.core.database import create_db_engine
 
 async def main():
-    engine = create_async_engine(r'''$asyncUrl''')
+    engine = create_db_engine(echo=False)
     async with engine.connect() as conn:
         r = await conn.execute(text('SELECT 1'))
         assert r.scalar() == 1
