@@ -7,6 +7,8 @@ import { Button, ConfirmDialog, StatusBadge } from "../../components/ui";
 type CampaignMemberListProps = {
   members: CampaignMember[];
   showEmails?: boolean;
+  showPresence?: boolean;
+  onlineUserIds?: ReadonlySet<string>;
   emptyMessage?: string;
   onRemove?: (userId: string) => void;
 };
@@ -18,6 +20,8 @@ function roleLabel(role: CampaignMember["role"]): string {
 export function CampaignMemberList({
   members,
   showEmails = false,
+  showPresence = false,
+  onlineUserIds,
   emptyMessage = "Aún no hay nadie más en la campaña.",
   onRemove,
 }: CampaignMemberListProps) {
@@ -45,14 +49,30 @@ export function CampaignMemberList({
             .map((part) => part[0]?.toUpperCase() ?? "")
             .join("");
 
+          const isOnline = showPresence && (onlineUserIds?.has(member.user_id) ?? false);
+
           return (
             <li key={member.user_id} className="member-card">
-              <span className={`member-card__avatar ${isMaster ? "member-card__avatar--master" : ""}`} aria-hidden>
+              <span
+                className={`member-card__avatar ${isMaster ? "member-card__avatar--master" : ""}`}
+                aria-hidden
+              >
                 {initials || "?"}
+                {showPresence && (
+                  <span
+                    className={`member-card__presence ${isOnline ? "is-online" : "is-offline"}`}
+                    title={isOnline ? "En línea" : "Desconectado"}
+                  />
+                )}
               </span>
               <div className="member-card__info">
                 <strong>{member.display_name}</strong>
                 {showEmails && <span className="muted member-card__email">{member.email}</span>}
+                {showPresence && (
+                  <span className={`member-card__presence-label ${isOnline ? "is-online" : "is-offline"}`}>
+                    {isOnline ? "En línea" : "Desconectado"}
+                  </span>
+                )}
               </div>
               <span className="member-card__role">
                 <RoleIcon size={14} aria-hidden />

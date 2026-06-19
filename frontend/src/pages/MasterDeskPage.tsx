@@ -16,6 +16,7 @@ import {
   useCampaignQuery,
 } from "../hooks/queries/useCampaignQueries";
 import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
+import { useCampaignWs } from "../providers/CampaignWsContext";
 
 const NARRATOR_SPEAKER = {
   speaker_type: "NARRATOR" as const,
@@ -107,6 +108,7 @@ export function MasterDeskPage() {
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
   const { data: openScene } = useOpenSceneQuery(campaignId);
+  const { onlineUserIds } = useCampaignWs();
 
   useEffect(() => {
     setDisplayNameDraft(openScene?.display_name ?? "");
@@ -305,7 +307,12 @@ export function MasterDeskPage() {
 
           {tab === "players" && (
             <section className="master-tab-panel">
-              <CampaignMemberList members={members} showEmails />
+              <CampaignMemberList
+                members={members}
+                showEmails
+                showPresence
+                onlineUserIds={onlineUserIds}
+              />
               <InviteMemberForm campaignId={campaignId} />
             </section>
           )}

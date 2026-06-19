@@ -7,6 +7,7 @@ import { gameSystemLabel } from "../features/campaign/gameSystems";
 import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
 import { useEntitiesQuery } from "../hooks/queries/useEntityQueries";
 import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
+import { useCampaignWs } from "../providers/CampaignWsContext";
 import { useAuthStore } from "../stores/authStore";
 
 export function CampaignHubPage() {
@@ -17,6 +18,7 @@ export function CampaignHubPage() {
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
   const { data: openScene } = useOpenSceneQuery(campaignId);
   const { data: entities = [] } = useEntitiesQuery(campaignId);
+  const { onlineUserIds } = useCampaignWs();
 
   if (!campaign) return null;
 
@@ -90,7 +92,12 @@ export function CampaignHubPage() {
               : "Quién participa en la mesa."
           }
         />
-        <CampaignMemberList members={members} showEmails={isMaster} />
+        <CampaignMemberList
+          members={members}
+          showEmails={isMaster}
+          showPresence
+          onlineUserIds={onlineUserIds}
+        />
       </Panel>
 
       {isMaster && (

@@ -7,6 +7,7 @@ import { ErrorBanner, SectionToneProvider, getToneFromPath } from "../ui";
 import { gameSystemLabel } from "../../features/campaign/gameSystems";
 import { useCampaignQuery } from "../../hooks/queries/useCampaignQueries";
 import { useOpenSceneQuery } from "../../hooks/queries/useSceneQueries";
+import { CampaignWsProvider } from "../../providers/CampaignWsContext";
 
 const MASTER_LINKS = [
   { to: "", label: "Inicio", hint: "Resumen de la campaña" },
@@ -116,9 +117,11 @@ export function CampaignLayout() {
       </nav>
 
       <SectionToneProvider tone={sectionTone}>
-        <div className="campaign-shell__content">
-          <Outlet />
-        </div>
+        <CampaignWsProvider campaignId={campaignId}>
+          <div className="campaign-shell__content">
+            <Outlet />
+          </div>
+        </CampaignWsProvider>
       </SectionToneProvider>
     </div>
   );

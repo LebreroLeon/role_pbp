@@ -5,6 +5,7 @@ import { api } from "../../api/client";
 import type { Campaign, CampaignMember } from "../../api/types";
 import { queryKeys } from "../../api/queryKeys";
 import { Button, ErrorBanner, Input } from "../../components/ui";
+import { useCampaignWs } from "../../providers/CampaignWsContext";
 import { gameSystemLabel } from "./gameSystems";
 import { CampaignMemberList } from "./CampaignMemberList";
 
@@ -15,6 +16,7 @@ type CampaignSettingsFormProps = {
 
 export function CampaignSettingsForm({ campaignId, campaign }: CampaignSettingsFormProps) {
   const queryClient = useQueryClient();
+  const { onlineUserIds } = useCampaignWs();
   const [name, setName] = useState(campaign?.name ?? "");
   const [tone, setTone] = useState(campaign?.tone ?? "");
   const [members, setMembers] = useState<CampaignMember[]>([]);
@@ -77,6 +79,8 @@ export function CampaignSettingsForm({ campaignId, campaign }: CampaignSettingsF
       <CampaignMemberList
         members={members.filter((member) => member.role === "PLAYER")}
         showEmails
+        showPresence
+        onlineUserIds={onlineUserIds}
         onRemove={handleRemoveMember}
       />
     </div>

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { api } from "../api/client";
@@ -6,7 +6,7 @@ import type { OocMessage } from "../api/types";
 import { mergeOocMessage, OocChatPanel } from "../features/ooc/OocChatPanel";
 import { useCampaignMembersQuery } from "../hooks/queries/useCampaignQueries";
 import { useOocMessagesQuery } from "../hooks/queries/useOocQueries";
-import { useOocWebSocket } from "../hooks/useOocWebSocket";
+import { useCampaignWs } from "../providers/CampaignWsContext";
 
 export function OocChatPage() {
   const { campaignId = "" } = useParams();
@@ -32,12 +32,16 @@ export function OocChatPage() {
     [initialMessages],
   );
 
-  const { connected } = useOocWebSocket({
-    campaignId,
-    onSnapshot: handleSnapshot,
-    onMessage: handleMessage,
-    onError: setErrorMessage,
-  });
+  const { connected, registerOocHandlers } = useCampaignWs();
+
+  useEffect(() => {
+    registerOocHandlers({
+      onSnapshot: handleSnapshot,
+      onMessage: handleMessage,
+      onError: setErrorMessage,
+    });
+    return () => registerOocHandlers(null);
+  }, [handleSnapshot, handleMessage, registerOocHandlers]);
 
   const sendPublic = useCallback(
     async (content: string) => {

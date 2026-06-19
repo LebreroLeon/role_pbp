@@ -165,6 +165,8 @@ async def campaign_websocket(campaign_id: str, websocket: WebSocket, token: str 
                 "messages": [message.model_dump(mode="json") for message in initial_messages],
             },
         )
+        await campaign_ws_manager.send_presence_snapshot(campaign_id, websocket)
+        await campaign_ws_manager.broadcast_presence(campaign_id)
 
         while True:
             data = await websocket.receive_json()
@@ -196,6 +198,9 @@ async def campaign_websocket(campaign_id: str, websocket: WebSocket, token: str 
                             await websocket.send_json({"event": "error", "detail": "Invalid target_user_id"})
                             continue
                         message = await post_ooc_whisper(db, campaign_uuid, user.id, target_uuid, text)
+                    elif action == "heartbeat":
+                        await websocket.send_json({"event": "heartbeat_ack"})
+                        continue
                     else:
                         await websocket.send_json({"event": "error", "detail": "Unknown action"})
                         continue
@@ -211,3 +216,4 @@ async def campaign_websocket(campaign_id: str, websocket: WebSocket, token: str 
         pass
     finally:
         campaign_ws_manager.disconnect(campaign_id, websocket)
+        await campaign_ws_manager.broadcast_presence(campaign_id)

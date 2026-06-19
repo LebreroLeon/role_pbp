@@ -2071,6 +2071,7 @@
 }
 
 .member-card__avatar {
+  position: relative;
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
@@ -2082,6 +2083,37 @@
   color: var(--accent-violet);
   border: 1px solid rgba(139, 124, 248, 0.2);
   flex-shrink: 0;
+}
+
+.member-card__presence {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  border: 2px solid var(--bg-elevated);
+}
+
+.member-card__presence.is-online {
+  background: var(--color-ok);
+}
+
+.member-card__presence.is-offline {
+  background: var(--text-muted);
+  opacity: 0.55;
+}
+
+.member-card__presence-label {
+  font-size: 0.78rem;
+}
+
+.member-card__presence-label.is-online {
+  color: var(--color-ok);
+}
+
+.member-card__presence-label.is-offline {
+  color: var(--text-muted);
 }
 
 .member-card__avatar--master {
