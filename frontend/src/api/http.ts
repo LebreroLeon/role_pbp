@@ -29,6 +29,12 @@ export async function http<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const text = await response.text();
     let message = text || `Request failed: ${response.status}`;
+    if (response.status === 405 && !API_BASE) {
+      message =
+        "Request failed: 405 — el frontend no tiene VITE_API_URL en el build. " +
+        "En Vercel: Settings → Environment Variables → Production → VITE_API_URL=https://rolepbp-api.onrender.com y Redeploy. " +
+        "Luego recarga forzada (Ctrl+Shift+R) o ventana de incógnito.";
+    }
     try {
       const json = JSON.parse(text) as { detail?: string };
       if (typeof json.detail === "string") {

@@ -123,7 +123,7 @@ Con Docker (recomendado) el `CMD` del Dockerfile ya hace migrate + uvicorn en `$
 
 4. Deploy. Anota la URL: `https://rolepbp-xxx.vercel.app`.
 
-5. El archivo `frontend/vercel.json` ya reescribe rutas SPA (`/campaigns/...` → `index.html`).
+5. El archivo `frontend/vercel.json` reescribe rutas SPA (`/campaigns/...` → `index.html`) y **proxifica** `/api/*` a Render como red de seguridad si un build antiguo no tenía `VITE_API_URL`.
 
 6. Vuelve a **Render** y actualiza `CORS_ORIGINS` con la URL real de Vercel. Redeploy backend si cambiaste CORS.
 
@@ -279,18 +279,32 @@ Si algo falla: revisa logs en Render (Events / Logs) y Vercel (Deployments → B
 
 ### Login / registro: `Request failed: 405`
 
-**Causa:** el frontend hace `POST /api/v1/auth/login` contra el **origen de Vercel** porque `VITE_API_URL` estaba vacío en el **build**. `frontend/vercel.json` reescribe todas las rutas (incluido `/api/...`) a `index.html`; un `POST` al HTML estático devuelve **405 Method Not Allowed**.
+**Causa:** el frontend hace `POST /api/v1/auth/login` contra el **origen de Vercel** porque `VITE_API_URL` estaba vacío en el **build** (o el navegador sigue usando un **bundle antiguo** en caché / Service Worker). Sin proxy, `frontend/vercel.json` reescribe `/api/...` a `index.html` y un `POST` al HTML estático devuelve **405 Method Not Allowed**.
 
-**Comprobar:** en DevTools → Network, la petición de login debe ir a `https://rolepbp-api.onrender.com/api/v1/auth/login`, **no** a `https://role-pbp.vercel.app/api/v1/auth/login`.
+**Comprobar:** en DevTools → **Network** (Red), la petición de login debe ir a `https://rolepbp-api.onrender.com/api/v1/auth/login`, **no** a `https://role-pbp.vercel.app/api/v1/auth/login`.
 
-**Arreglo:**
+**Arreglo (Vercel):**
 
-1. Vercel → Project → **Settings** → **Environment Variables**.
-2. Añade `VITE_API_URL` = `https://rolepbp-api.onrender.com` (sin barra final), entorno **Production** (y Preview si quieres).
-3. **Redeploy** obligatorio: Vite inyecta `VITE_*` en tiempo de build; cambiar la variable sin redeploy no actualiza el bundle.
-4. En Render, confirma `CORS_ORIGINS` incluye `https://role-pbp.vercel.app` (tu URL real de Vercel).
+1. [vercel.com](https://vercel.com) → tu proyecto → **Settings** (⚙️) → **Environment Variables**.
+2. Añade o edita:
+   - **Key:** `VITE_API_URL`
+   - **Value:** `https://rolepbp-api.onrender.com` (sin barra final)
+   - **Environments:** marca **Production** (y **Preview** si quieres). Si solo está en **Development**, el deploy de producción **no** la usa.
+3. **Deployments** → el último deploy → menú **⋯** → **Redeploy** (obligatorio: Vite inyecta `VITE_*` en tiempo de build).
+4. En el navegador: **recarga forzada** (`Ctrl+Shift+R` en Windows, `Cmd+Shift+R` en Mac) o abre **ventana de incógnito**. Si instalaste la PWA, cierra la app y borra datos del sitio, o en DevTools → **Application** → **Service Workers** → **Unregister**.
+5. Vuelve a **Network** y confirma que la URL del login es `rolepbp-api.onrender.com`.
 
-Desde una versión reciente del repo, el build en Vercel **falla** si falta `VITE_API_URL`, para evitar desplegar un bundle roto.
+**Arreglo (Render — CORS):**
+
+En Render → servicio `rolepbp-api` → **Environment** → `CORS_ORIGINS` debe ser **exactamente**:
+
+```
+https://role-pbp.vercel.app
+```
+
+(sin barra final, sin path). Si cambias CORS, **Manual Deploy** en Render.
+
+Desde una versión reciente del repo, el build en Vercel **falla** si falta `VITE_API_URL`, para evitar desplegar un bundle roto. `vercel.json` también proxifica `/api/*` a Render como respaldo para bundles viejos en caché.
 
 ### Otros errores frecuentes
 
