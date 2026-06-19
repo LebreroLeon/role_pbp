@@ -147,6 +147,10 @@ export const api = {
     http<Scene>(`/api/v1/scenes/${sceneId}/messages/${messageId}`, {
       method: "DELETE",
     }),
+  toggleSceneMessageLike: (sceneId: string, messageId: string) =>
+    http<Scene>(`/api/v1/scenes/${sceneId}/messages/${messageId}/like`, {
+      method: "POST",
+    }),
   rollCombatInitiative: (sceneId: string, options?: { activateCombat?: boolean }) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/combat/initiative`, {
       method: "POST",

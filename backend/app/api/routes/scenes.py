@@ -33,7 +33,7 @@ from app.schemas.scene import (
 from app.services.combat_resolver import CombatResolverError, execute_attack, execute_initiative
 from app.services.entities import CharacterSheetError, get_campaign_or_error
 from app.services.lore_assist import build_player_lore_response
-from app.services.scene_ws import scene_ws_manager
+from app.services.scene_ws import broadcast_scene_update, scene_response_with_likes
 from app.services.scenes import (
     SceneServiceError,
     add_player_to_scene_presence,
@@ -41,12 +41,14 @@ from app.services.scenes import (
     create_scene,
     delete_scene_message,
     ensure_player_pc_present_in_scene,
+    get_scene_by_id,
     load_scene_state,
     mark_messages_read,
     post_message,
     roll_scene_dice,
     save_scene_state,
     scene_to_response,
+    toggle_scene_message_like,
     start_active_scene,
     update_scene_display_name,
     update_scene_npc_presence,
@@ -68,12 +70,11 @@ async def create_scene_route(
     await require_campaign_master(db, current_user, campaign_id)
 
     try:
-        response = await create_scene(db, campaign_id, payload, current_user.id)
-        await scene_ws_manager.broadcast(
-            response.id,
-            {"event": "scene_update", "scene": response.model_dump(mode="json")},
-        )
-        return response
+        created = await create_scene(db, campaign_id, payload, current_user.id)
+        scene = await get_scene_by_id(db, parse_uuid(created.id, "scene_id"))
+        if scene is None:
+            raise scene_service_error_to_http(SceneServiceError("Scene not found"))
+        return await broadcast_scene_update(db, scene)
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
@@ -88,7 +89,7 @@ async def get_scene_route(
     await require_player_open_scene(db, current_user, scene)
     if scene.status == "ACTIVE":
         await ensure_player_pc_present_in_scene(db, scene, current_user.id)
-    return scene_to_response(scene)
+    return await scene_response_with_likes(db, scene)
 
 
 @router.post("/{scene_id}/messages", response_model=SceneResponse)
@@ -102,15 +103,11 @@ async def post_message_route(
     await require_player_open_scene(db, current_user, scene)
     role = await require_campaign_member(db, current_user, scene.campaign_id)
     try:
-        response = await post_message(db, scene, str(current_user.id), payload, sender_role=role)
+        await post_message(db, scene, str(current_user.id), payload, sender_role=role)
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    await scene_ws_manager.broadcast(
-        scene_id,
-        {"event": "scene_update", "scene": response.model_dump(mode="json")},
-    )
-    return response
+    return await broadcast_scene_update(db, scene)
 
 
 @router.post("/{scene_id}/dice", response_model=SceneResponse)
@@ -124,15 +121,11 @@ async def roll_scene_dice_route(
     await require_player_open_scene(db, current_user, scene)
     role = await require_campaign_member(db, current_user, scene.campaign_id)
     try:
-        response = await roll_scene_dice(db, scene, str(current_user.id), payload, sender_role=role)
+        await roll_scene_dice(db, scene, str(current_user.id), payload, sender_role=role)
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    await scene_ws_manager.broadcast(
-        scene_id,
-        {"event": "scene_update", "scene": response.model_dump(mode="json")},
-    )
-    return response
+    return await broadcast_scene_update(db, scene)
 
 
 @router.post("/{scene_id}/read", response_model=SceneResponse)
@@ -144,17 +137,13 @@ async def mark_read_route(
 ) -> SceneResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_player_open_scene(db, current_user, scene)
-    response = await mark_messages_read(
+    await mark_messages_read(
         db,
         scene,
         str(current_user.id),
         payload.message_ids,
     )
-    await scene_ws_manager.broadcast(
-        scene_id,
-        {"event": "scene_update", "scene": response.model_dump(mode="json")},
-    )
-    return response
+    return await broadcast_scene_update(db, scene)
 
 
 @router.post("/{scene_id}/activate", response_model=SceneResponse)
@@ -166,15 +155,11 @@ async def activate_scene_route(
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_campaign_master(db, current_user, scene.campaign_id)
     try:
-        response = await start_active_scene(db, scene)
+        await start_active_scene(db, scene)
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    await scene_ws_manager.broadcast(
-        scene_id,
-        {"event": "scene_update", "scene": response.model_dump(mode="json")},
-    )
-    return response
+    return await broadcast_scene_update(db, scene)
 
 
 @router.patch("/{scene_id}/status", response_model=SceneResponse)
@@ -188,12 +173,8 @@ async def patch_scene_status_route(
     await require_campaign_master(db, current_user, scene.campaign_id)
     if payload.status == "CLOSED":
         raise scene_service_error_to_http(SceneServiceError("Use POST /scenes/{id}/close to close a scene"))
-    response = await update_scene_status(db, scene, payload.status)
-    await scene_ws_manager.broadcast(
-        scene_id,
-        {"event": "scene_update", "scene": response.model_dump(mode="json")},
-    )
-    return response
+    await update_scene_status(db, scene, payload.status)
+    return await broadcast_scene_update(db, scene)
 
 
 @router.patch("/{scene_id}", response_model=SceneResponse)
@@ -205,12 +186,25 @@ async def patch_scene_route(
 ) -> SceneResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_campaign_master(db, current_user, scene.campaign_id)
-    response = await update_scene_display_name(db, scene, payload.display_name)
-    await scene_ws_manager.broadcast(
-        scene_id,
-        {"event": "scene_update", "scene": response.model_dump(mode="json")},
-    )
-    return response
+    await update_scene_display_name(db, scene, payload.display_name)
+    return await broadcast_scene_update(db, scene)
+
+
+@router.post("/{scene_id}/messages/{message_id}/like", response_model=SceneResponse)
+async def toggle_scene_message_like_route(
+    scene_id: str,
+    message_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> SceneResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_player_open_scene(db, current_user, scene)
+    try:
+        await toggle_scene_message_like(db, scene, str(current_user.id), message_id)
+    except SceneServiceError as exc:
+        raise scene_service_error_to_http(exc) from exc
+
+    return await broadcast_scene_update(db, scene)
 
 
 @router.delete("/{scene_id}/messages/{message_id}", response_model=SceneResponse)
@@ -223,15 +217,11 @@ async def delete_scene_message_route(
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_campaign_master(db, current_user, scene.campaign_id)
     try:
-        response = await delete_scene_message(db, scene, message_id)
+        await delete_scene_message(db, scene, message_id)
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    await scene_ws_manager.broadcast(
-        scene_id,
-        {"event": "scene_update", "scene": response.model_dump(mode="json")},
-    )
-    return response
+    return await broadcast_scene_update(db, scene)
 
 
 @router.post("/{scene_id}/close", response_model=SceneResponse)
@@ -243,15 +233,11 @@ async def close_scene_route(
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_campaign_master(db, current_user, scene.campaign_id)
     try:
-        response = await close_scene(db, scene)
+        await close_scene(db, scene)
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    await scene_ws_manager.broadcast(
-        scene_id,
-        {"event": "scene_update", "scene": response.model_dump(mode="json")},
-    )
-    return response
+    return await broadcast_scene_update(db, scene)
 
 
 async def _presence_route(
@@ -263,15 +249,11 @@ async def _presence_route(
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_campaign_master(db, current_user, scene.campaign_id)
     try:
-        response = await update_scene_npc_presence(db, scene, payload)
+        await update_scene_npc_presence(db, scene, payload)
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    await scene_ws_manager.broadcast(
-        scene_id,
-        {"event": "scene_update", "scene": response.model_dump(mode="json")},
-    )
-    return response
+    return await broadcast_scene_update(db, scene)
 
 
 @router.post("/{scene_id}/presence", response_model=SceneResponse)
@@ -359,15 +341,11 @@ async def patch_turn_management_route(
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_campaign_master(db, current_user, scene.campaign_id)
     try:
-        response = await update_scene_turn_management(db, scene, payload)
+        await update_scene_turn_management(db, scene, payload)
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    await scene_ws_manager.broadcast(
-        scene_id,
-        {"event": "scene_update", "scene": response.model_dump(mode="json")},
-    )
-    return response
+    return await broadcast_scene_update(db, scene)
 
 
 @router.post("/{scene_id}/turn-management/advance", response_model=SceneResponse)
@@ -379,15 +357,11 @@ async def advance_turn_management_route(
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_campaign_master(db, current_user, scene.campaign_id)
     try:
-        response = await advance_scene_pbp_turn(db, scene)
+        await advance_scene_pbp_turn(db, scene)
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    await scene_ws_manager.broadcast(
-        scene_id,
-        {"event": "scene_update", "scene": response.model_dump(mode="json")},
-    )
-    return response
+    return await broadcast_scene_update(db, scene)
 
 
 @router.post("/{scene_id}/combat/initiative", response_model=SceneResponse)
@@ -420,14 +394,10 @@ async def roll_combat_initiative_route(
     except CombatResolverError as exc:
         raise scene_service_error_to_http(SceneServiceError(str(exc))) from exc
 
-    response = await _append_combat_messages_and_save(
+    await _append_combat_messages_and_save(
         db, scene, state, str(current_user.id), combat_result
     )
-    await scene_ws_manager.broadcast(
-        scene_id,
-        {"event": "scene_update", "scene": response.model_dump(mode="json")},
-    )
-    return response
+    return await broadcast_scene_update(db, scene)
 
 
 @router.post("/{scene_id}/combat/attack", response_model=SceneResponse)
@@ -462,11 +432,7 @@ async def combat_attack_route(
     except CombatResolverError as exc:
         raise scene_service_error_to_http(SceneServiceError(str(exc))) from exc
 
-    response = await _append_combat_messages_and_save(
+    await _append_combat_messages_and_save(
         db, scene, state, str(current_user.id), combat_result
     )
-    await scene_ws_manager.broadcast(
-        scene_id,
-        {"event": "scene_update", "scene": response.model_dump(mode="json")},
-    )
-    return response
+    return await broadcast_scene_update(db, scene)

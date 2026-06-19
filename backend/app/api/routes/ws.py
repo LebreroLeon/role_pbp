@@ -8,14 +8,13 @@ from app.core.database import SessionLocal
 from app.schemas.scene import DiceRollRequest, PostMessageRequest
 from app.services.campaign_ws import campaign_ws_manager
 from app.services.ooc import OocServiceError, list_ooc_messages, post_ooc_public, post_ooc_whisper
-from app.services.scene_ws import scene_ws_manager
+from app.services.scene_ws import broadcast_scene_update, scene_response_with_likes
 from app.services.scenes import (
     SceneServiceError,
     get_scene_by_id,
     mark_messages_read,
     post_message,
     roll_scene_dice,
-    scene_to_response,
 )
 
 router = APIRouter(tags=["websocket"])
@@ -46,7 +45,7 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
             if role != "MASTER" and scene.status == "CLOSED":
                 await websocket.close(code=4403, reason=PLAYER_NO_ACTIVE_SCENE_DETAIL)
                 return
-            snapshot = scene_to_response(scene)
+            snapshot = await scene_response_with_likes(db, scene)
             member_role = role
         except HTTPException:
             await websocket.close(code=4401)
@@ -86,7 +85,7 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
                         speaker_entity_id = data.get("speaker_entity_id")
                         speaker_display_name = data.get("speaker_display_name")
                         speaker_type = data.get("speaker_type")
-                        response = await post_message(
+                        await post_message(
                             db,
                             scene,
                             str(user.id),
@@ -108,7 +107,7 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
                         if not expression:
                             await websocket.send_json({"event": "error", "detail": "Missing dice expression"})
                             continue
-                        response = await roll_scene_dice(
+                        await roll_scene_dice(
                             db,
                             scene,
                             str(user.id),
@@ -122,7 +121,7 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
                             if isinstance(message_ids, list) and len(message_ids) > 0
                             else None
                         )
-                        response = await mark_messages_read(db, scene, str(user.id), ids)
+                        await mark_messages_read(db, scene, str(user.id), ids)
                     else:
                         await websocket.send_json({"event": "error", "detail": "Unknown action"})
                         continue
@@ -130,8 +129,7 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
                     await websocket.send_json({"event": "error", "detail": str(exc)})
                     continue
 
-            payload = {"event": "scene_update", "scene": response.model_dump(mode="json")}
-            await scene_ws_manager.broadcast(scene_id, payload)
+            await broadcast_scene_update(db, scene)
     except WebSocketDisconnect:
         pass
     finally:

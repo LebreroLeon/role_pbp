@@ -25,6 +25,7 @@ from app.schemas.scene import (
     TurnManagement,
 )
 from app.services.dice import roll_dice as roll_dice_expression
+from app.services.message_likes import delete_likes_for_message, fetch_likes_by_message_id, toggle_message_like
 from app.services.combat_parser import try_parse_combat_command
 from app.services.combat_resolver import CombatResolverError, entity_display_name, execute_combat_command
 from app.services.entities import CharacterSheetError, find_pc_by_user, get_campaign_or_error
@@ -341,6 +342,45 @@ def scene_to_response(scene: Scene) -> SceneResponse:
     )
 
 
+def apply_likes_to_scene_state(state: SceneState, likes_by_message_id: dict[str, list[str]]) -> None:
+    for message in state.chat_buffer:
+        if not message.id:
+            message.like_count = 0
+            message.liked_by_user_ids = []
+            continue
+        user_ids = likes_by_message_id.get(message.id, [])
+        message.liked_by_user_ids = user_ids
+        message.like_count = len(user_ids)
+
+
+async def scene_to_response_with_likes(db: AsyncSession, scene: Scene) -> SceneResponse:
+    response = scene_to_response(scene)
+    message_ids = [message.id for message in response.scene_state.chat_buffer if message.id]
+    likes = await fetch_likes_by_message_id(db, scene.id, message_ids)
+    apply_likes_to_scene_state(response.scene_state, likes)
+    return response
+
+
+async def toggle_scene_message_like(
+    db: AsyncSession,
+    scene: Scene,
+    user_id: str,
+    message_id: str,
+) -> SceneResponse:
+    trimmed_id = message_id.strip()
+    if not trimmed_id:
+        raise SceneServiceError("Message id is required")
+
+    state = load_scene_state(scene)
+    if not any(entry.id == trimmed_id for entry in state.chat_buffer):
+        raise SceneServiceError("Message not found")
+
+    await toggle_message_like(db, scene.id, trimmed_id, uuid.UUID(user_id))
+    await db.commit()
+    await db.refresh(scene)
+    return await scene_to_response_with_likes(db, scene)
+
+
 async def _next_scene_number(db: AsyncSession, campaign_id: uuid.UUID) -> int:
     current_max = await db.scalar(
         select(func.coalesce(func.max(Scene.scene_number), 0)).where(Scene.campaign_id == campaign_id)
@@ -454,9 +494,10 @@ async def delete_scene_message(
         raise SceneServiceError("Message not found")
 
     save_scene_state(scene, state)
+    await delete_likes_for_message(db, scene.id, trimmed_id)
     await db.commit()
     await db.refresh(scene)
-    return scene_to_response(scene)
+    return await scene_to_response_with_likes(db, scene)
 
 
 async def list_campaign_scenes(db: AsyncSession, campaign_id: uuid.UUID) -> list[SceneResponse]:

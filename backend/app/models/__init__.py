@@ -8,6 +8,7 @@ from app.models.campaign import (
     CampaignOocMessage,
     MemoryDocumentType,
     Scene,
+    SceneMessageLike,
 )
 from app.models.system_manual import SystemManualMemory, SystemManualSource
 from app.models.user import CampaignMember, User
@@ -21,6 +22,7 @@ __all__ = [
     "CampaignMember",
     "MemoryDocumentType",
     "Scene",
+    "SceneMessageLike",
     "SystemManualMemory",
     "SystemManualSource",
     "User",

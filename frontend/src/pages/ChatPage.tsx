@@ -62,6 +62,7 @@ export function ChatPage() {
   const [freezing, setFreezing] = useState(false);
   const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
   const [deletingMessage, setDeletingMessage] = useState(false);
+  const [togglingLikeId, setTogglingLikeId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [loreAssistHistory, setLoreAssistHistory] = useState<LoreAssistResponse[]>([]);
 
@@ -222,6 +223,21 @@ export function ChatPage() {
 
   function requestDeleteMessage(messageId: string) {
     setDeleteMessageId(messageId);
+  }
+
+  async function handleToggleLike(messageId: string) {
+    if (!currentScene) return;
+
+    setTogglingLikeId(messageId);
+    setErrorMessage(null);
+    try {
+      const updated = await api.toggleSceneMessageLike(currentScene.id, messageId);
+      handleSceneUpdate(updated);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "No se pudo actualizar el me gusta");
+    } finally {
+      setTogglingLikeId(null);
+    }
   }
 
   async function confirmDeleteMessage() {
@@ -400,6 +416,8 @@ export function ChatPage() {
               onVisible={handleMarkRead}
               isMaster={Boolean(isMaster)}
               onDeleteMessage={isMaster ? requestDeleteMessage : undefined}
+              onToggleLike={handleToggleLike}
+              togglingLikeId={togglingLikeId}
               entities={entities}
               sceneState={currentScene.scene_state}
             />

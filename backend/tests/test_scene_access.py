@@ -120,7 +120,8 @@ async def test_master_can_create_scene(override_db, mock_db):
     with (
         patch("app.api.deps.get_user_campaign_role", new_callable=AsyncMock, return_value="MASTER"),
         patch("app.api.routes.scenes.create_scene", new_callable=AsyncMock, return_value=scene_response),
-        patch("app.api.routes.scenes.scene_ws_manager.broadcast", new_callable=AsyncMock),
+        patch("app.api.routes.scenes.get_scene_by_id", new_callable=AsyncMock, return_value=MagicMock(id=scene_id)),
+        patch("app.api.routes.scenes.broadcast_scene_update", new_callable=AsyncMock, return_value=scene_response),
     ):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:

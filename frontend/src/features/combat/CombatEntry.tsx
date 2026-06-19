@@ -3,6 +3,7 @@ import type { MemberLookup } from "../scene/ChatEntry";
 import { ChatMessageDeleteButton } from "../scene/ChatMessageDeleteButton";
 import { resolveEntityAvatarUrl } from "../entities/entityAvatar";
 import { ChatAvatar } from "../scene/ChatAvatar";
+import { MessageLikeBadge } from "../scene/MessageLikeBadge";
 import { formatChatTimestamp } from "../scene/messageTypes";
 import type { SceneStateInput } from "../scene/sceneState";
 import {
@@ -21,6 +22,8 @@ type CombatEntryProps = {
   currentUserId: string;
   isMaster?: boolean;
   onDelete?: (messageId: string) => void;
+  onToggleLike?: (messageId: string) => void;
+  togglingLikeId?: string | null;
   entities?: CampaignEntity[];
   sceneState?: SceneStateInput | null;
 };
@@ -31,6 +34,8 @@ export function CombatEntry({
   currentUserId,
   isMaster = false,
   onDelete,
+  onToggleLike,
+  togglingLikeId = null,
   entities,
   sceneState,
 }: CombatEntryProps) {
@@ -73,6 +78,18 @@ export function CombatEntry({
 
   const avatarUrl = resolveEntityAvatarUrl(speakerEntityId, entities);
 
+  const likeBadge = (
+    <MessageLikeBadge
+      messageId={message.id}
+      likeCount={message.like_count}
+      likedByUserIds={message.liked_by_user_ids}
+      currentUserId={currentUserId}
+      members={members}
+      onToggle={onToggleLike}
+      toggling={togglingLikeId === message.id}
+    />
+  );
+
   if (!event) {
     return (
       <article className={`chat-card combat-card ${isOwn ? "chat-card--own combat-card--own" : ""}`}>
@@ -91,6 +108,7 @@ export function CombatEntry({
           </div>
         </header>
         <p className="chat-card__body">{summary ?? "Evento de combate"}</p>
+        {likeBadge}
       </article>
     );
   }
@@ -171,6 +189,7 @@ export function CombatEntry({
       {summary && event.kind !== "ATTACK_RESOLVED" && (
         <p className="combat-card__summary muted">{summary}</p>
       )}
+      {likeBadge}
     </article>
   );
 }

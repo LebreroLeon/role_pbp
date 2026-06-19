@@ -236,6 +236,10 @@ export type ChatMessage = {
 
   read_by?: string[];
 
+  like_count?: number;
+
+  liked_by_user_ids?: string[];
+
   /** Entidad que realizó la tirada (PC/NPC). */
 
   entity_id?: string;

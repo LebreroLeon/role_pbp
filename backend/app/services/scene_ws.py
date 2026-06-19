@@ -2,6 +2,10 @@ import logging
 from typing import Any
 
 from fastapi import WebSocket
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.campaign import Scene
+from app.schemas.scene import SceneResponse
 
 logger = logging.getLogger(__name__)
 
@@ -33,3 +37,18 @@ class SceneConnectionManager:
 
 
 scene_ws_manager = SceneConnectionManager()
+
+
+async def scene_response_with_likes(db: AsyncSession, scene: Scene) -> SceneResponse:
+    from app.services.scenes import scene_to_response_with_likes
+
+    return await scene_to_response_with_likes(db, scene)
+
+
+async def broadcast_scene_update(db: AsyncSession, scene: Scene) -> SceneResponse:
+    response = await scene_response_with_likes(db, scene)
+    await scene_ws_manager.broadcast(
+        str(scene.id),
+        {"event": "scene_update", "scene": response.model_dump(mode="json")},
+    )
+    return response

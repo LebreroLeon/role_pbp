@@ -80,6 +80,7 @@
 
 /* —— Chat cards —— */
 .chat-card {
+  position: relative;
   border-radius: var(--radius-md);
   padding: 0.9rem 1rem 0.75rem;
   background: var(--bg-elevated);
@@ -278,6 +279,50 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+}
+
+.chat-card__like {
+  position: absolute;
+  right: 0.65rem;
+  bottom: -0.45rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.chat-card:hover .chat-card__like--hint,
+.chat-card__like--visible,
+.chat-card__like:focus-visible {
+  opacity: 1;
+}
+
+.chat-card__like--active {
+  border-color: rgba(233, 69, 96, 0.35);
+  background: var(--accent-rose-soft);
+}
+
+.chat-card__like:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.chat-card__like-icon {
+  font-size: 0.85rem;
+}
+
+.chat-card__like-count {
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .chat-paused {

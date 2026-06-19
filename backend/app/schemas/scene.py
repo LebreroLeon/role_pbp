@@ -30,6 +30,8 @@ class ChatMessage(BaseModel):
     roll_details: dict | None = None
     combat_event: dict | None = None
     read_by: list[str] = Field(default_factory=list)
+    like_count: int = 0
+    liked_by_user_ids: list[str] = Field(default_factory=list)
     speaker_entity_id: str | None = None
     speaker_display_name: str | None = None
     speaker_type: SpeakerType | None = None

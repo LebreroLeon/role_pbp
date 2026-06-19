@@ -16,6 +16,8 @@ type ChatLogProps = {
   onVisible?: () => void;
   isMaster?: boolean;
   onDeleteMessage?: (messageId: string) => void;
+  onToggleLike?: (messageId: string) => void;
+  togglingLikeId?: string | null;
   entities?: CampaignEntity[];
   sceneState?: SceneStateInput | null;
 };
@@ -40,6 +42,8 @@ export function ChatLog({
   onVisible,
   isMaster = false,
   onDeleteMessage,
+  onToggleLike,
+  togglingLikeId = null,
   entities,
   sceneState,
 }: ChatLogProps) {
@@ -144,6 +148,8 @@ export function ChatLog({
             memberCount={memberCount}
             isMaster={isMaster}
             onDelete={onDeleteMessage}
+            onToggleLike={onToggleLike}
+            togglingLikeId={togglingLikeId}
             entities={entities}
             sceneState={sceneState}
           />

@@ -187,6 +187,8 @@ class TestDeleteSceneMessage:
         db = AsyncMock()
         db.commit = AsyncMock()
         db.refresh = AsyncMock(side_effect=lambda obj: obj)
+        db.execute = AsyncMock()
+        db.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
 
         response = asyncio.run(delete_scene_message(db, scene, "remove-me"))
 

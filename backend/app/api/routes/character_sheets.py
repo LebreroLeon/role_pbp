@@ -17,8 +17,8 @@ from app.services.entities import (
     strip_master_secrets,
     upsert_player_character_sheet,
 )
-from app.services.scene_ws import scene_ws_manager
-from app.services.scenes import get_active_scene, scene_to_response
+from app.services.scenes import get_active_scene
+from app.services.scene_ws import broadcast_scene_update
 
 router = APIRouter(prefix="/campaigns", tags=["character-sheets"])
 
@@ -126,11 +126,7 @@ async def roll_my_character_sheet(
     if scene_id is not None:
         scene = await get_active_scene(db, campaign_uuid)
         if scene is not None:
-            response = scene_to_response(scene)
-            await scene_ws_manager.broadcast(
-                scene_id,
-                {"event": "scene_update", "scene": response.model_dump(mode="json")},
-            )
+            await broadcast_scene_update(db, scene)
 
     return roll_result
 

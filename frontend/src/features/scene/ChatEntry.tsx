@@ -12,6 +12,7 @@ import {
   normalizeMessageType,
 } from "./messageTypes";
 import { DiceRollCard } from "./DiceRollCard";
+import { MessageLikeBadge } from "./MessageLikeBadge";
 
 export type MemberLookup = Record<
   string,
@@ -25,6 +26,8 @@ type ChatEntryProps = {
   memberCount: number;
   isMaster?: boolean;
   onDelete?: (messageId: string) => void;
+  onToggleLike?: (messageId: string) => void;
+  togglingLikeId?: string | null;
   entities?: CampaignEntity[];
   sceneState?: SceneStateInput | null;
 };
@@ -70,6 +73,8 @@ export function ChatEntry({
   memberCount,
   isMaster = false,
   onDelete,
+  onToggleLike,
+  togglingLikeId = null,
   entities,
   sceneState,
 }: ChatEntryProps) {
@@ -83,6 +88,8 @@ export function ChatEntry({
         currentUserId={currentUserId}
         isMaster={isMaster}
         onDelete={onDelete}
+        onToggleLike={onToggleLike}
+        togglingLikeId={togglingLikeId}
         entities={entities}
         sceneState={sceneState}
       />
@@ -103,6 +110,10 @@ export function ChatEntry({
         isOwn={message.sender_id === currentUserId}
         isMaster={isMaster}
         onDelete={onDelete}
+        onToggleLike={onToggleLike}
+        togglingLikeId={togglingLikeId}
+        currentUserId={currentUserId}
+        members={members}
       />
     );
   }
@@ -150,6 +161,15 @@ export function ChatEntry({
           {unreadCount > 0 && ` · ${unreadCount} pendiente`}
         </span>
       </footer>
+      <MessageLikeBadge
+        messageId={message.id}
+        likeCount={message.like_count}
+        likedByUserIds={message.liked_by_user_ids}
+        currentUserId={currentUserId}
+        members={members}
+        onToggle={onToggleLike}
+        toggling={togglingLikeId === message.id}
+      />
     </article>
   );
 }

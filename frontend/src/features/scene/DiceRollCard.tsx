@@ -1,7 +1,9 @@
 import type { ChatMessage } from "../../api/types";
+import type { MemberLookup } from "./ChatEntry";
 import { ChatMessageDeleteButton } from "./ChatMessageDeleteButton";
 import { ChatAvatar } from "./ChatAvatar";
 import { MESSAGE_TYPE_META } from "./messageTypes";
+import { MessageLikeBadge } from "./MessageLikeBadge";
 
 type DiceRollCardProps = {
   message: ChatMessage;
@@ -12,6 +14,10 @@ type DiceRollCardProps = {
   isOwn: boolean;
   isMaster?: boolean;
   onDelete?: (messageId: string) => void;
+  onToggleLike?: (messageId: string) => void;
+  togglingLikeId?: string | null;
+  currentUserId: string;
+  members: MemberLookup;
 };
 
 export function DiceRollCard({
@@ -23,6 +29,10 @@ export function DiceRollCard({
   isOwn,
   isMaster = false,
   onDelete,
+  onToggleLike,
+  togglingLikeId = null,
+  currentUserId,
+  members,
 }: DiceRollCardProps) {
   const expression = message.dice_expression ?? message.roll_details?.expression?.toString() ?? "?";
   const raw = message.raw_result ?? message.final_result ?? 0;
@@ -73,6 +83,15 @@ export function DiceRollCard({
       {message.chat_summary && !message.skill_checked && (
         <p className="muted dice-card__skill">{message.chat_summary}</p>
       )}
+      <MessageLikeBadge
+        messageId={message.id}
+        likeCount={message.like_count}
+        likedByUserIds={message.liked_by_user_ids}
+        currentUserId={currentUserId}
+        members={members}
+        onToggle={onToggleLike}
+        toggling={togglingLikeId === message.id}
+      />
     </article>
   );
 }
