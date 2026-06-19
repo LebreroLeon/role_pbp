@@ -1742,6 +1742,15 @@
 .sheet-form {
   display: grid;
   gap: 1.25rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.entity-sheet-editor,
+.character-sheet-page,
+.campaign-sheets-editor {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .sheet-section h3 {
@@ -2729,6 +2738,33 @@
   }
 
   .slide-over {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  .slide-over__body {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .sheet-section__header {
+    flex-wrap: wrap;
+  }
+
+  .sheet-saving-throw {
+    flex-wrap: wrap;
+  }
+
+  .sheet-skill {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .sheet-skill__name {
+    font-weight: 600;
+  }
+
+  .sheet-switch {
     width: 100%;
   }
 }

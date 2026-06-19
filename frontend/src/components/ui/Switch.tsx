@@ -16,7 +16,7 @@ export function Switch({
   onCheckedChange,
   label,
   description,
-  showState = true,
+  showState = false,
   tone = "teal",
   className = "",
   disabled,
