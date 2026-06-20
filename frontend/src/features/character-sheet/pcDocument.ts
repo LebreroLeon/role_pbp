@@ -1,5 +1,5 @@
 import type { CharacterSheetUpsert } from "../../api/types";
-import { PLACEHOLDER_UUID } from "../entities/entityDefaults";
+import { normalizeEntityRefId } from "../entities/entityDefaults";
 import type { CyberpunkRedSheet } from "./systems/cyberpunk_red/schema";
 import { defaultCyberpunkRedSheet } from "./systems/cyberpunk_red/schema";
 import type { Dnd5eSheet } from "./systems/dnd5e/schema";
@@ -29,6 +29,8 @@ export function buildPcDocumentWithSheet(input: {
   userId: string;
   systemId: string;
   sheet?: GameSheet;
+  factionId?: string | null;
+  locationId?: string | null;
 }): Record<string, unknown> {
   const sheet = input.sheet ?? defaultSheetForGameSystem(input.systemId);
 
@@ -42,8 +44,8 @@ export function buildPcDocumentWithSheet(input: {
     identity: {
       name: input.name.trim(),
       concept: input.concept.trim(),
-      faction_id: null,
-      current_location_id: PLACEHOLDER_UUID,
+      faction_id: normalizeEntityRefId(input.factionId) || null,
+      current_location_id: normalizeEntityRefId(input.locationId) || null,
     },
     player_binding: {
       user_id: input.userId,
@@ -87,6 +89,8 @@ export function buildCharacterSheetUpsert(input: {
   description: string;
   systemId: string;
   sheet?: GameSheet;
+  factionId?: string | null;
+  locationId?: string | null;
 }): CharacterSheetUpsert {
   const sheet = input.sheet ?? defaultSheetForGameSystem(input.systemId);
 
@@ -94,8 +98,8 @@ export function buildCharacterSheetUpsert(input: {
     identity: {
       name: input.name.trim(),
       concept: input.concept.trim(),
-      faction_id: null,
-      current_location_id: PLACEHOLDER_UUID,
+      faction_id: normalizeEntityRefId(input.factionId) || null,
+      current_location_id: normalizeEntityRefId(input.locationId) || null,
     },
     public_profile: {
       description: input.description.trim(),
@@ -135,7 +139,7 @@ export function documentToCharacterSheetUpsert(document: Record<string, unknown>
       name: identity?.name ?? "",
       concept: identity?.concept ?? "",
       faction_id: identity?.faction_id ?? null,
-      current_location_id: identity?.current_location_id ?? PLACEHOLDER_UUID,
+      current_location_id: normalizeEntityRefId(identity?.current_location_id) || null,
     },
     public_profile: publicProfile
       ? {

@@ -7,6 +7,7 @@ import { Users } from "../../components/icons";
 import { Button, ErrorBanner, Input, Panel, PanelHeader, Toast } from "../../components/ui";
 import { getGameSystemProfile, hasSheetTemplate } from "../campaign/gameSystems";
 import { getEntityDisplayName, buildPcDocumentForGameSystem } from "../entities/entityDefaults";
+import { EntityRefFields } from "../entities/EntityRefFields";
 import { useCreateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 import { useCampaignMembersQuery, useCampaignQuery } from "../../hooks/queries/useCampaignQueries";
 import { useCampaignSheetsQuery } from "../../hooks/queries/useCampaignSheetsQueries";
@@ -26,6 +27,8 @@ export function CampaignSheetsPage() {
   const [createName, setCreateName] = useState("");
   const [createConcept, setCreateConcept] = useState("");
   const [createDescription, setCreateDescription] = useState("");
+  const [createFactionId, setCreateFactionId] = useState("");
+  const [createLocationId, setCreateLocationId] = useState("");
   const [createPlayerId, setCreatePlayerId] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -54,6 +57,8 @@ export function CampaignSheetsPage() {
       description: createDescription,
       userId: createPlayerId,
       systemId: gameSystem,
+      factionId: createFactionId,
+      locationId: createLocationId,
     });
 
     try {
@@ -62,6 +67,8 @@ export function CampaignSheetsPage() {
       setCreateName("");
       setCreateConcept("");
       setCreateDescription("");
+      setCreateFactionId("");
+      setCreateLocationId("");
       setSelectedId(created.id);
       setToastMessage("Personaje creado. Edita y guarda la ficha completa.");
     } catch (err) {
@@ -164,6 +171,13 @@ export function CampaignSheetsPage() {
                     label="Concepto"
                     value={createConcept}
                     onChange={(event) => setCreateConcept(event.target.value)}
+                  />
+                  <EntityRefFields
+                    entities={entities}
+                    factionId={createFactionId}
+                    locationId={createLocationId}
+                    onFactionChange={setCreateFactionId}
+                    onLocationChange={setCreateLocationId}
                   />
                   <Input
                     label="Descripción pública"

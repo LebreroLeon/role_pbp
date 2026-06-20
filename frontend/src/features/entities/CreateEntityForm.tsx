@@ -18,6 +18,7 @@ import {
   getEntityDisplayName,
 } from "./entityDefaults";
 import { buildNpcDocumentForGameSystem } from "./npcDocument";
+import { EntityRefFields } from "./EntityRefFields";
 
 const CREATABLE_TYPES: EntityType[] = ["NPC", "LOCATION", "PC", "FACTION", "RELATIONSHIP"];
 
@@ -54,6 +55,8 @@ export function CreateEntityForm({
   const [secretNuance, setSecretNuance] = useState("");
   const [tensionLevel, setTensionLevel] = useState(3);
   const [playerUserId, setPlayerUserId] = useState(members.find((m) => m.role === "PLAYER")?.user_id ?? "");
+  const [factionId, setFactionId] = useState("");
+  const [locationId, setLocationId] = useState("");
 
   const mutation = useCreateEntityMutation(campaignId);
   const apiError = mutation.error instanceof ApiError ? mutation.error.message : null;
@@ -66,6 +69,8 @@ export function CreateEntityForm({
     setVoiceAndTone("");
     setPersonalityTraits("");
     setAmbientTone("");
+    setFactionId("");
+    setLocationId("");
   }
 
   function handleSubmit(event: FormEvent) {
@@ -84,6 +89,8 @@ export function CreateEntityForm({
             voiceAndTone,
             personalityTraits,
             systemId: gameSystem,
+            factionId,
+            locationId,
           })
         : buildNpcDocument({
             name,
@@ -92,6 +99,8 @@ export function CreateEntityForm({
             secretLore,
             voiceAndTone,
             personalityTraits,
+            factionId,
+            locationId,
           });
     } else if (entityType === "LOCATION") {
       document = buildLocationDocument({
@@ -126,6 +135,8 @@ export function CreateEntityForm({
         concept,
         description: publicText,
         userId: playerUserId,
+        factionId,
+        locationId,
       });
     }
 
@@ -245,6 +256,13 @@ export function CreateEntityForm({
 
         {entityType === "NPC" && (
           <>
+            <EntityRefFields
+              entities={entities}
+              factionId={factionId}
+              locationId={locationId}
+              onFactionChange={setFactionId}
+              onLocationChange={setLocationId}
+            />
             <Input
               label="Rasgos de personalidad (separados por coma)"
               value={personalityTraits}
@@ -259,22 +277,40 @@ export function CreateEntityForm({
         )}
 
         {entityType === "PC" && (
-          <label className="form-field">
-            <span>Jugador vinculado</span>
-            <select value={playerUserId} onChange={(event) => setPlayerUserId(event.target.value)} required>
-              <option value="">Selecciona jugador</option>
-              {players.map((player) => (
-                <option key={player.user_id} value={player.user_id}>
-                  {player.display_name} ({player.email})
-                </option>
-              ))}
-            </select>
-          </label>
+          <>
+            <label className="form-field">
+              <span>Jugador vinculado</span>
+              <select value={playerUserId} onChange={(event) => setPlayerUserId(event.target.value)} required>
+                <option value="">Selecciona jugador</option>
+                {players.map((player) => (
+                  <option key={player.user_id} value={player.user_id}>
+                    {player.display_name} ({player.email})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <EntityRefFields
+              entities={entities}
+              factionId={factionId}
+              locationId={locationId}
+              onFactionChange={setFactionId}
+              onLocationChange={setLocationId}
+            />
+            <label className="form-field">
+              <span>Descripción pública del PJ</span>
+              <textarea
+                value={publicText}
+                onChange={(event) => setPublicText(event.target.value)}
+                rows={3}
+                required
+              />
+            </label>
+          </>
         )}
 
-        {entityType !== "RELATIONSHIP" && (
+        {entityType !== "RELATIONSHIP" && entityType !== "PC" && (
           <label className="form-field">
-            <span>{entityType === "PC" ? "Descripción pública del PJ" : "Descripción pública"}</span>
+            <span>Descripción pública</span>
             <textarea
               value={publicText}
               onChange={(event) => setPublicText(event.target.value)}

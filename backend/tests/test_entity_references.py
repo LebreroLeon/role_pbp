@@ -28,6 +28,28 @@ def _entity_row(*, entity_id: uuid.UUID, campaign_id: uuid.UUID, entity_type: st
 
 
 @pytest.mark.asyncio
+async def test_validate_accepts_null_faction_and_location():
+    campaign_id = uuid.uuid4()
+    db = _mock_db_with_entities()
+
+    document = {
+        "identity": {
+            "name": "NPC",
+            "concept": "Test",
+            "faction_id": None,
+            "current_location_id": None,
+        }
+    }
+
+    await validate_entity_cross_references(
+        db,
+        campaign_id=campaign_id,
+        entity_type=EntityType.NPC,
+        document=document,
+    )
+
+
+@pytest.mark.asyncio
 async def test_validate_rejects_missing_faction_reference():
     campaign_id = uuid.uuid4()
     missing_faction = uuid.uuid4()

@@ -1,5 +1,5 @@
 import { defaultSheetForGameSystem } from "../character-sheet/pcDocument";
-import { PLACEHOLDER_UUID } from "./entityDefaults";
+import { normalizeEntityRefId } from "./entityDefaults";
 
 export function buildNpcDocumentForGameSystem(input: {
   name: string;
@@ -10,6 +10,8 @@ export function buildNpcDocumentForGameSystem(input: {
   personalityTraits: string;
   systemId: string;
   powerScale?: string;
+  factionId?: string | null;
+  locationId?: string | null;
 }): Record<string, unknown> {
   const traits = input.personalityTraits
     .split(",")
@@ -28,8 +30,8 @@ export function buildNpcDocumentForGameSystem(input: {
     identity: {
       name: input.name.trim(),
       concept: input.concept.trim(),
-      faction_id: PLACEHOLDER_UUID,
-      current_location_id: PLACEHOLDER_UUID,
+      faction_id: normalizeEntityRefId(input.factionId) || null,
+      current_location_id: normalizeEntityRefId(input.locationId) || null,
     },
     ai_narrative_profile: {
       public_description: input.publicDescription.trim(),

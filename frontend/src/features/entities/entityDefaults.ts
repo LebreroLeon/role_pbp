@@ -22,6 +22,12 @@ export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
 
 export const PLACEHOLDER_UUID = "00000000-0000-0000-0000-000000000001";
 
+/** Legacy placeholder refs should behave as unset in the UI. */
+export function normalizeEntityRefId(value: string | null | undefined): string {
+  if (!value || value === PLACEHOLDER_UUID) return "";
+  return value;
+}
+
 export function getEntityDisplayName(entity: CampaignEntity, allEntities?: CampaignEntity[]): string {
   if (entity.entity_type === "RELATIONSHIP") {
     const connection = entity.document.connection as
@@ -53,6 +59,8 @@ export function buildNpcDocument(input: {
   secretLore: string;
   voiceAndTone: string;
   personalityTraits: string;
+  factionId?: string | null;
+  locationId?: string | null;
 }): Record<string, unknown> {
   const traits = input.personalityTraits
     .split(",")
@@ -64,8 +72,8 @@ export function buildNpcDocument(input: {
     identity: {
       name: input.name.trim(),
       concept: input.concept.trim(),
-      faction_id: PLACEHOLDER_UUID,
-      current_location_id: PLACEHOLDER_UUID,
+      faction_id: normalizeEntityRefId(input.factionId) || null,
+      current_location_id: normalizeEntityRefId(input.locationId) || null,
     },
     ai_narrative_profile: {
       public_description: input.publicDescription.trim(),
@@ -121,14 +129,16 @@ export function buildPcDocument(input: {
   concept: string;
   description: string;
   userId: string;
+  factionId?: string | null;
+  locationId?: string | null;
 }): Record<string, unknown> {
   return {
     metadata: { type: "PC", system_agnostic: true, version: "2.0.0" },
     identity: {
       name: input.name.trim(),
       concept: input.concept.trim(),
-      faction_id: null,
-      current_location_id: PLACEHOLDER_UUID,
+      faction_id: normalizeEntityRefId(input.factionId) || null,
+      current_location_id: normalizeEntityRefId(input.locationId) || null,
     },
     player_binding: {
       user_id: input.userId,
@@ -156,6 +166,8 @@ export function buildPcDocumentForGameSystem(input: {
   description: string;
   userId: string;
   systemId: string;
+  factionId?: string | null;
+  locationId?: string | null;
 }): Record<string, unknown> {
   return buildPcDocumentWithSheet({
     ...input,

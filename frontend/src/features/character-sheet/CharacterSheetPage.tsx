@@ -20,6 +20,10 @@ import { useCampaignQuery } from "../../hooks/queries/useCampaignQueries";
 
 import { useMySheetQuery } from "../../hooks/queries/useMySheetQueries";
 
+import { useEntitiesQuery } from "../../hooks/queries/useEntityQueries";
+import { EntityRefFields } from "../entities/EntityRefFields";
+import type { CampaignEntity } from "../entities/entityDefaults";
+
 import { useAuthStore } from "../../stores/authStore";
 
 import {
@@ -88,6 +92,8 @@ export function CharacterSheetPage() {
 
   const { data: myPc, isLoading, isError, error } = useMySheetQuery(campaignId);
 
+  const { data: entities = [] } = useEntitiesQuery(campaignId);
+
   const upsertMutation = useUpsertMySheetMutation(campaignId);
 
   const rollMutation = useRollFromSheetMutation(campaignId);
@@ -99,6 +105,10 @@ export function CharacterSheetPage() {
   const [createConcept, setCreateConcept] = useState("");
 
   const [createDescription, setCreateDescription] = useState("");
+
+  const [createFactionId, setCreateFactionId] = useState("");
+
+  const [createLocationId, setCreateLocationId] = useState("");
 
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -135,6 +145,10 @@ export function CharacterSheetPage() {
       description: createDescription,
 
       systemId: gameSystem,
+
+      factionId: createFactionId,
+
+      locationId: createLocationId,
 
     });
 
@@ -270,17 +284,27 @@ export function CharacterSheetPage() {
 
             supportsSheet={supportsSheet}
 
+            entities={entities}
+
             createName={createName}
 
             createConcept={createConcept}
 
             createDescription={createDescription}
 
+            createFactionId={createFactionId}
+
+            createLocationId={createLocationId}
+
             onNameChange={setCreateName}
 
             onConceptChange={setCreateConcept}
 
             onDescriptionChange={setCreateDescription}
+
+            onFactionChange={setCreateFactionId}
+
+            onLocationChange={setCreateLocationId}
 
             onSubmit={handleCreatePc}
 
@@ -394,17 +418,27 @@ type SectionCreatePcProps = {
 
   supportsSheet: boolean;
 
+  entities: CampaignEntity[];
+
   createName: string;
 
   createConcept: string;
 
   createDescription: string;
 
+  createFactionId: string;
+
+  createLocationId: string;
+
   onNameChange: (value: string) => void;
 
   onConceptChange: (value: string) => void;
 
   onDescriptionChange: (value: string) => void;
+
+  onFactionChange: (value: string) => void;
+
+  onLocationChange: (value: string) => void;
 
   onSubmit: (event: FormEvent) => void;
 
@@ -420,17 +454,27 @@ function SectionCreatePc({
 
   supportsSheet,
 
+  entities,
+
   createName,
 
   createConcept,
 
   createDescription,
 
+  createFactionId,
+
+  createLocationId,
+
   onNameChange,
 
   onConceptChange,
 
   onDescriptionChange,
+
+  onFactionChange,
+
+  onLocationChange,
 
   onSubmit,
 
@@ -479,6 +523,14 @@ function SectionCreatePc({
         <Input label="Nombre del personaje" value={createName} onChange={(e) => onNameChange(e.target.value)} required />
 
         <Input label="Concepto" value={createConcept} onChange={(e) => onConceptChange(e.target.value)} placeholder="Ej. mercenario callejero" />
+
+        <EntityRefFields
+          entities={entities}
+          factionId={createFactionId}
+          locationId={createLocationId}
+          onFactionChange={onFactionChange}
+          onLocationChange={onLocationChange}
+        />
 
         <Input
 

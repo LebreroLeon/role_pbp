@@ -17,7 +17,7 @@ import { parseDnd5eSheet } from "./systems/dnd5e/schema";
 import { VtmSheetForm } from "./systems/vtm_v5/VtmSheetForm";
 import { parseVtmV5Sheet } from "./systems/vtm_v5/schema";
 import type { CampaignEntity } from "../entities/entityDefaults";
-import { getEntityDisplayName } from "../entities/entityDefaults";
+import { getEntityDisplayName, normalizeEntityRefId } from "../entities/entityDefaults";
 import { ensureNpcTypedMechanics } from "../entities/npcDocument";
 import { extractAvatarUrl } from "../entities/entityAvatar";
 import { EntityAvatarField } from "./EntityAvatarField";
@@ -124,8 +124,8 @@ export function EntitySheetEditor({
     const identityRefs = workingDocument.identity as
       | { faction_id?: string | null; current_location_id?: string }
       | undefined;
-    setFactionId(identityRefs?.faction_id ?? "");
-    setLocationId(identityRefs?.current_location_id ?? "");
+    setFactionId(normalizeEntityRefId(identityRefs?.faction_id));
+    setLocationId(normalizeEntityRefId(identityRefs?.current_location_id));
     setFormError(null);
   }, [entity.id, entity.updated_at, entity.entity_type, workingDocument]);
 

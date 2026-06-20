@@ -22,8 +22,8 @@ def _npc_document_with_typed_sheet(sheet: dict | None = None) -> dict:
         "identity": {
             "name": "Goblin",
             "concept": "Skulker",
-            "faction_id": "00000000-0000-0000-0000-000000000001",
-            "current_location_id": "00000000-0000-0000-0000-000000000001",
+            "faction_id": None,
+            "current_location_id": None,
         },
         "ai_narrative_profile": {
             "public_description": "A small green humanoid",
@@ -81,7 +81,7 @@ def _pc_document_with_typed_sheet(sheet: dict | None = None) -> dict:
             "name": "Aldric",
             "concept": "Fighter",
             "faction_id": None,
-            "current_location_id": "00000000-0000-0000-0000-000000000001",
+            "current_location_id": None,
         },
         "player_binding": {
             "user_id": "00000000-0000-0000-0000-000000000002",
@@ -130,6 +130,14 @@ class TestNpcSheetValidation:
         document = _npc_document_with_typed_sheet()
         sanitized = strip_master_secrets(document, EntityType.NPC)
         assert "secret_lore_master" not in sanitized["ai_narrative_profile"]
+
+    def test_npc_identity_accepts_null_faction_and_location(self):
+        document = _npc_document_with_typed_sheet()
+        document["identity"]["faction_id"] = None
+        document["identity"]["current_location_id"] = None
+        validated = validate_entity_document(EntityType.NPC, document)
+        assert validated.identity.faction_id is None
+        assert validated.identity.current_location_id is None
 
     def test_legacy_agnostic_npc_still_validates(self):
         document = {

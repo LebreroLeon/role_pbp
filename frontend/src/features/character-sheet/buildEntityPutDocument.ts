@@ -54,8 +54,8 @@ function buildNpcPutDocument(
       ...(workingDocument.identity as Record<string, unknown>),
       name: narrative.name.trim(),
       concept: narrative.concept.trim(),
-      faction_id: narrative.factionId?.trim() || "",
-      current_location_id: narrative.locationId?.trim() || "",
+      faction_id: narrative.factionId?.trim() || null,
+      current_location_id: narrative.locationId?.trim() || null,
     },
     ai_narrative_profile: profile,
   };
@@ -74,7 +74,7 @@ function buildPcPutDocument(
       name: narrative.name.trim(),
       concept: narrative.concept.trim(),
       faction_id: narrative.factionId?.trim() || null,
-      current_location_id: narrative.locationId?.trim() || "",
+      current_location_id: narrative.locationId?.trim() || null,
     },
     public_profile: (() => {
       const publicProfile: Record<string, unknown> = {

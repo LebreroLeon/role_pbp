@@ -51,8 +51,8 @@ class NPCMetadata(BaseModel):
 class NPCIdentity(BaseModel):
     name: str
     concept: str
-    faction_id: str
-    current_location_id: str
+    faction_id: str | None = None
+    current_location_id: str | None = None
 
 
 class AINarrativeProfile(BaseModel):
@@ -91,7 +91,7 @@ class PCIdentity(BaseModel):
     name: str
     concept: str
     faction_id: str | None = None
-    current_location_id: str
+    current_location_id: str | None = None
 
 
 class PlayerBinding(BaseModel):

@@ -456,6 +456,17 @@ async def upsert_player_character_sheet(
 
     document_json = validated.model_dump(mode="json")
 
+    try:
+        await validate_entity_cross_references(
+            db,
+            campaign_id=campaign_id,
+            entity_type=EntityType.PC,
+            document=document_json,
+            entity_id=existing.id if existing is not None else None,
+        )
+    except EntityReferenceError as exc:
+        raise CharacterSheetError(str(exc)) from exc
+
     if existing is not None:
         bound_user = existing.document.get("player_binding", {}).get("user_id")
         if bound_user != str(user_id):

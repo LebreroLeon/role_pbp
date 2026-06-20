@@ -537,7 +537,7 @@ export type PcIdentity = {
 
   faction_id: string | null;
 
-  current_location_id: string;
+  current_location_id: string | null;
 
 };
 
