@@ -334,6 +334,7 @@ export function MasterDeskPage() {
                     className={`shadow-master-modes__btn ${assistMode === mode.id ? "is-active" : ""}`}
                     onClick={() => {
                       setAssistMode(mode.id);
+                      setQuery(mode.defaultQuery);
                       setResponse(null);
                     }}
                     title={mode.hint}
@@ -360,9 +361,15 @@ export function MasterDeskPage() {
                 </Button>
               </form>
               {response && (() => {
-                const kind = response.query_kind ?? assistMode;
-                const meta = SHADOW_MASTER_MODE_META[kind] ?? SHADOW_MASTER_MODE_META.campaign;
-                const isNarrative = kind === "narrative";
+                const displayKind = assistMode;
+                const meta = SHADOW_MASTER_MODE_META[displayKind] ?? SHADOW_MASTER_MODE_META.campaign;
+                const isNarrative = assistMode === "narrative";
+                const narrativeSuggestions =
+                  response.suggestions.length > 0
+                    ? response.suggestions
+                    : isNarrative && response.context_summary.trim()
+                      ? [response.context_summary.trim()]
+                      : [];
                 return (
                 <div className="master-result">
                   <section className="master-result__section">
@@ -370,12 +377,18 @@ export function MasterDeskPage() {
                     <p>{response.context_summary}</p>
                   </section>
 
-                  {response.suggestions.length > 0 && isNarrative && (
+                  {narrativeSuggestions.length > 0 && isNarrative && (
                     <section className="master-result__section master-result__narrative">
                       <h3>{meta.suggestionsTitle}</h3>
                       {meta.hint && <p className="muted master-result__hint">{meta.hint}</p>}
+                      {response.suggestions.length === 0 && (
+                        <p className="muted master-result__hint">
+                          No llegaron sugerencias separadas; puedes enviar el análisis como narración o reformular la
+                          consulta.
+                        </p>
+                      )}
                       <ul className="master-narrative-suggestions">
-                        {response.suggestions.map((suggestion, index) => {
+                        {narrativeSuggestions.map((suggestion, index) => {
                           const suggestionKey = `${index}:${suggestion.slice(0, 40)}`;
                           const sending = sendingSuggestionKey === suggestionKey;
                           return (

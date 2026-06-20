@@ -18,6 +18,7 @@ from app.services.master import (
     query_language_is_spanish,
     resolve_query_kind,
     sanitize_narrative_suggestion,
+    _parse_llm_assist_response,
 )
 
 
@@ -192,6 +193,50 @@ class TestNarrativeSuggestions:
         assert "Arturo" in prompt
         assert "narrative / scene description" in prompt
         assert "atmosphere/setting tone only" in prompt
+
+    def test_parse_accepts_bullet_points_key(self):
+        raw = json.dumps(
+            {
+                "context_summary": "Análisis breve.",
+                "bullet_points": [
+                    "El viento arrastra ceniza sobre las losas.",
+                    "Una campana lejana marca la hora del miedo.",
+                ],
+            },
+            ensure_ascii=False,
+        )
+        summary, suggestions = _parse_llm_assist_response(
+            raw,
+            rag_chunks=[],
+            manual_rag_chunks=[],
+            query="continuar narracion",
+            narrative_query=True,
+        )
+        assert summary == "Análisis breve."
+        assert len(suggestions) == 2
+        assert "viento" in suggestions[0]
+
+    def test_parse_narrative_splits_summary_paragraphs_when_suggestions_missing(self):
+        raw = json.dumps(
+            {
+                "context_summary": (
+                    "La escena puede abrir con tensión.\n\n"
+                    "El silencio cae sobre el claro como un sudario húmedo.\n\n"
+                    "Desde el centro, un susurro raspa la garganta del bosque."
+                ),
+            },
+            ensure_ascii=False,
+        )
+        summary, suggestions = _parse_llm_assist_response(
+            raw,
+            rag_chunks=[],
+            manual_rag_chunks=[],
+            query="continuar narracion",
+            narrative_query=True,
+        )
+        assert "tensión" in summary
+        assert suggestions
+        assert "silencio" in suggestions[0].lower()
 
     def test_continue_story_prompt_uses_narrative_mode(self):
         query = (
@@ -531,6 +576,62 @@ async def test_build_master_assist_continue_story_query_uses_narrative_prompt():
 
     assert response.query_kind == "narrative"
     assert len(response.suggestions) == 2
+
+
+@pytest.mark.asyncio
+async def test_build_master_assist_explicit_narrative_mode_overrides_creative_query():
+    campaign_id = uuid.uuid4()
+    scene_id = uuid.uuid4()
+    campaign = Campaign(id=campaign_id, name="Test", game_system="dnd5e")
+    scene = MagicMock()
+    scene.campaign_id = campaign_id
+    scene.id = scene_id
+
+    query = "Que complicacion encaja con la escena actual?"
+    payload = MasterAssistRequest(
+        campaign_id=str(campaign_id),
+        scene_id=str(scene_id),
+        query=query,
+        mode="narrative",
+    )
+
+    db = AsyncMock()
+    db.scalar = AsyncMock(return_value=campaign)
+    db.scalars = AsyncMock(return_value=[])
+
+    mock_state = MagicMock()
+    mock_state.memory_settings.rag_top_k_matches = 3
+    mock_state.memory_settings.max_chat_buffer_size = 20
+    mock_state.state_flags.model_dump.return_value = {}
+    mock_state.context.model_dump.return_value = {}
+    mock_state.chat_buffer = []
+
+    llm_payload = {
+        "context_summary": "La escena puede abrir con lluvia sobre el muelle.",
+        "suggestions": [
+            "La lluvia golpea los adoquines mientras las antorchas chisporrotean.",
+            "Un guardia tose en la penumbra y el olor a sal impregna el aire.",
+        ],
+    }
+
+    with (
+        patch("app.services.scenes.load_scene_state", return_value=mock_state),
+        patch("app.services.master.rag_service.search", new=AsyncMock(return_value=["Past ambush."])) as mock_campaign_search,
+        patch("app.services.master.rag_service.search_system_manuals", new=AsyncMock(return_value=[])) as mock_manual_search,
+        patch(
+            "app.services.master.chat_completion",
+            new=AsyncMock(return_value=json.dumps(llm_payload, ensure_ascii=False)),
+        ) as mock_chat,
+    ):
+        response = await build_master_assist_response(db, payload, scene=scene)
+
+    mock_campaign_search.assert_awaited_once()
+    mock_manual_search.assert_not_awaited()
+    system_message = mock_chat.await_args.args[0][0]["content"]
+    assert "NARRATIVE MODE" in system_message
+    assert response.query_kind == "narrative"
+    assert response.suggestions
+    assert "lluvia" in response.suggestions[0].lower()
 
 
 @pytest.mark.asyncio

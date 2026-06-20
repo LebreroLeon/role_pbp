@@ -482,6 +482,33 @@ def build_sandwich_prompt(
     return "\n".join(sections)
 
 
+_SUGGESTION_JSON_KEYS = (
+    "suggestions",
+    "bullet_points",
+    "sugerencias",
+    "ideas",
+    "narrative_suggestions",
+    "opciones",
+)
+
+
+def _coerce_suggestion_list(raw: Any) -> list[str]:
+    if isinstance(raw, list):
+        return [str(item).strip() for item in raw if str(item).strip()]
+    if isinstance(raw, str) and raw.strip():
+        lines = [line.strip("-• ").strip() for line in raw.splitlines() if line.strip()]
+        return lines or [raw.strip()]
+    return []
+
+
+def _extract_suggestions_from_parsed(parsed: dict[str, Any]) -> list[str]:
+    for key in _SUGGESTION_JSON_KEYS:
+        items = _coerce_suggestion_list(parsed.get(key))
+        if items:
+            return items
+    return []
+
+
 def _fallback_suggestions(query: str, *, rules_query: bool = False) -> list[str]:
     if rules_query:
         return [
@@ -507,15 +534,20 @@ def _parse_llm_assist_response(
     all_rag = rag_chunks + manual_rag_chunks
     parsed = parse_json_object(raw)
     if parsed:
-        summary = str(parsed.get("context_summary") or "").strip()
-        suggestions_raw = parsed.get("suggestions")
-        suggestions = (
-            [str(item).strip() for item in suggestions_raw if str(item).strip()]
-            if isinstance(suggestions_raw, list)
-            else []
-        )
+        summary = str(
+            parsed.get("context_summary")
+            or parsed.get("summary")
+            or parsed.get("analisis")
+            or parsed.get("analysis")
+            or ""
+        ).strip()
+        suggestions = _extract_suggestions_from_parsed(parsed)
         if narrative_query and suggestions:
             suggestions = sanitize_narrative_suggestions(suggestions)
+        if narrative_query and not suggestions and summary:
+            paragraphs = [part.strip() for part in re.split(r"\n\s*\n", summary) if part.strip()]
+            if len(paragraphs) >= 2:
+                suggestions = sanitize_narrative_suggestions(paragraphs[1:4])
         if summary and suggestions:
             return summary, suggestions[:5]
         if summary:

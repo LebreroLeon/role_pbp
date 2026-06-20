@@ -180,14 +180,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  masterAssist: (campaignId: string, sceneId: string, query: string, mode?: MasterAssistMode) =>
+  masterAssist: (campaignId: string, sceneId: string, query: string, mode: MasterAssistMode = "campaign") =>
     http<MasterAssistResponse>("/api/v1/master/assist", {
       method: "POST",
       body: JSON.stringify({
         campaign_id: campaignId,
         scene_id: sceneId,
         query,
-        ...(mode ? { mode } : {}),
+        mode,
       }),
     }),
   listEntities: (campaignId: string, entityType?: EntityType) => {
