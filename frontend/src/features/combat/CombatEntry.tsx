@@ -12,6 +12,8 @@ import {
   resolveCombatEvent,
   resolveCombatSpeakerEntityId,
 } from "./combatMessage";
+import { MasterOnlyMessageBadge } from "../scene/MasterOnlyMessageBadge";
+import { isMasterOnlyMessage } from "../scene/messageVisibility";
 
 const FALLBACK_NARRATOR_NAME = "Máster / Narrador";
 
@@ -76,6 +78,8 @@ export function CombatEntry({
       : storedSpeakerName?.trim() || FALLBACK_NARRATOR_NAME);
 
   const avatarUrl = resolveEntityAvatarUrl(speakerEntityId, entities);
+  const masterOnly = isMaster && isMasterOnlyMessage(message);
+  const cardClassName = `chat-card combat-card ${isOwn ? "chat-card--own combat-card--own" : ""}${masterOnly ? " chat-card--master-only" : ""}`;
 
   const likeBadge = (
     <MessageLikeBadge
@@ -91,13 +95,14 @@ export function CombatEntry({
 
   if (!event) {
     return (
-      <article className={`chat-card combat-card ${isOwn ? "chat-card--own combat-card--own" : ""}`}>
+      <article className={cardClassName}>
         <header className="chat-card__header">
           <div className="chat-card__identity">
             <ChatAvatar name={characterName} avatarUrl={avatarUrl} />
             <div className="chat-card__identity-text">
               <strong className="chat-card__character">{characterName}</strong>
               <span className="chat-card__type chat-card__type--action">Combate</span>
+              {masterOnly && <MasterOnlyMessageBadge message={message} />}
             </div>
           </div>
           <div className="chat-card__meta">
@@ -133,16 +138,14 @@ export function CombatEntry({
   const hpLabel = formatHp(hpRemaining, event.defender_hp_max);
 
   return (
-    <article
-      className={`chat-card combat-card ${isOwn ? "chat-card--own combat-card--own" : ""}`}
-      aria-label="Combate"
-    >
+    <article className={cardClassName} aria-label="Combate">
       <header className="chat-card__header">
         <div className="chat-card__identity">
           <ChatAvatar name={characterName} avatarUrl={avatarUrl} />
           <div className="chat-card__identity-text">
             <strong className="chat-card__character">{characterName}</strong>
             <span className="chat-card__type chat-card__type--action">Combate</span>
+            {masterOnly && <MasterOnlyMessageBadge message={message} />}
           </div>
         </div>
         <div className="chat-card__meta">

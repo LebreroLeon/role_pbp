@@ -11,6 +11,8 @@ import {
   resolveRollDice,
   resolveRollLabel,
 } from "./rollFormat";
+import { MasterOnlyMessageBadge } from "./MasterOnlyMessageBadge";
+import { isMasterOnlyMessage } from "./messageVisibility";
 
 type DiceRollCardProps = {
   message: ChatMessage;
@@ -52,6 +54,7 @@ export function DiceRollCard({
       ? message.roll_details.natural_roll
       : dice[dice.length - 1] ?? final;
   const meta = MESSAGE_TYPE_META.DICE_ROLL;
+  const masterOnly = isMaster && isMasterOnlyMessage(message);
 
   function handleDeleteClick() {
     if (!message.id || !onDelete) return;
@@ -59,13 +62,16 @@ export function DiceRollCard({
   }
 
   return (
-    <article className={`chat-card dice-roll-card ${isOwn ? "chat-card--own" : ""} chat-card--${meta.color}`}>
+    <article
+      className={`chat-card dice-roll-card ${isOwn ? "chat-card--own" : ""} chat-card--${meta.color}${masterOnly ? " chat-card--master-only" : ""}`}
+    >
       <header className="chat-card__header">
         <div className="chat-card__identity">
           <ChatAvatar name={characterName} avatarUrl={avatarUrl} />
           <div className="chat-card__identity-text">
             <strong className="chat-card__character">{characterName}</strong>
             <span className={`chat-card__type chat-card__type--${meta.color}`}>{meta.label}</span>
+            {masterOnly && <MasterOnlyMessageBadge message={message} />}
           </div>
         </div>
         <div className="chat-card__meta">

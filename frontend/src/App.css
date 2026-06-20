@@ -121,6 +121,34 @@
   border-left-color: var(--accent-teal);
 }
 
+.chat-card--master-only {
+  border-color: rgba(245, 158, 11, 0.3);
+  border-left-color: rgba(217, 119, 6, 0.75);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.combat-card.chat-card--master-only {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.chat-card__master-only-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.12rem 0.4rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: rgba(245, 158, 11, 0.14);
+  color: rgb(217, 119, 6);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
 .chat-card__header {
   display: flex;
   justify-content: space-between;

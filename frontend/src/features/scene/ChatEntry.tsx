@@ -12,7 +12,9 @@ import {
   normalizeMessageType,
 } from "./messageTypes";
 import { DiceRollCard } from "./DiceRollCard";
+import { MasterOnlyMessageBadge } from "./MasterOnlyMessageBadge";
 import { MessageLikeBadge } from "./MessageLikeBadge";
+import { isMasterOnlyMessage } from "./messageVisibility";
 
 export type MemberLookup = Record<
   string,
@@ -124,6 +126,7 @@ export function ChatEntry({
   const masterVoice = isMasterVoice(message, members, type);
   const avatarUrl = resolveMessageAvatarUrl(message, entities);
   const meta = MESSAGE_TYPE_META[type] ?? MESSAGE_TYPE_META.ACTION;
+  const masterOnly = isMaster && isMasterOnlyMessage(message);
   const readBy = message.read_by ?? [];
   const readersExcludingSender = readBy.filter((id) => id !== message.sender_id);
   const unreadCount = Math.max(memberCount - 1 - readersExcludingSender.length, 0);
@@ -135,7 +138,7 @@ export function ChatEntry({
 
   return (
     <article
-      className={`chat-card ${isOwn ? "chat-card--own" : ""} ${masterVoice ? "chat-card--master" : ""} chat-card--${meta.color}`}
+      className={`chat-card ${isOwn ? "chat-card--own" : ""} ${masterVoice ? "chat-card--master" : ""} chat-card--${meta.color}${masterOnly ? " chat-card--master-only" : ""}`}
     >
       <header className="chat-card__header">
         <div className="chat-card__identity">
@@ -143,6 +146,7 @@ export function ChatEntry({
           <div className="chat-card__identity-text">
             <strong className="chat-card__character">{characterName}</strong>
             <span className={`chat-card__type chat-card__type--${meta.color}`}>{meta.label}</span>
+            {masterOnly && <MasterOnlyMessageBadge message={message} />}
           </div>
         </div>
         <div className="chat-card__meta">
