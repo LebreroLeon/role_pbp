@@ -206,6 +206,9 @@ export function formatDamageLine(damage: CombatDamageSummary): string {
   if (damage.type) {
     line += ` ${damage.type.replace(/_/g, " ")}`;
   }
+  if (damage.is_healing) {
+    return `Curación ${line}`;
+  }
   return line;
 }
 

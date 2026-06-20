@@ -152,6 +152,8 @@ export type CombatDamageSummary = {
 
   modifier?: number;
 
+  is_healing?: boolean;
+
   chat_summary?: string;
 
 };
@@ -195,6 +197,8 @@ export type CombatEvent = {
   defender_hp_max?: number;
 
   weapon_name?: string;
+
+  is_healing?: boolean;
 
   hp?: {
 
@@ -616,6 +620,8 @@ export type Dnd5eRollType =
   | "attack_roll"
 
   | "damage"
+
+  | "healing"
 
   | "initiative"
 

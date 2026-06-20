@@ -133,6 +133,7 @@ export function CombatEntry({
   );
   const attackRoll = event.attack_roll;
   const damage = event.damage;
+  const isHealing = Boolean(event.is_healing || damage?.is_healing);
   const hpRemaining = event.defender_hp_remaining ?? event.hp?.after;
   const hpBefore = event.hp?.before;
   const hpLabel = formatHp(hpRemaining, event.defender_hp_max);
@@ -158,7 +159,7 @@ export function CombatEntry({
       {event.kind === "ATTACK_RESOLVED" && attackerLabel && defenderLabel ? (
         <p className="combat-card__action">
           <span className="combat-card__entity">{attackerLabel}</span>
-          <span className="combat-card__verb">ataca</span>
+          <span className="combat-card__verb">{isHealing ? "cura a" : "ataca"}</span>
           <span className="combat-card__entity combat-card__entity--target">{defenderLabel}</span>
           {event.weapon_name && <span className="combat-card__weapon">({event.weapon_name})</span>}
         </p>
@@ -166,13 +167,15 @@ export function CombatEntry({
         <p className="chat-card__body">{summary}</p>
       ) : null}
 
-      {attackRoll && (
+      {attackRoll && !isHealing && (
         <p className="combat-card__roll-line">{formatAttackRollLine(attackRoll)}</p>
       )}
 
       {damage && damage.amount > 0 && (
         <p className="combat-card__roll-line combat-card__damage-line">
-          Daño {formatDamageLine(damage)}
+          {isHealing
+            ? formatDamageLine({ ...damage, is_healing: true })
+            : `Daño ${formatDamageLine(damage)}`}
         </p>
       )}
 

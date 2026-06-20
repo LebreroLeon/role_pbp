@@ -190,8 +190,9 @@ export function Dnd5eSheetForm({
 
   function rollDamage(index: number) {
     const attack = attacks?.[index];
+    const isHealing = attack?.effect_type === "healing";
     onRoll?.({
-      roll_type: "damage",
+      roll_type: isHealing ? "healing" : "damage",
       context: {
         attack_index: index,
         ...(attack?.name ? { attack_name: attack.name } : {}),
@@ -514,6 +515,7 @@ export function Dnd5eSheetForm({
                 name: "",
                 ability: "str",
                 proficient: false,
+                effect_type: "damage",
                 damage: { dice: "1d8", type: "contundente" },
                 properties: [],
               })
@@ -541,11 +543,18 @@ export function Dnd5eSheetForm({
               </select>
             </label>
             <Input
-              label="Daño (dados)"
+              label={attacks?.[index]?.effect_type === "healing" ? "Curación (dados)" : "Daño (dados)"}
               disabled={disabled}
               error={errors.attacks?.[index]?.damage?.dice?.message}
               {...register(`attacks.${index}.damage.dice`)}
             />
+            <label className="form-field">
+              <span>Efecto</span>
+              <select disabled={disabled} {...register(`attacks.${index}.effect_type`)}>
+                <option value="damage">Daño</option>
+                <option value="healing">Curación</option>
+              </select>
+            </label>
             <label className="form-field">
               <span>Tipo de daño</span>
               <select disabled={disabled} {...register(`attacks.${index}.damage.type`)}>
@@ -582,7 +591,7 @@ export function Dnd5eSheetForm({
                 Tirar ataque
               </Button>
               <Button type="button" variant="secondary" disabled={rollDisabled} onClick={() => rollDamage(index)}>
-                Tirar daño
+                {attacks?.[index]?.effect_type === "healing" ? "Tirar curación" : "Tirar daño"}
               </Button>
             </div>
             {fields.length > 1 && (

@@ -212,8 +212,8 @@ class Dnd5ePlugin(GameSystemPlugin):
             return self._resolve_skill_check(sheet, context)
         if normalized in {"attack_roll", "attack"}:
             return self._resolve_attack_roll(sheet, context)
-        if normalized == "damage":
-            return self._resolve_damage(sheet, context)
+        if normalized in {"damage", "healing"}:
+            return self._resolve_damage(sheet, context, healing=normalized == "healing")
         if normalized == "initiative":
             return self._resolve_initiative(sheet, context)
         if normalized == "death_save":
@@ -310,14 +310,22 @@ class Dnd5ePlugin(GameSystemPlugin):
             result.chat_summary = f"{attack.name}: {dice_label}{mod_str} = {result.total}"
         return result
 
-    def _resolve_damage(self, sheet: Dnd5eSheet, context: RollContext) -> RollResult:
+    def _resolve_damage(
+        self,
+        sheet: Dnd5eSheet,
+        context: RollContext,
+        *,
+        healing: bool = False,
+    ) -> RollResult:
         if context.expression:
             expression = context.expression
             damage_type = "sin tipo"
+            is_healing = healing
         else:
             _, attack = _find_attack(sheet, context)
             expression = attack.damage_dice
             damage_type = attack.damage_type
+            is_healing = attack.effect_type == "healing" or healing
 
         raw = dice_service.roll_dice(expression)
         dice_total = raw["raw_result"]
@@ -340,15 +348,18 @@ class Dnd5ePlugin(GameSystemPlugin):
             modifier_breakdown.append(_modifier_breakdown_entry("Modificador", flat_modifier))
 
         type_label = damage_type.replace("_", " ")
-        roll_label = f"Daño ({type_label})"
+        effect_label = "Curación" if is_healing else "Daño"
+        roll_label = f"{effect_label} ({type_label})"
         dice_part = _format_dice_rolls(rolls, dice_sides)
         summary = f"{roll_label}: {dice_part}"
         if flat_modifier:
             summary += f" {flat_modifier:+d}"
         summary += f" = {total}"
 
+        roll_type = "healing" if is_healing else "damage"
+
         return RollResult(
-            roll_type="damage",
+            roll_type=roll_type,
             expression=raw["dice_expression"],
             rolls=rolls,
             total=total,
@@ -356,6 +367,8 @@ class Dnd5ePlugin(GameSystemPlugin):
             details={
                 "roll_label": roll_label,
                 "damage_type": damage_type,
+                "effect_type": "healing" if is_healing else "damage",
+                "is_healing": is_healing,
                 "raw_result": dice_total,
                 "modifier": flat_modifier,
                 "modifier_breakdown": modifier_breakdown,
@@ -500,8 +513,60 @@ class Dnd5ePlugin(GameSystemPlugin):
         weapon_or_attack_id: str | None,
         context: AttackContext,
     ) -> AttackResult:
+        attacker = _parse_sheet(attacker_sheet)
         defender = _parse_sheet(defender_sheet)
         target_ac = context.target_ac if context.target_ac is not None else defender.ac
+
+        _, attack = _find_attack(
+            attacker,
+            AttackContext(
+                attack_name=weapon_or_attack_id or context.attack_name,
+                attack_index=context.attack_index,
+            ),
+        )
+        is_healing = attack.effect_type == "healing"
+        attacker_name = weapon_or_attack_id or context.attack_name or attack.name or "ataque"
+
+        if is_healing:
+            damage_roll = self.resolve_roll(
+                "healing",
+                attacker_sheet,
+                RollContext(
+                    attack_name=weapon_or_attack_id or context.attack_name,
+                    attack_index=context.attack_index,
+                ),
+            )
+            damage_result = DamageResult(
+                amount=damage_roll.total or 0,
+                expression=damage_roll.expression,
+                rolls=damage_roll.rolls,
+                damage_type=str(damage_roll.details.get("damage_type", "radiante")),
+                modifier=int(damage_roll.details.get("modifier", 0)),
+                is_healing=True,
+            )
+            placeholder_roll = RollResult(
+                roll_type="healing",
+                expression="—",
+                rolls=[],
+                total=None,
+                success=True,
+                details={
+                    "roll_label": attack.name,
+                    "healing": True,
+                    "attack_name": attack.name,
+                },
+                chat_summary=f"{attack.name}: curación",
+            )
+            summary = (
+                f"{attacker_name} cura: {damage_result.amount} "
+                f"{damage_result.damage_type.replace('_', ' ')}."
+            )
+            return AttackResult(
+                attack_roll=placeholder_roll,
+                hit=True,
+                damage=damage_result,
+                chat_summary=summary,
+            )
 
         roll_ctx = RollContext(
             attack_name=weapon_or_attack_id or context.attack_name,
@@ -530,9 +595,9 @@ class Dnd5ePlugin(GameSystemPlugin):
                 rolls=damage_roll.rolls,
                 damage_type=damage_type,
                 modifier=int(damage_roll.details.get("modifier", 0)),
+                is_healing=False,
             )
 
-        attacker_name = weapon_or_attack_id or context.attack_name or "ataque"
         if hit and damage_result:
             summary = (
                 f"{attacker_name}: {attack_roll.total} vs CA {target_ac} — impacto. "
@@ -556,7 +621,35 @@ class Dnd5ePlugin(GameSystemPlugin):
         updated = deepcopy(defender_sheet)
         sheet = _parse_sheet(updated)
         hp_before = sheet.hp.current
-        sheet.hp.current = max(0, sheet.hp.current - damage.amount)
+
+        if damage.is_healing:
+            applied = min(damage.amount, max(0, sheet.hp.max - sheet.hp.current))
+            sheet.hp.current = hp_before + applied
+            updated["hp"] = sheet.hp.model_dump()
+
+            application = DamageApplication(
+                damage_dealt=damage.amount,
+                damage_type=damage.damage_type,
+                hp_before=hp_before,
+                hp_after=sheet.hp.current,
+                is_unconscious=False,
+                is_dead=False,
+                is_healing=True,
+                amount_applied=applied,
+                chat_summary=(
+                    f"Curación {applied} ({damage.damage_type}): "
+                    f"PV {hp_before} → {sheet.hp.current}"
+                ),
+            )
+            return updated, application
+
+        remaining = damage.amount
+        if sheet.hp.temp > 0:
+            absorbed = min(sheet.hp.temp, remaining)
+            sheet.hp.temp -= absorbed
+            remaining -= absorbed
+
+        sheet.hp.current = max(0, sheet.hp.current - remaining)
         updated["hp"] = sheet.hp.model_dump()
 
         application = DamageApplication(
@@ -566,6 +659,8 @@ class Dnd5ePlugin(GameSystemPlugin):
             hp_after=sheet.hp.current,
             is_unconscious=sheet.hp.current == 0,
             is_dead=False,
+            is_healing=False,
+            amount_applied=damage.amount,
             chat_summary=(
                 f"Daño {damage.amount} ({damage.damage_type}): "
                 f"PV {hp_before} → {sheet.hp.current}"

@@ -64,3 +64,19 @@ class TestDnd5eSheetIdentityAndAttacks:
         assert sheet.identity.class_ == "Pícaro"
         assert sheet.identity.level == 4
         assert sheet.attacks[0].damage_type == "perforante"
+        assert sheet.attacks[0].effect_type == "damage"
+
+    def test_validate_healing_attack(self):
+        sheet = Dnd5eSheet.model_validate(
+            {
+                "attacks": [
+                    {
+                        "name": "Curar heridas",
+                        "damage_dice": "1d8+3",
+                        "damage_type": "radiante",
+                        "effect_type": "healing",
+                    }
+                ]
+            }
+        )
+        assert sheet.attacks[0].effect_type == "healing"

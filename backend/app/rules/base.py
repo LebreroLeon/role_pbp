@@ -48,6 +48,7 @@ class DamageResult:
     rolls: list[int]
     damage_type: str
     modifier: int = 0
+    is_healing: bool = False
 
 
 @dataclass
@@ -66,6 +67,8 @@ class DamageApplication:
     hp_after: int
     is_unconscious: bool = False
     is_dead: bool = False
+    is_healing: bool = False
+    amount_applied: int | None = None
     chat_summary: str = ""
 
 

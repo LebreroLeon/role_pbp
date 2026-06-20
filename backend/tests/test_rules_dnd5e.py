@@ -181,8 +181,79 @@ class TestDnd5eCombat:
         assert attack.hit is True
         assert attack.damage is not None
         assert attack.damage.amount == 8  # 1d8(5) + 3
+        assert attack.damage.is_healing is False
 
         updated, application = plugin.apply_damage(defender, attack.damage)
         assert application.hp_before == 16
         assert application.hp_after == 8
         assert updated["hp"]["current"] == 8
+
+    def test_healing_roll_uses_curacion_label(self, plugin: Dnd5ePlugin, sample_sheet: dict, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda a, b: 6 if b == 8 else 10)
+        sheet = dict(sample_sheet)
+        sheet["attacks"] = [
+            {
+                "name": "Curar heridas",
+                "to_hit_bonus": 0,
+                "damage_dice": "1d8+3",
+                "damage_type": "radiante",
+                "effect_type": "healing",
+            }
+        ]
+
+        result = plugin.resolve_roll("healing", sheet, RollContext(attack_index=0))
+        assert result.roll_type == "healing"
+        assert result.details["is_healing"] is True
+        assert result.details["effect_type"] == "healing"
+        assert "Curación" in result.chat_summary
+        assert "Daño" not in result.chat_summary
+
+    def test_healing_attack_applies_capped_hp(self, plugin: Dnd5ePlugin, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda a, b: 6 if b == 8 else 10)
+        healer_sheet = {
+            "attacks": [
+                {
+                    "name": "Curar heridas",
+                    "to_hit_bonus": 0,
+                    "damage_dice": "1d8+3",
+                    "damage_type": "radiante",
+                    "effect_type": "healing",
+                }
+            ]
+        }
+        defender = {"hp": {"max": 20, "current": 18, "temp": 0}, "ac": 10}
+
+        attack = plugin.resolve_attack(
+            healer_sheet,
+            defender,
+            "Curar heridas",
+            AttackContext(),
+        )
+        assert attack.hit is True
+        assert attack.damage is not None
+        assert attack.damage.is_healing is True
+
+        updated, application = plugin.apply_damage(defender, attack.damage)
+        assert application.is_healing is True
+        assert application.amount_applied == 2
+        assert application.hp_before == 18
+        assert application.hp_after == 20
+        assert updated["hp"]["current"] == 20
+        assert "Curación" in application.chat_summary
+
+    def test_damage_consumes_temp_hp_first(self, plugin: Dnd5ePlugin):
+        from app.rules.base import DamageResult
+
+        defender = {"hp": {"max": 20, "current": 15, "temp": 5}, "ac": 10}
+        updated, application = plugin.apply_damage(
+            defender,
+            DamageResult(
+                amount=7,
+                expression="7",
+                rolls=[],
+                damage_type="contundente",
+            ),
+        )
+        assert updated["hp"]["temp"] == 0
+        assert updated["hp"]["current"] == 13
+        assert application.hp_after == 13

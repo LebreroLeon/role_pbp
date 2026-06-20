@@ -1,5 +1,5 @@
 import re
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -137,11 +137,17 @@ def _normalize_attack_entry(
     if to_hit_bonus is None:
         to_hit_bonus = ability_mod + (proficiency_bonus if proficient else 0)
 
+    effect_type_raw = attack.get("effect_type")
+    if effect_type_raw is None and isinstance(damage, dict):
+        effect_type_raw = damage.get("effect_type")
+    effect_type = "healing" if str(effect_type_raw).strip().lower() == "healing" else "damage"
+
     return {
         "name": attack.get("name", "Attack"),
         "to_hit_bonus": to_hit_bonus,
         "damage_dice": damage_dice or "1d4",
         "damage_type": normalize_damage_type(str(damage_type) if damage_type is not None else None),
+        "effect_type": effect_type,
     }
 
 
@@ -223,6 +229,7 @@ class AttackEntry(BaseModel):
     to_hit_bonus: int = 0
     damage_dice: str
     damage_type: str
+    effect_type: Literal["damage", "healing"] = "damage"
 
     @field_validator("damage_type", mode="before")
     @classmethod
@@ -333,6 +340,7 @@ ROLL_TYPE_LABELS_ES: dict[str, str] = {
     "skill_check": "Tirada de habilidad",
     "attack_roll": "Ataque",
     "damage": "Daño",
+    "healing": "Curación",
     "initiative": "Iniciativa",
     "death_save": "Salvación contra la muerte",
 }
@@ -374,6 +382,7 @@ SUPPORTED_ROLL_TYPES = [
     "skill_check",
     "attack_roll",
     "damage",
+    "healing",
     "initiative",
     "death_save",
 ]

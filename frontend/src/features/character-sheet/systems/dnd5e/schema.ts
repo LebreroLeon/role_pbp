@@ -66,6 +66,7 @@ const attackSchema = z.object({
   name: z.string().min(1, "Nombre requerido"),
   ability: z.enum(DND5E_ABILITIES),
   proficient: z.boolean(),
+  effect_type: z.enum(["damage", "healing"]),
   damage: z.object({
     dice: z.string().min(1, "Dados requeridos"),
     type: z.enum(DND5E_DAMAGE_TYPE_VALUES),
@@ -192,6 +193,7 @@ export function defaultDnd5eSheet(): Dnd5eSheet {
         name: "Ataque desarmado",
         ability: "str",
         proficient: true,
+        effect_type: "damage",
         damage: { dice: "1d4", type: "contundente" },
         properties: [],
       },
@@ -354,6 +356,7 @@ export function convertBackendDnd5eSheet(raw: Record<string, unknown>): Dnd5eShe
             name?: string;
             ability?: Dnd5eAbility;
             proficient?: boolean;
+            effect_type?: "damage" | "healing";
             damage_dice?: string;
             damage_type?: string;
             properties?: string[];
@@ -362,6 +365,7 @@ export function convertBackendDnd5eSheet(raw: Record<string, unknown>): Dnd5eShe
             name: entry.name?.trim() || "Ataque",
             ability: entry.ability ?? "str",
             proficient: entry.proficient ?? false,
+            effect_type: (entry.effect_type === "healing" ? "healing" : "damage") as "damage" | "healing",
             damage: {
               dice: entry.damage_dice?.trim() || "1d4",
               type: normalizeAttackDamageType(entry.damage_type),

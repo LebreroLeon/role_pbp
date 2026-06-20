@@ -244,12 +244,16 @@ def _format_d20_attack_roll_line(attack_roll: Any, *, hit: bool | None) -> str:
     return line
 
 
-def _format_damage_line(damage: Any) -> str:
+def _format_damage_line(damage: Any, *, is_healing: bool = False) -> str:
     expression = getattr(damage, "expression", None)
     rolls = getattr(damage, "rolls", None)
     amount = getattr(damage, "amount", 0)
     modifier = getattr(damage, "modifier", 0)
     damage_type = getattr(damage, "damage_type", None)
+    if hasattr(damage, "is_healing"):
+        is_healing = bool(getattr(damage, "is_healing", False)) or is_healing
+    elif isinstance(damage, dict):
+        is_healing = bool(damage.get("is_healing")) or is_healing
 
     dice_sides = None
     if isinstance(expression, str):
@@ -269,6 +273,8 @@ def _format_damage_line(damage: Any) -> str:
     line += f" = {amount}"
     if isinstance(damage_type, str) and damage_type.strip():
         line += f" {damage_type.replace('_', ' ')}"
+    if is_healing:
+        return f"Curación {line}"
     return line
 
 
@@ -334,12 +340,15 @@ def _build_attack_messages(
         resolved_weapon = None
 
     if attack_result.hit and attack_result.damage is not None:
-        damage_line = _format_damage_line(attack_result.damage)
+        is_healing = bool(getattr(attack_result.damage, "is_healing", False))
+        effect_line = _format_damage_line(attack_result.damage, is_healing=is_healing)
+        verb = "cura a" if is_healing else "ataca a"
         summary = (
-            f"{attacker_name} ataca a {defender_name}: "
-            f"{roll_line}. "
-            f"{damage_line}."
+            f"{attacker_name} {verb} {defender_name}: "
         )
+        if not is_healing:
+            summary += f"{roll_line}. "
+        summary += f"{effect_line}."
         if damage_application is not None:
             summary += f" PV {damage_application.hp_before} → {damage_application.hp_after}."
     else:
@@ -357,14 +366,18 @@ def _build_attack_messages(
         combat_event["weapon_name"] = resolved_weapon
     if attack_result.damage is not None:
         damage = attack_result.damage
+        is_healing = bool(getattr(damage, "is_healing", False))
         combat_event["damage"] = {
             "amount": damage.amount,
             "type": damage.damage_type,
             "expression": damage.expression,
             "rolls": damage.rolls,
             "modifier": damage.modifier,
-            "chat_summary": _format_damage_line(damage),
+            "is_healing": is_healing,
+            "chat_summary": _format_damage_line(damage, is_healing=is_healing),
         }
+        if is_healing:
+            combat_event["is_healing"] = True
     if damage_application is not None:
         combat_event["hp"] = {
             "before": damage_application.hp_before,
@@ -447,7 +460,11 @@ async def execute_attack(
     if attack_result.hit and attack_result.damage is not None:
         updated_sheet, damage_application = plugin.apply_damage(defender_sheet, attack_result.damage)
         flag_updates: dict[str, bool] = {}
-        if damage_application.is_unconscious:
+        is_healing = bool(getattr(attack_result.damage, "is_healing", False))
+        if is_healing:
+            if damage_application.hp_after > 0 and defender.entity_type == "PC":
+                flag_updates["is_incapacitated"] = False
+        elif damage_application.is_unconscious:
             if defender.entity_type == "PC":
                 flag_updates["is_incapacitated"] = True
             elif defender.entity_type == "NPC":
