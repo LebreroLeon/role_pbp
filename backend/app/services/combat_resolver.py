@@ -322,7 +322,9 @@ def _build_attack_messages(
     attack_result: Any,
     damage_application: Any | None,
     weapon_name: str | None = None,
+    hidden_npc_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
+    hidden_npc_ids = hidden_npc_ids or set()
     attacker_name = entity_display_name(attacker)
     defender_name = entity_display_name(defender)
     attack_roll = attack_result.attack_roll
@@ -370,6 +372,8 @@ def _build_attack_messages(
         }
         combat_event["defender_hp_remaining"] = damage_application.hp_after
 
+    visibility = "master_only" if str(attacker.id) in hidden_npc_ids else "all"
+
     return [
         {
             "id": str(uuid.uuid4()),
@@ -382,6 +386,7 @@ def _build_attack_messages(
             "entity_name": attacker_name,
             "combat_event": combat_event,
             "read_by": [sender_id],
+            "visibility": visibility,
         },
     ]
 
@@ -411,6 +416,10 @@ async def execute_attack(
 ) -> CombatExecutionResult:
     plugin = get_combat_plugin(campaign.game_system)
     scene_entities = await fetch_scene_combat_entities(db, campaign.id, state)
+
+    from app.services.entities import get_effective_hidden_npc_ids
+
+    hidden_npc_ids = await get_effective_hidden_npc_ids(db, campaign.id)
 
     attacker = resolve_entity_reference(attacker_ref, scene_entities)
     defender = resolve_entity_reference(defender_ref, scene_entities)
@@ -453,6 +462,7 @@ async def execute_attack(
         attack_result=attack_result,
         damage_application=damage_application,
         weapon_name=weapon_name,
+        hidden_npc_ids=hidden_npc_ids,
     )
     return CombatExecutionResult(messages=messages, state=state)
 
@@ -536,6 +546,10 @@ async def execute_initiative(
     if not scene_entities:
         raise CombatResolverError("No entities present in scene for initiative")
 
+    from app.services.entities import get_effective_hidden_npc_ids
+
+    hidden_npc_ids = await get_effective_hidden_npc_ids(db, campaign.id)
+
     entries: list[InitiativeEntry] = []
     roll_messages: list[dict[str, Any]] = []
     for entity in scene_entities:
@@ -566,6 +580,7 @@ async def execute_initiative(
                 },
                 "final_result": roll.total,
                 "read_by": [sender_id],
+                "visibility": "master_only" if str(entity.id) in hidden_npc_ids else "all",
             }
         )
 
@@ -595,6 +610,7 @@ async def execute_initiative(
             "initiative_order": [entry.model_dump() for entry in entries],
         },
         "read_by": [sender_id],
+        "visibility": "master_only" if hidden_npc_ids.intersection({entry.entity_id for entry in entries}) else "all",
     }
     return CombatExecutionResult(messages=[combat_message, *roll_messages], state=state)
 

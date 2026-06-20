@@ -282,6 +282,8 @@ export type ChatMessage = {
 
   speaker_type?: "MASTER" | "NPC" | "PC" | "NARRATOR";
 
+  visibility?: "all" | "master_only";
+
 };
 
 
@@ -684,6 +686,8 @@ export type SheetRollRequest = {
   modifier?: number;
 
   context?: SheetRollContext;
+
+  master_only?: boolean;
 
 };
 

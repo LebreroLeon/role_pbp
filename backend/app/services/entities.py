@@ -354,6 +354,51 @@ def mask_hidden_npc_document(document: dict) -> dict:
     return sanitized
 
 
+def npc_world_hidden_from_players(document: dict) -> bool:
+    flags = document.get("state_flags")
+    if not isinstance(flags, dict):
+        return False
+    return bool(flags.get("hidden_from_players"))
+
+
+async def get_world_hidden_npc_ids(db: AsyncSession, campaign_id: uuid.UUID) -> set[str]:
+    npcs = (
+        await db.scalars(
+            select(CampaignEntity).where(
+                CampaignEntity.campaign_id == campaign_id,
+                CampaignEntity.entity_type == EntityType.NPC.value,
+            )
+        )
+    ).all()
+    return {str(npc.id) for npc in npcs if npc_world_hidden_from_players(npc.document)}
+
+
+async def get_effective_hidden_npc_ids(
+    db: AsyncSession,
+    campaign_id: uuid.UUID,
+) -> set[str]:
+    hidden = await get_world_hidden_npc_ids(db, campaign_id)
+    hidden.update(await get_active_scene_hidden_npc_ids(db, campaign_id))
+    return hidden
+
+
+async def resolve_roll_visibility(
+    db: AsyncSession,
+    campaign_id: uuid.UUID,
+    *,
+    master_only: bool,
+    sender_role: str,
+    entity_id: str | None = None,
+) -> str:
+    if master_only and sender_role == "MASTER":
+        return "master_only"
+    if entity_id:
+        hidden_ids = await get_effective_hidden_npc_ids(db, campaign_id)
+        if entity_id in hidden_ids:
+            return "master_only"
+    return "all"
+
+
 async def get_active_scene_hidden_npc_ids(
     db: AsyncSession,
     campaign_id: uuid.UUID,
@@ -503,6 +548,8 @@ async def roll_player_character_contextual(
     dice_expression: str = "1d20",
     modifier: int = 0,
     context: dict[str, Any] | None = None,
+    sender_role: str = "PLAYER",
+    master_only: bool = False,
 ) -> tuple[dict[str, Any], str | None]:
     """Roll from character sheet. Returns (roll_result, active_scene_id or None)."""
     campaign = await get_campaign_or_error(db, campaign_id)
@@ -539,6 +586,14 @@ async def roll_player_character_contextual(
                 skill_checked = roll_label.strip()
         if skill_checked is None and context and isinstance(context.get("skill"), str):
             skill_checked = context["skill"]
+        master_only = master_only and sender_role == "MASTER"
+        visibility = await resolve_roll_visibility(
+            db,
+            campaign_id,
+            master_only=master_only,
+            sender_role=sender_role,
+            entity_id=str(pc.id),
+        )
         await append_dice_roll_to_scene(
             db,
             active_scene,
@@ -546,6 +601,84 @@ async def roll_player_character_contextual(
             roll_result=roll_result,
             entity_id=str(pc.id),
             skill_checked=skill_checked,
+            visibility=visibility,
+        )
+        scene_id = str(active_scene.id)
+
+    return roll_result, scene_id
+
+
+async def roll_entity_contextual(
+    db: AsyncSession,
+    *,
+    entity: CampaignEntity,
+    sender_id: str,
+    sender_role: str,
+    roll_type: str,
+    dice_expression: str = "1d20",
+    modifier: int = 0,
+    context: dict[str, Any] | None = None,
+    master_only: bool = False,
+) -> tuple[dict[str, Any], str | None]:
+    """Roll from an entity sheet (master: NPC; member: own PC). Returns (roll_result, scene_id)."""
+    campaign = await get_campaign_or_error(db, entity.campaign_id)
+
+    if entity.entity_type == EntityType.NPC.value:
+        if sender_role != "MASTER":
+            raise CharacterSheetError("Only the master can roll for NPCs")
+    elif entity.entity_type == EntityType.PC.value:
+        binding = entity.document.get("player_binding", {})
+        if sender_role != "MASTER" and (
+            not isinstance(binding, dict) or binding.get("user_id") != sender_id
+        ):
+            raise CharacterSheetError("You can only roll for your own character")
+    else:
+        raise CharacterSheetError("Only PC and NPC entities support contextual rolls")
+
+    sheet = entity.document.get("system_mechanics", {}).get("sheet")
+    if not isinstance(sheet, dict):
+        raise CharacterSheetError("Entity has no valid system mechanics")
+
+    try:
+        roll_result = roll_dice(
+            dice_expression,
+            modifier,
+            game_system=campaign.game_system,
+            sheet=sheet,
+            roll_type=roll_type,
+            context=context or {},
+        )
+    except ValueError as exc:
+        raise EntityValidationError(str(exc)) from exc
+
+    from app.services.scenes import append_dice_roll_to_scene, get_active_scene
+
+    active_scene = await get_active_scene(db, entity.campaign_id)
+    scene_id: str | None = None
+    if active_scene is not None and active_scene.status == "ACTIVE":
+        roll_details = roll_result.get("roll_details")
+        skill_checked = None
+        if isinstance(roll_details, dict):
+            roll_label = roll_details.get("roll_label")
+            if isinstance(roll_label, str) and roll_label.strip():
+                skill_checked = roll_label.strip()
+        if skill_checked is None and context and isinstance(context.get("skill"), str):
+            skill_checked = context["skill"]
+        visibility = await resolve_roll_visibility(
+            db,
+            entity.campaign_id,
+            master_only=master_only,
+            sender_role=sender_role,
+            entity_id=str(entity.id),
+        )
+        await append_dice_roll_to_scene(
+            db,
+            active_scene,
+            sender_id=sender_id,
+            roll_result=roll_result,
+            entity_id=str(entity.id),
+            skill_checked=skill_checked,
+            visibility=visibility,
         )
         scene_id = str(active_scene.id)
 

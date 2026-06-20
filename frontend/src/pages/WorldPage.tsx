@@ -222,6 +222,7 @@ export function WorldPage() {
           </div>
         )}
         <EntityList
+          campaignId={campaignId}
           entities={entities}
           isMaster={Boolean(isMaster)}
           onEdit={isMaster ? (entity) => openEditor(entity.id, "edit") : undefined}

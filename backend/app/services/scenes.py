@@ -78,6 +78,8 @@ def normalize_chat_buffer(buffer: list) -> list[dict]:
         entry["read_by"] = list(entry.get("read_by") or [])
         if entry.get("type") == "NARRATIVE":
             entry["type"] = "ACTION"
+        if not entry.get("visibility"):
+            entry["visibility"] = "all"
         normalized.append(entry)
     return normalized
 
@@ -332,8 +334,9 @@ def default_scene_state(
     )
 
 
-def scene_to_response(scene: Scene) -> SceneResponse:
+def scene_to_response(scene: Scene, *, viewer_role: str = "MASTER") -> SceneResponse:
     state = load_scene_state(scene)
+    state = filter_scene_state_for_viewer(state, viewer_role)
     summary = state.metadata.closure_summary if scene.status == "CLOSED" else None
     return SceneResponse(
         id=str(scene.id),
@@ -344,6 +347,18 @@ def scene_to_response(scene: Scene) -> SceneResponse:
         summary=summary,
         scene_state=state,
     )
+
+
+def filter_scene_state_for_viewer(state: SceneState, viewer_role: str) -> SceneState:
+    if viewer_role == "MASTER":
+        return state
+    filtered = state.model_copy(deep=True)
+    filtered.chat_buffer = [
+        message
+        for message in filtered.chat_buffer
+        if (message.visibility or "all") != "master_only"
+    ]
+    return filtered
 
 
 def apply_likes_to_scene_state(state: SceneState, likes_by_message_id: dict[str, list[str]]) -> None:
@@ -357,8 +372,13 @@ def apply_likes_to_scene_state(state: SceneState, likes_by_message_id: dict[str,
         message.like_count = len(user_ids)
 
 
-async def scene_to_response_with_likes(db: AsyncSession, scene: Scene) -> SceneResponse:
-    response = scene_to_response(scene)
+async def scene_to_response_with_likes(
+    db: AsyncSession,
+    scene: Scene,
+    *,
+    viewer_role: str = "MASTER",
+) -> SceneResponse:
+    response = scene_to_response(scene, viewer_role=viewer_role)
     message_ids = [message.id for message in response.scene_state.chat_buffer if message.id]
     likes = await fetch_likes_by_message_id(db, scene.id, message_ids)
     apply_likes_to_scene_state(response.scene_state, likes)
@@ -700,6 +720,9 @@ async def roll_scene_dice(
 ) -> SceneResponse:
     ensure_scene_interactive(scene)
 
+    if payload.master_only and sender_role != "MASTER":
+        raise SceneServiceError("Solo el Máster puede tirar en secreto")
+
     state = load_scene_state(scene)
 
     try:
@@ -710,6 +733,8 @@ async def roll_scene_dice(
         raise SceneServiceError(str(exc)) from exc
 
     campaign = await get_campaign_or_error(db, scene.campaign_id)
+
+    from app.services.entities import resolve_roll_visibility
 
     try:
         result = roll_dice_expression(
@@ -725,6 +750,13 @@ async def roll_scene_dice(
     summary = result.get("chat_summary") or format_raw_roll_summary(payload.dice_expression, result)
     roll_details = result.get("roll_details") or build_generic_roll_details(payload.dice_expression, result)
 
+    visibility = await resolve_roll_visibility(
+        db,
+        scene.campaign_id,
+        master_only=payload.master_only,
+        sender_role=sender_role,
+    )
+
     message = {
         "id": str(uuid.uuid4()),
         "timestamp": utc_now_iso(),
@@ -739,6 +771,7 @@ async def roll_scene_dice(
         "skill_checked": payload.skill_checked,
         "roll_details": roll_details,
         "read_by": [sender_id],
+        "visibility": visibility,
     }
     state.chat_buffer.append(ChatMessage.model_validate(message))
     state.chat_buffer = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
@@ -929,6 +962,7 @@ def build_dice_roll_message(
     roll_result: dict[str, Any],
     entity_id: str | None = None,
     skill_checked: str | None = None,
+    visibility: str = "all",
 ) -> dict[str, Any]:
     roll_details = roll_result.get("roll_details")
     if not isinstance(roll_details, dict):
@@ -958,6 +992,7 @@ def build_dice_roll_message(
         "chat_summary": roll_result.get("chat_summary"),
         "success": roll_result.get("success"),
         "read_by": [sender_id],
+        "visibility": visibility,
     }
     if entity_id:
         message["entity_id"] = entity_id
@@ -976,6 +1011,7 @@ async def append_dice_roll_to_scene(
     roll_result: dict[str, Any],
     entity_id: str | None = None,
     skill_checked: str | None = None,
+    visibility: str = "all",
 ) -> SceneResponse:
     ensure_scene_interactive(scene)
     state = load_scene_state(scene)
@@ -984,6 +1020,7 @@ async def append_dice_roll_to_scene(
         roll_result=roll_result,
         entity_id=entity_id,
         skill_checked=skill_checked,
+        visibility=visibility,
     )
     state.chat_buffer.append(ChatMessage.model_validate(message))
     state.chat_buffer = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]

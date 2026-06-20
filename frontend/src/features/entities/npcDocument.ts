@@ -56,6 +56,7 @@ export function buildNpcDocumentForGameSystem(input: {
       is_present_in_scene: false,
       attitude_towards_party: "neutral",
       has_met_party: false,
+      hidden_from_players: false,
     },
   };
 }

@@ -1,5 +1,5 @@
 import type { CampaignEntity, CombatInitiativeEntry } from "../../api/types";
-import { getEntityDisplayName } from "../entities/entityDefaults";
+import { getEntityDisplayName, isNpcWorldHidden } from "../entities/entityDefaults";
 import { getCombatState, normalizeSceneState, type SceneStateInput } from "../scene/sceneState";
 
 export type NpcPlayerVisibility = "Visible" | "Oculto";
@@ -43,6 +43,7 @@ export function isNpcHiddenFromPlayer(
   _entity: CampaignEntity | undefined,
   sceneState: SceneStateInput,
 ): boolean {
+  if (_entity && isNpcWorldHidden(_entity)) return true;
   const normalized = normalizeSceneState(sceneState);
   return normalized.context.hidden_npc_ids?.includes(entityId) ?? false;
 }

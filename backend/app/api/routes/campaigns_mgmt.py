@@ -182,7 +182,8 @@ async def get_active_campaign_scene(
     if scene.status == "ACTIVE":
         await ensure_player_pc_present_in_scene(db, scene, current_user.id)
 
-    return scene_to_response(scene)
+    role = await require_campaign_member(db, current_user, campaign_uuid)
+    return scene_to_response(scene, viewer_role=role)
 
 
 @router.post("/{campaign_id}/scenes/{scene_id}/activate", response_model=SceneResponse)

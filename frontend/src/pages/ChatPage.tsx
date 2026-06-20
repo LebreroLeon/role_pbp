@@ -55,6 +55,7 @@ export function ChatPage() {
   const [speakerId, setSpeakerId] = useState(DEFAULT_SPEAKER_OPTION_ID);
   const [dice, setDice] = useState("1d20");
   const [diceAdvantageMode, setDiceAdvantageMode] = useState<AdvantageMode>("normal");
+  const [diceMasterOnly, setDiceMasterOnly] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [newSceneName, setNewSceneName] = useState("");
@@ -200,7 +201,7 @@ export function ChatPage() {
     }
   }
 
-  async function handleRoll(options?: { advantage?: boolean; disadvantage?: boolean }) {
+  async function handleRoll(options?: { advantage?: boolean; disadvantage?: boolean; masterOnly?: boolean }) {
     if (!currentScene) return;
 
     setLoading(true);
@@ -453,6 +454,9 @@ export function ChatPage() {
               gameSystem={campaign?.game_system ?? undefined}
               advantageMode={diceAdvantageMode}
               onAdvantageModeChange={setDiceAdvantageMode}
+              isMaster={Boolean(isMaster)}
+              masterOnly={diceMasterOnly}
+              onMasterOnlyChange={setDiceMasterOnly}
             />
 
             <GameSystemChatMiniSheet

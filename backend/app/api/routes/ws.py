@@ -45,13 +45,13 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
             if role != "MASTER" and scene.status == "CLOSED":
                 await websocket.close(code=4403, reason=PLAYER_NO_ACTIVE_SCENE_DETAIL)
                 return
-            snapshot = await scene_response_with_likes(db, scene)
+            snapshot = await scene_response_with_likes(db, scene, viewer_role=role)
             member_role = role
         except HTTPException:
             await websocket.close(code=4401)
             return
 
-    await scene_ws_manager.connect(scene_id, websocket)
+    await scene_ws_manager.connect(scene_id, websocket, role=member_role)
 
     try:
         await websocket.send_json(
@@ -116,6 +116,7 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
                                 modifier=int(data.get("modifier") or 0),
                                 advantage=bool(data.get("advantage")),
                                 disadvantage=bool(data.get("disadvantage")),
+                                master_only=bool(data.get("master_only")),
                             ),
                             sender_role=role,
                         )
@@ -134,7 +135,7 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
                     await websocket.send_json({"event": "error", "detail": str(exc)})
                     continue
 
-            await broadcast_scene_update(db, scene)
+            await broadcast_scene_update(db, scene, requester_role=role)
     except WebSocketDisconnect:
         pass
     finally:

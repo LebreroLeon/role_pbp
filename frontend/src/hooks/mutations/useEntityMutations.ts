@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { api, type CreateEntityPayload } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
+import type { SheetRollRequest } from "../../api/types";
 import type { CampaignEntity } from "../../features/entities/entityDefaults";
 
 function patchEntityInList(list: CampaignEntity[] | undefined, updated: CampaignEntity) {
@@ -48,6 +49,18 @@ export function useUpdateEntityMutation(campaignId: string) {
       );
       queryClient.invalidateQueries({ queryKey: queryKeys.entities.all(campaignId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.entities.campaignSheets(campaignId) });
+    },
+  });
+}
+
+export function useRollEntityMutation(campaignId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ entityId, payload }: { entityId: string; payload: SheetRollRequest }) =>
+      api.rollFromEntitySheet(entityId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.activeScene(campaignId) });
     },
   });
 }

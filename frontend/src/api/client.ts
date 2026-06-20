@@ -118,7 +118,7 @@ export const api = {
   rollDice: (
     sceneId: string,
     diceExpression: string,
-    options?: { modifier?: number; advantage?: boolean; disadvantage?: boolean },
+    options?: { modifier?: number; advantage?: boolean; disadvantage?: boolean; masterOnly?: boolean },
   ) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/dice`, {
       method: "POST",
@@ -127,6 +127,7 @@ export const api = {
         modifier: options?.modifier ?? 0,
         advantage: options?.advantage ?? false,
         disadvantage: options?.disadvantage ?? false,
+        master_only: options?.masterOnly ?? false,
       }),
     }),
   markSceneRead: (sceneId: string, messageIds?: string[]) =>
@@ -218,6 +219,11 @@ export const api = {
     }),
   rollFromMySheet: (campaignId: string, payload: SheetRollRequest) =>
     http<SheetRollResponse>(`/api/v1/campaigns/${campaignId}/my-sheet/roll`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  rollFromEntitySheet: (entityId: string, payload: SheetRollRequest) =>
+    http<SheetRollResponse>(`/api/v1/entities/${entityId}/roll`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),

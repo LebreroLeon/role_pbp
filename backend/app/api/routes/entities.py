@@ -17,16 +17,18 @@ from app.models.campaign import CampaignEntity
 from app.models.user import User
 from datetime import UTC, datetime
 
-from app.schemas.entities import EntityCreate, EntityImportItem, EntityImportRequest, EntityImportResponse, EntityPresencePatch, EntityResponse, EntityType, EntityUpdate, EntityExportResponse
+from app.schemas.entities import EntityCreate, EntityImportItem, EntityImportRequest, EntityImportResponse, EntityPresencePatch, EntityResponse, EntityType, EntityUpdate, EntityExportResponse, ContextualRollRequest
 from app.services.entities import (
     CharacterSheetError,
     EntityReferenceError,
     EntityValidationError,
     ensure_single_arc_manifest,
-    get_active_scene_hidden_npc_ids,
+    get_effective_hidden_npc_ids,
     get_campaign_or_error,
     mask_hidden_npc_document,
+    npc_world_hidden_from_players,
     normalize_entity_document_for_campaign,
+    roll_entity_contextual,
     set_pc_present_in_scene,
     strip_master_secrets,
     validate_entity_cross_references,
@@ -120,13 +122,19 @@ async def list_entities(
     include_secrets = role == "MASTER"
     hidden_npc_ids: set[str] = set()
     if not include_secrets:
-        hidden_npc_ids = await get_active_scene_hidden_npc_ids(db, campaign_uuid)
+        hidden_npc_ids = await get_effective_hidden_npc_ids(db, campaign_uuid)
 
     query = select(CampaignEntity).where(CampaignEntity.campaign_id == campaign_uuid)
     if entity_type is not None:
         query = query.where(CampaignEntity.entity_type == entity_type.value)
 
     entities = (await db.scalars(query.order_by(CampaignEntity.created_at))).all()
+    if not include_secrets:
+        entities = [
+            entity
+            for entity in entities
+            if not (entity.entity_type == EntityType.NPC.value and npc_world_hidden_from_players(entity.document))
+        ]
     return [
         _entity_to_response(entity, include_secrets=include_secrets, hidden_npc_ids=hidden_npc_ids)
         for entity in entities
@@ -211,7 +219,9 @@ async def get_entity(
     include_secrets = role == "MASTER"
     hidden_npc_ids: set[str] = set()
     if not include_secrets:
-        hidden_npc_ids = await get_active_scene_hidden_npc_ids(db, entity.campaign_id)
+        hidden_npc_ids = await get_effective_hidden_npc_ids(db, entity.campaign_id)
+        if entity.entity_type == EntityType.NPC.value and npc_world_hidden_from_players(entity.document):
+            raise HTTPException(status_code=404, detail="Entity not found")
     return _entity_to_response(
         entity,
         include_secrets=include_secrets,
@@ -247,6 +257,48 @@ async def patch_entity_presence(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return _entity_to_response(updated, include_secrets=role == "MASTER")
+
+
+@router.post("/{entity_id}/roll")
+async def roll_entity_sheet(
+    entity_id: str,
+    payload: ContextualRollRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    entity = await _get_entity_or_404(entity_id, db)
+    role = await require_campaign_member(db, current_user, entity.campaign_id)
+
+    try:
+        roll_result, scene_id = await roll_entity_contextual(
+            db,
+            entity=entity,
+            sender_id=str(current_user.id),
+            sender_role=role,
+            roll_type=payload.roll_type,
+            dice_expression=payload.dice_expression,
+            modifier=payload.modifier,
+            context=payload.context,
+            master_only=payload.master_only,
+        )
+    except (CharacterSheetError, EntityValidationError) as exc:
+        detail = str(exc)
+        if "not found" in detail.lower():
+            raise HTTPException(status_code=404, detail=detail) from exc
+        if "only the master" in detail.lower() or "only roll for your own" in detail.lower():
+            raise HTTPException(status_code=403, detail=detail) from exc
+        raise HTTPException(status_code=422, detail=detail) from exc
+
+    if scene_id is not None:
+        from app.services.scenes import get_scene_by_id
+
+        scene = await get_scene_by_id(db, parse_uuid(scene_id, "scene_id"))
+        if scene is not None:
+            from app.services.scene_ws import broadcast_scene_update
+
+            await broadcast_scene_update(db, scene, requester_role=role)
+
+    return roll_result
 
 
 @router.put("/{entity_id}", response_model=EntityResponse)

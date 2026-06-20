@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 MessageType = Literal["SPEAK", "ACTION", "CONTEXT", "MASTER", "NARRATIVE", "DICE_ROLL"]
+MessageVisibility = Literal["all", "master_only"]
 PlayerMessageType = Literal["SPEAK", "ACTION", "CONTEXT"]
 SceneStatusType = Literal["ACTIVE", "PAUSED", "CLOSED"]
 SpeakerType = Literal["MASTER", "NPC", "PC", "NARRATOR"]
@@ -38,6 +39,7 @@ class ChatMessage(BaseModel):
     speaker_entity_id: str | None = None
     speaker_display_name: str | None = None
     speaker_type: SpeakerType | None = None
+    visibility: MessageVisibility = "all"
 
 
 class SceneMetadata(BaseModel):
@@ -129,6 +131,7 @@ class DiceRollRequest(BaseModel):
     skill_checked: str | None = None
     advantage: bool = False
     disadvantage: bool = False
+    master_only: bool = False
 
 
 class MarkReadRequest(BaseModel):

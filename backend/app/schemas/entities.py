@@ -68,6 +68,7 @@ class NPCStateFlags(BaseModel):
     is_present_in_scene: bool
     attitude_towards_party: str
     has_met_party: bool
+    hidden_from_players: bool = False
 
 
 class EntityNPCDocument(BaseModel):
@@ -332,6 +333,7 @@ class ContextualRollRequest(BaseModel):
     dice_expression: str = "1d20"
     modifier: int = 0
     context: dict[str, Any] = Field(default_factory=dict)
+    master_only: bool = False
 
 
 class EntityPresencePatch(BaseModel):

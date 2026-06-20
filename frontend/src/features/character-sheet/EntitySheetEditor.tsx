@@ -1,10 +1,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "../../api/http";
-import type { CampaignMember } from "../../api/types";
-import { Button, ErrorBanner, Input } from "../../components/ui";
+import type { CampaignMember, SheetRollRequest } from "../../api/types";
+import { Button, ErrorBanner, Input, Switch } from "../../components/ui";
 import { gameSystemLabel, hasSheetTemplate } from "../campaign/gameSystems";
-import { useUpdateEntityMutation } from "../../hooks/mutations/useEntityMutations";
+import { useRollEntityMutation, useUpdateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 import {
   extractSheetFromEntity,
   type GameSheet,
@@ -70,7 +70,10 @@ export function EntitySheetEditor({
   onCancel,
 }: EntitySheetEditorProps) {
   const updateMutation = useUpdateEntityMutation(campaignId);
+  const rollMutation = useRollEntityMutation(campaignId);
   const [formError, setFormError] = useState<string | null>(null);
+  const [rollSummary, setRollSummary] = useState<string | null>(null);
+  const [rollMasterOnly, setRollMasterOnly] = useState(false);
 
   const workingDocument = useMemo(() => {
     if (entity.entity_type === "NPC" && hasSheetTemplate(gameSystem)) {
@@ -173,6 +176,20 @@ export function EntitySheetEditor({
       narrative: buildNarrativeFields(),
     });
     await persistDocument(document);
+  }
+
+  async function handleSheetRoll(payload: SheetRollRequest) {
+    setFormError(null);
+    setRollSummary(null);
+    try {
+      const result = await rollMutation.mutateAsync({
+        entityId: entity.id,
+        payload: { ...payload, master_only: rollMasterOnly },
+      });
+      setRollSummary(result.chat_summary ?? `Resultado: ${result.final_result}`);
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "No se pudo tirar desde la ficha");
+    }
   }
 
   async function handleSaveSheet(sheet: GameSheet) {
@@ -289,12 +306,25 @@ export function EntitySheetEditor({
         <section className="sheet-mechanics-section">
           <h3>Ficha mecánica — {gameSystemLabel(gameSystem)}</h3>
           <p className="muted">Vista Máster: stats, PV, ataques y secretos mecánicos visibles.</p>
+          {entity.entity_type === "NPC" && (
+            <Switch
+              checked={rollMasterOnly}
+              onCheckedChange={setRollMasterOnly}
+              label="Tirada en secreto"
+              description="Las tiradas de este NPC solo las verá el Máster (salvo que esté oculto, que siempre son secretas para jugadores)"
+              tone="rose"
+              disabled={rollMutation.isPending}
+            />
+          )}
+          {rollSummary && <p className="sheet-roll-summary">{rollSummary}</p>}
           {gameSystem === "dnd5e" && (
             <Dnd5eSheetForm
               key={`${entity.id}-${entity.updated_at}`}
               defaultValues={sheetDefaults as ReturnType<typeof parseDnd5eSheet>}
               onSubmit={handleSaveSheet}
+              onRoll={handleSheetRoll}
               isSaving={updateMutation.isPending}
+              isRolling={rollMutation.isPending}
             />
           )}
           {gameSystem === "cyberpunk_red" && (
@@ -302,7 +332,9 @@ export function EntitySheetEditor({
               key={`${entity.id}-${entity.updated_at}`}
               defaultValues={sheetDefaults as ReturnType<typeof parseCyberpunkRedSheet>}
               onSubmit={handleSaveSheet}
+              onRoll={handleSheetRoll}
               isSaving={updateMutation.isPending}
+              isRolling={rollMutation.isPending}
             />
           )}
           {gameSystem === "vtm_v5" && (
@@ -310,7 +342,9 @@ export function EntitySheetEditor({
               key={`${entity.id}-${entity.updated_at}`}
               defaultValues={sheetDefaults as ReturnType<typeof parseVtmV5Sheet>}
               onSubmit={handleSaveSheet}
+              onRoll={handleSheetRoll}
               isSaving={updateMutation.isPending}
+              isRolling={rollMutation.isPending}
             />
           )}
         </section>

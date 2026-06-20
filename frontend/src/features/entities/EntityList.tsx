@@ -1,8 +1,10 @@
 import type { CampaignEntity, EntityType } from "./entityDefaults";
-import { ENTITY_TYPE_LABELS, getEntityDisplayName } from "./entityDefaults";
-import { Button } from "../../components/ui";
+import { ENTITY_TYPE_LABELS, getEntityDisplayName, isNpcWorldHidden } from "./entityDefaults";
+import { Button, Switch } from "../../components/ui";
+import { useUpdateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 
 type EntityListProps = {
+  campaignId: string;
   entities: CampaignEntity[];
   isMaster: boolean;
   onEdit?: (entity: CampaignEntity) => void;
@@ -11,12 +13,37 @@ type EntityListProps = {
   deletingId?: string | null;
 };
 
-export function EntityList({ entities, isMaster, onEdit, editingId, onDelete, deletingId }: EntityListProps) {
-  if (entities.length === 0) {
+export function EntityList({
+  campaignId,
+  entities,
+  isMaster,
+  onEdit,
+  editingId,
+  onDelete,
+  deletingId,
+}: EntityListProps) {
+  const updateMutation = useUpdateEntityMutation(campaignId);
+
+  const visibleEntities = isMaster
+    ? entities
+    : entities.filter((entity) => !(entity.entity_type === "NPC" && isNpcWorldHidden(entity)));
+
+  if (visibleEntities.length === 0) {
     return <p className="muted">El mundo está vacío. Crea o importa NPCs y ubicaciones.</p>;
   }
 
-  const grouped = entities.reduce<Record<EntityType, CampaignEntity[]>>(
+  async function handleToggleNpcHidden(entity: CampaignEntity, hidden: boolean) {
+    const flags = {
+      ...(entity.document.state_flags as Record<string, unknown>),
+      hidden_from_players: hidden,
+    };
+    await updateMutation.mutateAsync({
+      entityId: entity.id,
+      document: { ...entity.document, state_flags: flags },
+    });
+  }
+
+  const grouped = visibleEntities.reduce<Record<EntityType, CampaignEntity[]>>(
     (acc, entity) => {
       acc[entity.entity_type] = acc[entity.entity_type] ?? [];
       acc[entity.entity_type].push(entity);
@@ -31,32 +58,52 @@ export function EntityList({ entities, isMaster, onEdit, editingId, onDelete, de
         <section key={type} className="entity-group">
           <h3>{ENTITY_TYPE_LABELS[type as EntityType]}</h3>
           <ul className="entity-list">
-            {items.map((entity) => (
-              <li key={entity.id} className={`entity-card ${editingId === entity.id ? "is-editing" : ""}`}>
-                <div>
-                  <strong>{getEntityDisplayName(entity, entities)}</strong>
-                  <p className="muted entity-summary">{summarizeEntity(entity)}</p>
-                </div>
-                {isMaster && (
-                  <div className="entity-card__actions">
-                    {onEdit && (entity.entity_type === "NPC" || isWorldEntity(entity.entity_type)) && (
-                      <Button className="secondary" onClick={() => onEdit(entity)}>
-                        {editingId === entity.id ? "Editando" : editLabel(entity.entity_type)}
-                      </Button>
+            {items.map((entity) => {
+              const npcHidden =
+                entity.entity_type === "NPC" &&
+                Boolean((entity.document.state_flags as { hidden_from_players?: boolean } | undefined)?.hidden_from_players);
+
+              return (
+                <li key={entity.id} className={`entity-card ${editingId === entity.id ? "is-editing" : ""}`}>
+                  <div>
+                    <strong>{getEntityDisplayName(entity, entities)}</strong>
+                    {isMaster && entity.entity_type === "NPC" && npcHidden && (
+                      <span className="entity-card__badge entity-card__badge--hidden">Oculto a jugadores</span>
                     )}
-                    {onDelete && (
-                      <Button
-                        className="secondary"
-                        disabled={deletingId === entity.id}
-                        onClick={() => onDelete(entity.id)}
-                      >
-                        {deletingId === entity.id ? "..." : "Eliminar"}
-                      </Button>
+                    <p className="muted entity-summary">{summarizeEntity(entity)}</p>
+                    {isMaster && entity.entity_type === "NPC" && (
+                      <Switch
+                        checked={npcHidden}
+                        onCheckedChange={(checked) => handleToggleNpcHidden(entity, checked)}
+                        label="Ocultar a jugadores"
+                        description="No aparece en Mundo para jugadores; en escena puede mostrarse como Desconocido"
+                        tone="rose"
+                        disabled={updateMutation.isPending}
+                        className="entity-card__hide-switch"
+                      />
                     )}
                   </div>
-                )}
-              </li>
-            ))}
+                  {isMaster && (
+                    <div className="entity-card__actions">
+                      {onEdit && (entity.entity_type === "NPC" || isWorldEntity(entity.entity_type)) && (
+                        <Button className="secondary" onClick={() => onEdit(entity)}>
+                          {editingId === entity.id ? "Editando" : editLabel(entity.entity_type)}
+                        </Button>
+                      )}
+                      {onDelete && (
+                        <Button
+                          className="secondary"
+                          disabled={deletingId === entity.id}
+                          onClick={() => onDelete(entity.id)}
+                        >
+                          {deletingId === entity.id ? "..." : "Eliminar"}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </section>
       ))}

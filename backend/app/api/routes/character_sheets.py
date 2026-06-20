@@ -108,7 +108,7 @@ async def roll_my_character_sheet(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     campaign_uuid = parse_uuid(campaign_id, "campaign_id")
-    await require_campaign_member(db, current_user, campaign_uuid)
+    role = await require_campaign_member(db, current_user, campaign_uuid)
 
     try:
         roll_result, scene_id = await roll_player_character_contextual(
@@ -119,6 +119,8 @@ async def roll_my_character_sheet(
             dice_expression=payload.dice_expression,
             modifier=payload.modifier,
             context=payload.context,
+            sender_role=role,
+            master_only=payload.master_only,
         )
     except (CharacterSheetError, EntityValidationError) as exc:
         raise _sheet_error_to_http(exc) from exc
@@ -126,7 +128,7 @@ async def roll_my_character_sheet(
     if scene_id is not None:
         scene = await get_active_scene(db, campaign_uuid)
         if scene is not None:
-            await broadcast_scene_update(db, scene)
+            await broadcast_scene_update(db, scene, requester_role=role)
 
     return roll_result
 

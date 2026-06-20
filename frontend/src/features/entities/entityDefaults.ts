@@ -28,6 +28,12 @@ export function normalizeEntityRefId(value: string | null | undefined): string {
   return value;
 }
 
+export function isNpcWorldHidden(entity: CampaignEntity): boolean {
+  if (entity.entity_type !== "NPC") return false;
+  const flags = entity.document.state_flags as { hidden_from_players?: boolean } | undefined;
+  return Boolean(flags?.hidden_from_players);
+}
+
 export function getEntityDisplayName(entity: CampaignEntity, allEntities?: CampaignEntity[]): string {
   if (entity.entity_type === "RELATIONSHIP") {
     const connection = entity.document.connection as
@@ -92,6 +98,7 @@ export function buildNpcDocument(input: {
       is_present_in_scene: false,
       attitude_towards_party: "neutral",
       has_met_party: false,
+      hidden_from_players: false,
     },
   };
 }

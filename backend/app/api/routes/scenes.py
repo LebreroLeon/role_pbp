@@ -74,7 +74,7 @@ async def create_scene_route(
         scene = await get_scene_by_id(db, parse_uuid(created.id, "scene_id"))
         if scene is None:
             raise scene_service_error_to_http(SceneServiceError("Scene not found"))
-        return await broadcast_scene_update(db, scene)
+        return await broadcast_scene_update(db, scene, requester_role="MASTER")
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
@@ -89,7 +89,8 @@ async def get_scene_route(
     await require_player_open_scene(db, current_user, scene)
     if scene.status == "ACTIVE":
         await ensure_player_pc_present_in_scene(db, scene, current_user.id)
-    return await scene_response_with_likes(db, scene)
+    role = await require_campaign_member(db, current_user, scene.campaign_id)
+    return await scene_response_with_likes(db, scene, viewer_role=role)
 
 
 @router.post("/{scene_id}/messages", response_model=SceneResponse)
@@ -107,7 +108,7 @@ async def post_message_route(
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    return await broadcast_scene_update(db, scene)
+    return await broadcast_scene_update(db, scene, requester_role=role)
 
 
 @router.post("/{scene_id}/dice", response_model=SceneResponse)
@@ -125,7 +126,7 @@ async def roll_scene_dice_route(
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    return await broadcast_scene_update(db, scene)
+    return await broadcast_scene_update(db, scene, requester_role=role)
 
 
 @router.post("/{scene_id}/read", response_model=SceneResponse)
@@ -143,7 +144,8 @@ async def mark_read_route(
         str(current_user.id),
         payload.message_ids,
     )
-    return await broadcast_scene_update(db, scene)
+    role = await require_campaign_member(db, current_user, scene.campaign_id)
+    return await broadcast_scene_update(db, scene, requester_role=role)
 
 
 @router.post("/{scene_id}/activate", response_model=SceneResponse)
@@ -159,7 +161,7 @@ async def activate_scene_route(
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    return await broadcast_scene_update(db, scene)
+    return await broadcast_scene_update(db, scene, requester_role="MASTER")
 
 
 @router.patch("/{scene_id}/status", response_model=SceneResponse)
@@ -174,7 +176,7 @@ async def patch_scene_status_route(
     if payload.status == "CLOSED":
         raise scene_service_error_to_http(SceneServiceError("Use POST /scenes/{id}/close to close a scene"))
     await update_scene_status(db, scene, payload.status)
-    return await broadcast_scene_update(db, scene)
+    return await broadcast_scene_update(db, scene, requester_role="MASTER")
 
 
 @router.patch("/{scene_id}", response_model=SceneResponse)
@@ -187,7 +189,7 @@ async def patch_scene_route(
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_campaign_master(db, current_user, scene.campaign_id)
     await update_scene_display_name(db, scene, payload.display_name)
-    return await broadcast_scene_update(db, scene)
+    return await broadcast_scene_update(db, scene, requester_role="MASTER")
 
 
 @router.post("/{scene_id}/messages/{message_id}/like", response_model=SceneResponse)
@@ -199,12 +201,13 @@ async def toggle_scene_message_like_route(
 ) -> SceneResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_player_open_scene(db, current_user, scene)
+    role = await require_campaign_member(db, current_user, scene.campaign_id)
     try:
         await toggle_scene_message_like(db, scene, str(current_user.id), message_id)
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    return await broadcast_scene_update(db, scene)
+    return await broadcast_scene_update(db, scene, requester_role=role)
 
 
 @router.delete("/{scene_id}/messages/{message_id}", response_model=SceneResponse)
@@ -221,7 +224,7 @@ async def delete_scene_message_route(
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    return await broadcast_scene_update(db, scene)
+    return await broadcast_scene_update(db, scene, requester_role="MASTER")
 
 
 @router.post("/{scene_id}/close", response_model=SceneResponse)
@@ -237,7 +240,7 @@ async def close_scene_route(
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    return await broadcast_scene_update(db, scene)
+    return await broadcast_scene_update(db, scene, requester_role="MASTER")
 
 
 async def _presence_route(
@@ -253,7 +256,7 @@ async def _presence_route(
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    return await broadcast_scene_update(db, scene)
+    return await broadcast_scene_update(db, scene, requester_role="MASTER")
 
 
 @router.post("/{scene_id}/presence", response_model=SceneResponse)
@@ -345,7 +348,7 @@ async def patch_turn_management_route(
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    return await broadcast_scene_update(db, scene)
+    return await broadcast_scene_update(db, scene, requester_role="MASTER")
 
 
 @router.post("/{scene_id}/turn-management/advance", response_model=SceneResponse)
@@ -361,7 +364,7 @@ async def advance_turn_management_route(
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    return await broadcast_scene_update(db, scene)
+    return await broadcast_scene_update(db, scene, requester_role="MASTER")
 
 
 @router.post("/{scene_id}/combat/initiative", response_model=SceneResponse)
@@ -397,7 +400,7 @@ async def roll_combat_initiative_route(
     await _append_combat_messages_and_save(
         db, scene, state, str(current_user.id), combat_result
     )
-    return await broadcast_scene_update(db, scene)
+    return await broadcast_scene_update(db, scene, requester_role=role)
 
 
 @router.post("/{scene_id}/combat/attack", response_model=SceneResponse)
@@ -437,4 +440,4 @@ async def combat_attack_route(
     await _append_combat_messages_and_save(
         db, scene, state, str(current_user.id), combat_result
     )
-    return await broadcast_scene_update(db, scene)
+    return await broadcast_scene_update(db, scene, requester_role=role)

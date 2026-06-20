@@ -218,8 +218,10 @@ class TestExecuteAttack:
             side_effect=[
                 MagicMock(all=lambda: [entity for entity in entities if entity.entity_type == "PC"]),
                 MagicMock(all=lambda: [defender]),
+                MagicMock(all=lambda: []),
             ]
         )
+        db.scalar = AsyncMock(return_value=None)
 
         campaign = Campaign(id=uuid.uuid4(), name="Test", game_system="dnd5e")
         state = SceneState(
