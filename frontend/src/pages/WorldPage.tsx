@@ -1,20 +1,26 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
-import { SECTION_ICONS } from "../components/icons";
+import { Activity, CheckCircle2, Circle, Crown, SECTION_ICONS } from "../components/icons";
 import { Panel, PanelHeader, SlideOver, Toast, Button, ErrorBanner } from "../components/ui";
 import { EntitySheetEditor } from "../features/character-sheet/EntitySheetEditor";
+import { CampaignSceneLog, formatSceneLabel } from "../features/campaign";
 import { CreateEntityForm, EntityList, ImportExportPanel, WorldEntityEditor, ArcManifestEditor } from "../features/entities";
 import { ENTITY_TYPE_LABELS, buildArcManifestDocument, getEntityDisplayName } from "../features/entities/entityDefaults";
 import { useCreateEntityMutation, useDeleteEntityMutation } from "../hooks/mutations/useEntityMutations";
 import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
 import { useEntitiesQuery } from "../hooks/queries/useEntityQueries";
+import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
+import { useAuthStore } from "../stores/authStore";
 
 export function WorldPage() {
   const { campaignId = "" } = useParams();
+  const base = `/campaigns/${campaignId}`;
+  const currentUserId = useAuthStore((state) => state.user?.id ?? "");
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
   const { data: entities = [] } = useEntitiesQuery(campaignId);
+  const { data: openScene } = useOpenSceneQuery(campaignId);
   const deleteMutation = useDeleteEntityMutation(campaignId);
   const createArcMutation = useCreateEntityMutation(campaignId);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -26,6 +32,15 @@ export function WorldPage() {
   const gameSystem = campaign?.game_system ?? "generic";
   const arcManifest = entities.find((entity) => entity.entity_type === "ARC_MANIFEST") ?? null;
   const editingEntity = editingEntityId ? entities.find((entity) => entity.id === editingEntityId) ?? null : null;
+  const closedScenesHint = openScene ? formatSceneLabel(openScene) : null;
+  const playerSheet = entities.find(
+    (entity) =>
+      entity.entity_type === "PC" &&
+      (entity.document.player_binding as { user_id?: string } | undefined)?.user_id === currentUserId,
+  );
+  const hasPlayerSheet = Boolean(playerSheet);
+  const hasActiveScene = openScene?.status === "ACTIVE";
+  const onboardingComplete = hasPlayerSheet && hasActiveScene;
 
   function openEditor(entityId: string, mode: "create" | "edit" = "edit") {
     setEditorMode(mode);
@@ -89,6 +104,87 @@ export function WorldPage() {
   return (
     <div className="world-page">
       <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
+
+      <Panel>
+        <PanelHeader
+          icon={Activity}
+          iconTone="teal"
+          title="Historial de escenas"
+          description={
+            isMaster
+              ? "Compendio de resúmenes y escena en curso. Reanuda escenas pausadas desde aquí."
+              : "Resúmenes de escenas que ya vivió la mesa y la escena actual."
+          }
+        />
+        {!openScene && (
+          <p className="muted hub-hint">
+            {isMaster ? (
+              <>
+                Aún no hay escena activa. Ve a <Link to={`${base}/chat`}>Jugar</Link> para iniciarla.
+              </>
+            ) : (
+              "Esperando al Máster. El Máster debe iniciar la siguiente escena antes de que puedas entrar al chat."
+            )}
+          </p>
+        )}
+        {openScene && closedScenesHint && (
+          <p className="muted hub-hint">
+            Escena en curso: <strong>{closedScenesHint}</strong>
+            {" · "}
+            <Link to={`${base}/chat`}>Ir a Jugar</Link>
+          </p>
+        )}
+        <CampaignSceneLog campaignId={campaignId} activeSceneId={openScene?.id} isMaster={isMaster} />
+      </Panel>
+
+      {!isMaster && (
+        <Panel>
+          <PanelHeader
+            icon={Crown}
+            iconTone="amber"
+            title="Tu rol: jugador"
+            description="Completa estos pasos para unirte a la partida."
+          />
+          <ul className="player-onboarding">
+            <li className={hasPlayerSheet ? "is-done" : ""}>
+              {hasPlayerSheet ? <CheckCircle2 aria-hidden /> : <Circle aria-hidden />}
+              <span>
+                {hasPlayerSheet ? "Ficha creada" : "Crea tu ficha de personaje"}
+                {!hasPlayerSheet && (
+                  <>
+                    {" — "}
+                    <Link to={`${base}/ficha`}>Ir a Ficha</Link>
+                  </>
+                )}
+              </span>
+            </li>
+            <li className={hasActiveScene ? "is-done" : ""}>
+              {hasActiveScene ? <CheckCircle2 aria-hidden /> : <Circle aria-hidden />}
+              <span>
+                {hasActiveScene ? "Escena activa" : "Espera a que el Máster inicie la escena"}
+                {hasActiveScene && (
+                  <>
+                    {" — "}
+                    <Link to={`${base}/chat`}>Ir a Jugar</Link>
+                  </>
+                )}
+              </span>
+            </li>
+            <li>
+              <Circle aria-hidden className="onboarding-optional" />
+              <span>
+                Coordínate fuera de escena en <Link to={`${base}/ooc`}>Chat OOC</Link>
+              </span>
+            </li>
+          </ul>
+          {onboardingComplete && (
+            <p className="muted hub-hint">
+              Todo listo. Entra al <Link to={`${base}/chat`}>chat de escena</Link> o revisa el{" "}
+              <Link to={`${base}/ooc`}>OOC</Link>.
+            </p>
+          )}
+        </Panel>
+      )}
 
       <Panel>
         <PanelHeader

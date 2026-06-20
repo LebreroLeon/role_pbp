@@ -21,7 +21,7 @@ import {
   isPbpEnabled,
   resolveCurrentTurnLabel,
 } from "../features/scene/sceneState";
-import { formatSceneLabel } from "../features/campaign";
+import { formatSceneLabel, campaignDefaultPath } from "../features/campaign";
 import { buildMentionOptions } from "../features/scene/mentionOptions";
 import {
   buildSpeakerOptions,
@@ -266,7 +266,7 @@ export function ChatPage() {
       queryClient.removeQueries({ queryKey: queryKeys.campaigns.activeScene(campaignId) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
       setCloseDialogOpen(false);
-      navigate(`/campaigns/${campaignId}`);
+      navigate(campaignDefaultPath(campaignId, "MASTER", null));
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "No se pudo cerrar la escena");
     } finally {

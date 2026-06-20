@@ -1,5 +1,6 @@
 import { Navigate, useParams } from "react-router-dom";
 
+import { campaignDefaultPath } from "../../features/campaign/campaignRoutes";
 import { useCampaignQuery } from "../../hooks/queries/useCampaignQueries";
 
 type RoleGateProps = {
@@ -20,7 +21,7 @@ export function RoleGate({ role, children }: RoleGateProps) {
   }
 
   if (campaign.role !== role) {
-    return <Navigate to={`/campaigns/${campaignId}`} replace />;
+    return <Navigate to={campaignDefaultPath(campaignId, campaign.role)} replace />;
   }
 
   return children;

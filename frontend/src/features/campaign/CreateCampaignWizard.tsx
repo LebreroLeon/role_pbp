@@ -7,6 +7,7 @@ import { Sparkles } from "../../components/icons";
 import { Button, ErrorBanner, Input, Panel, PanelHeader, Section } from "../../components/ui";
 import { useCreateCampaignMutation } from "../../hooks/mutations/useCampaignMutations";
 import { useUploadDocumentMutation } from "../../hooks/queries/useDocumentQueries";
+import { campaignDefaultPath } from "./campaignRoutes";
 import {
   DICE_NOTATION_LABELS,
   GAME_SYSTEM_GROUPS,
@@ -68,7 +69,7 @@ export function CreateCampaignWizard() {
   }
 
   function finishWizard() {
-    if (campaignId) navigate(`/campaigns/${campaignId}`);
+    if (campaignId) navigate(campaignDefaultPath(campaignId, "MASTER", null));
   }
 
   return (

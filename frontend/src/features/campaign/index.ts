@@ -1,4 +1,6 @@
+export { CampaignEntryRedirect } from "./CampaignEntryRedirect";
 export { CampaignList } from "./CampaignList";
+export { campaignDefaultPath } from "./campaignRoutes";
 export { CampaignMemberList } from "./CampaignMemberList";
 export { CampaignSettingsForm } from "./CampaignSettingsForm";
 export { CampaignSceneLog, formatSceneLabel } from "./CampaignSceneLog";

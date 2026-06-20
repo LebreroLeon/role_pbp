@@ -776,8 +776,17 @@ select {
   min-width: 0;
 }
 
-.campaign-card__main > div {
+.campaign-card__main > div,
+.campaign-card__body {
   min-width: 0;
+}
+
+.campaign-card__badges {
+  margin-top: 0.55rem;
+}
+
+.campaign-card__badges .status-pill {
+  font-size: 0.72rem;
 }
 
 .campaign-card__icon {
@@ -845,7 +854,6 @@ select:focus {
 
 .auth-form,
 .campaigns-page,
-.campaign-hub,
 .world-page,
 .library-page,
 .wizard-page {

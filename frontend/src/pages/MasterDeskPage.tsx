@@ -7,9 +7,9 @@ import { api } from "../api/client";
 import type { MasterAssistMode, MasterAssistResponse } from "../api/types";
 import { queryKeys } from "../api/queryKeys";
 import { RoleGate } from "../components/auth/RoleGate";
-import { DESK_TAB_ICONS, SECTION_ICONS } from "../components/icons";
+import { DESK_TAB_ICONS, SECTION_ICONS, UserPlus, Users } from "../components/icons";
 import { Button, ButtonLink, ConfirmDialog, ErrorBanner, Panel, PanelHeader, StatusBadge, Toast } from "../components/ui";
-import { CampaignMemberList, CampaignSettingsForm, formatSceneLabel, InviteMemberForm } from "../features/campaign";
+import { CampaignMemberList, CampaignSettingsForm, formatSceneLabel, InviteMemberForm, campaignDefaultPath } from "../features/campaign";
 import { getChatBuffer, getSceneObjective } from "../features/scene/sceneState";
 import {
   useCampaignMembersQuery,
@@ -161,7 +161,7 @@ export function MasterDeskPage() {
       queryClient.removeQueries({ queryKey: queryKeys.campaigns.activeScene(campaignId) });
       await invalidateSceneQueries();
       setCloseDialogOpen(false);
-      navigate(`/campaigns/${campaignId}`);
+      navigate(campaignDefaultPath(campaignId, "MASTER", null));
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cerrar la escena");
     } finally {
@@ -307,13 +307,25 @@ export function MasterDeskPage() {
 
           {tab === "players" && (
             <section className="master-tab-panel">
+              <PanelHeader
+                icon={Users}
+                iconTone="violet"
+                title="Personas en la campaña"
+                description="Máster y jugadores con acceso a esta partida."
+              />
               <CampaignMemberList
                 members={members}
                 showEmails
                 showPresence
                 onlineUserIds={onlineUserIds}
               />
-              <InviteMemberForm campaignId={campaignId} />
+              <PanelHeader
+                icon={UserPlus}
+                iconTone="amber"
+                title="Invitar jugador"
+                description="Añade participantes por email."
+              />
+              <InviteMemberForm campaignId={campaignId} hideHeader />
             </section>
           )}
 

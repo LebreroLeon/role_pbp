@@ -8,7 +8,7 @@ import { CreateCampaignWizard } from "./features/campaign/CreateCampaignWizard";
 import { CampaignSheetsPage } from "./features/character-sheet/CampaignSheetsPage";
 import { CharacterSheetPage } from "./features/character-sheet/CharacterSheetPage";
 import { useCampaignQuery } from "./hooks/queries/useCampaignQueries";
-import { CampaignHubPage } from "./pages/CampaignHubPage";
+import { CampaignEntryRedirect } from "./features/campaign/CampaignEntryRedirect";
 import { CampaignsPage } from "./pages/CampaignsPage";
 import { ChatPage } from "./pages/ChatPage";
 import { HomePage } from "./pages/HomePage";
@@ -55,7 +55,7 @@ export default function App() {
           <Route path="campaigns/new" element={<CreateCampaignWizard />} />
 
           <Route path="campaigns/:campaignId" element={<CampaignLayout />}>
-            <Route index element={<CampaignHubPage />} />
+            <Route index element={<CampaignEntryRedirect />} />
             <Route path="chat" element={<ChatPage />} />
             <Route path="ooc" element={<OocChatPage />} />
             <Route path="ficha" element={<PlayerFichaRoute />} />

@@ -10,7 +10,6 @@ import { useOpenSceneQuery } from "../../hooks/queries/useSceneQueries";
 import { CampaignWsProvider } from "../../providers/CampaignWsContext";
 
 const MASTER_LINKS = [
-  { to: "", label: "Inicio", hint: "Resumen de la campaña" },
   { to: "chat", label: "Jugar", hint: "Chat de escena" },
   { to: "ooc", label: "Fuera de personaje", hint: "OOC" },
   { to: "fichas", label: "Fichas", hint: "Todos los PJs con secretos" },
@@ -20,7 +19,6 @@ const MASTER_LINKS = [
 ] as const;
 
 const PLAYER_LINKS = [
-  { to: "", label: "Inicio", hint: "Resumen de la campaña" },
   { to: "chat", label: "Jugar", hint: "Chat de escena" },
   { to: "ooc", label: "Fuera de personaje", hint: "OOC" },
   { to: "ficha", label: "Mi ficha", hint: "Hoja de personaje mecánica" },
@@ -99,8 +97,7 @@ export function CampaignLayout() {
           return (
             <NavLink
               key={link.to}
-              to={link.to ? `${base}/${link.to}` : base}
-              end={link.to === ""}
+              to={`${base}/${link.to}`}
               className={({ isActive }) => `campaign-nav__link ${isActive ? "active" : ""}`}
               title={link.hint}
             >

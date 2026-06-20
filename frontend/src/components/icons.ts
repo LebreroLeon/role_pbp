@@ -71,7 +71,6 @@ export type { LucideIcon };
 
 /** Iconos de sección — misma fuente para nav, hub y cabeceras de página. */
 export const SECTION_ICONS = {
-  hub: LayoutDashboard,
   chat: Swords,
   ooc: MessageSquare,
   ficha: Scroll,
@@ -82,7 +81,6 @@ export const SECTION_ICONS = {
 } as const;
 
 export const CAMPAIGN_NAV_ICONS = {
-  "": SECTION_ICONS.hub,
   chat: SECTION_ICONS.chat,
   ooc: SECTION_ICONS.ooc,
   ficha: SECTION_ICONS.ficha,
