@@ -27,6 +27,11 @@ class TestDnd5eSchema:
 
     def test_validate_frontend_nested_sheet(self, plugin: Dnd5ePlugin):
         sheet = {
+            "identity": {"class_level": "Guerrero 3", "background": "", "race": "Humano", "alignment": "LG"},
+            "roleplay": {"personality_traits": "", "ideals": "", "bonds": "", "flaws": ""},
+            "features_traits": "",
+            "equipment": "",
+            "currency": {"cp": 0, "sp": 0, "ep": 0, "gp": 0, "pp": 0},
             "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
             "proficiency": {
                 "bonus": 2,

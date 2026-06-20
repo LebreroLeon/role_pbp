@@ -197,25 +197,16 @@ export function CharacterSheetPage() {
 
 
   async function handleRoll(payload: SheetRollRequest) {
-
     setFormError(null);
-
     setRollSummary(null);
 
-
-
     try {
-
       const result = await rollMutation.mutateAsync(payload);
-
       setRollSummary(result.chat_summary || `Resultado: ${result.final_result ?? "—"}`);
-
+      return result;
     } catch (err) {
-
       setFormError(err instanceof ApiError ? err.message : "No se pudo tirar los dados");
-
     }
-
   }
 
 

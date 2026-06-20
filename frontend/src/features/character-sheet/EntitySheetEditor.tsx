@@ -187,6 +187,7 @@ export function EntitySheetEditor({
         payload: { ...payload, master_only: rollMasterOnly },
       });
       setRollSummary(result.chat_summary ?? `Resultado: ${result.final_result}`);
+      return result;
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "No se pudo tirar desde la ficha");
     }

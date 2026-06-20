@@ -13,6 +13,7 @@ const DND5E_D20_ROLL_TYPES: readonly SheetRollType[] = [
   "skill_check",
   "attack_roll",
   "initiative",
+  "death_save",
 ];
 
 const SYSTEM_ROLL_CONFIG: Record<string, GameSystemRollConfig> = {

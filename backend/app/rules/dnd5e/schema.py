@@ -32,6 +32,33 @@ class HpBlock(BaseModel):
     temp: int = Field(default=0, ge=0)
 
 
+class DeathSavesBlock(BaseModel):
+    successes: int = Field(default=0, ge=0, le=3)
+    failures: int = Field(default=0, ge=0, le=3)
+
+
+class CurrencyBlock(BaseModel):
+    cp: int = Field(default=0, ge=0)
+    sp: int = Field(default=0, ge=0)
+    ep: int = Field(default=0, ge=0)
+    gp: int = Field(default=0, ge=0)
+    pp: int = Field(default=0, ge=0)
+
+
+class SheetIdentityBlock(BaseModel):
+    class_level: str = ""
+    background: str = ""
+    race: str = ""
+    alignment: str = ""
+
+
+class RoleplayBlock(BaseModel):
+    personality_traits: str = ""
+    ideals: str = ""
+    bonds: str = ""
+    flaws: str = ""
+
+
 def _ability_modifier(score: int) -> int:
     return (score - 10) // 2
 
@@ -90,10 +117,24 @@ def normalize_dnd5e_sheet_input(data: object) -> object:
 
     ac = data.get("ac", 10)
     hp = data.get("hp", {"max": 10, "current": 10, "temp": 0})
+    hit_dice = data.get("hit_dice", "1d8")
+    death_saves = data.get("death_saves", {"successes": 0, "failures": 0})
+    initiative_modifier = data.get("initiative_modifier", 0)
     if isinstance(data.get("defense"), dict):
         defense = data["defense"]
         ac = defense.get("ac", ac)
         hp = defense.get("hp", hp)
+        hit_dice = defense.get("hit_dice", hit_dice)
+        death_saves = defense.get("death_saves", death_saves)
+    if isinstance(data.get("initiative"), dict):
+        initiative_modifier = data["initiative"].get("modifier", initiative_modifier)
+
+    identity = data.get("identity", {})
+    roleplay = data.get("roleplay", {})
+    features_traits = data.get("features_traits", "")
+    equipment = data.get("equipment", "")
+    currency = data.get("currency", {})
+    conditions = data.get("conditions", [])
 
     raw_attacks = data.get("attacks", [])
     attacks: list[dict[str, Any]] = []
@@ -115,6 +156,15 @@ def normalize_dnd5e_sheet_input(data: object) -> object:
         "saving_throws": saving_throws,
         "ac": ac,
         "hp": hp,
+        "hit_dice": hit_dice,
+        "death_saves": death_saves,
+        "initiative_modifier": initiative_modifier,
+        "identity": identity,
+        "roleplay": roleplay,
+        "features_traits": features_traits,
+        "equipment": equipment,
+        "currency": currency,
+        "conditions": conditions,
         "attacks": attacks,
     }
 
@@ -150,6 +200,15 @@ class Dnd5eSheet(BaseModel):
     saving_throws: list[str] = Field(default_factory=list)
     ac: int = Field(default=10, ge=0)
     hp: HpBlock = Field(default_factory=HpBlock)
+    hit_dice: str = ""
+    death_saves: DeathSavesBlock = Field(default_factory=DeathSavesBlock)
+    initiative_modifier: int = 0
+    identity: SheetIdentityBlock = Field(default_factory=SheetIdentityBlock)
+    roleplay: RoleplayBlock = Field(default_factory=RoleplayBlock)
+    features_traits: str = ""
+    equipment: str = ""
+    currency: CurrencyBlock = Field(default_factory=CurrencyBlock)
+    conditions: list[str] = Field(default_factory=list)
     attacks: list[AttackEntry] = Field(default_factory=list)
 
     @model_validator(mode="before")
@@ -211,6 +270,7 @@ ROLL_TYPE_LABELS_ES: dict[str, str] = {
     "attack_roll": "Ataque",
     "damage": "Daño",
     "initiative": "Iniciativa",
+    "death_save": "Salvación contra la muerte",
 }
 
 
@@ -251,4 +311,5 @@ SUPPORTED_ROLL_TYPES = [
     "attack_roll",
     "damage",
     "initiative",
+    "death_save",
 ]

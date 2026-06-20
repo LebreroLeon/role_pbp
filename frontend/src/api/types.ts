@@ -617,7 +617,9 @@ export type Dnd5eRollType =
 
   | "damage"
 
-  | "initiative";
+  | "initiative"
+
+  | "death_save";
 
 
 

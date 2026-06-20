@@ -15,6 +15,7 @@ export const DND5E_D20_ROLL_TYPES = [
   "skill_check",
   "attack_roll",
   "initiative",
+  "death_save",
 ] as const;
 
 export const SKILL_ABILITY_MAP: Record<string, string> = {

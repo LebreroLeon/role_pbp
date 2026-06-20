@@ -13,6 +13,7 @@ from app.rules.base import (
     RollContext,
     RollResult,
 )
+from app.rules.dnd5e.mechanics import apply_death_save_roll, passive_perception_from_sheet
 from app.rules.dnd5e.rolls import roll_d20 as _roll_d20
 from app.rules.dnd5e.schema import (
     Dnd5eSheet,
@@ -215,6 +216,8 @@ class Dnd5ePlugin(GameSystemPlugin):
             return self._resolve_damage(sheet, context)
         if normalized == "initiative":
             return self._resolve_initiative(sheet, context)
+        if normalized == "death_save":
+            return self._resolve_death_save(sheet, context)
 
         raise ValueError(
             f"Unsupported roll_type '{roll_type}' for dnd5e. "
@@ -364,7 +367,7 @@ class Dnd5ePlugin(GameSystemPlugin):
     def _resolve_initiative(self, sheet: Dnd5eSheet, context: RollContext) -> RollResult:
         modifier = context.modifier_override
         if modifier is None:
-            modifier = _ability_check_modifier(sheet, "dex")
+            modifier = _ability_check_modifier(sheet, "dex") + sheet.initiative_modifier
         modifier_breakdown = [_modifier_breakdown_entry(ability_label_es("dex"), modifier)]
         return self._d20_roll(
             "initiative",
@@ -373,6 +376,62 @@ class Dnd5ePlugin(GameSystemPlugin):
             roll_label="Iniciativa",
             modifier_breakdown=modifier_breakdown,
             ability="dex",
+        )
+
+    def _resolve_death_save(self, sheet: Dnd5eSheet, context: RollContext) -> RollResult:
+        rolls, natural = _roll_d20(
+            advantage=context.advantage,
+            disadvantage=context.disadvantage,
+        )
+        applied = apply_death_save_roll(
+            natural,
+            sheet.death_saves.successes,
+            sheet.death_saves.failures,
+            sheet.hp.current,
+        )
+
+        passive = passive_perception_from_sheet(
+            sheet.abilities.model_dump(),
+            sheet.proficiency_bonus,
+            [s.model_dump() for s in sheet.skills],
+        )
+
+        outcome_labels = {
+            "success": "éxito",
+            "failure": "fallo",
+            "critical_success": "crítico — recuperas 1 PV",
+            "critical_failure": "crítico — 2 fallos",
+        }
+        outcome_label = outcome_labels.get(applied["outcome"], applied["outcome"])
+        summary = (
+            f"Salvación contra la muerte: 1d20={natural} — {outcome_label}. "
+            f"Éxitos {applied['successes']}/3, fallos {applied['failures']}/3"
+        )
+        if applied["stabilized"]:
+            summary += " — estabilizado"
+        if applied["dead"]:
+            summary += " — muerto"
+
+        return RollResult(
+            roll_type="death_save",
+            expression="1d20",
+            rolls=rolls,
+            total=natural,
+            success=applied["is_success"],
+            details={
+                "roll_label": "Salvación contra la muerte",
+                "natural_roll": natural,
+                "modifier": 0,
+                "modifier_breakdown": [],
+                "death_save_successes": applied["successes"],
+                "death_save_failures": applied["failures"],
+                "hp_current": applied["hp_current"],
+                "stabilized": applied["stabilized"],
+                "dead": applied["dead"],
+                "outcome": applied["outcome"],
+                "passive_perception": passive,
+            },
+            chat_summary=summary,
         )
 
     @staticmethod
