@@ -63,44 +63,47 @@ export function EntityList({
                 entity.entity_type === "NPC" &&
                 Boolean((entity.document.state_flags as { hidden_from_players?: boolean } | undefined)?.hidden_from_players);
 
+              const summary = summarizeEntity(entity);
+
               return (
                 <li key={entity.id} className={`entity-card ${editingId === entity.id ? "is-editing" : ""}`}>
-                  <div>
-                    <strong>{getEntityDisplayName(entity, entities)}</strong>
-                    {isMaster && entity.entity_type === "NPC" && npcHidden && (
-                      <span className="entity-card__badge entity-card__badge--hidden">Oculto a jugadores</span>
-                    )}
-                    <p className="muted entity-summary">{summarizeEntity(entity)}</p>
-                    {isMaster && entity.entity_type === "NPC" && (
-                      <Switch
-                        checked={npcHidden}
-                        onCheckedChange={(checked) => handleToggleNpcHidden(entity, checked)}
-                        label="Ocultar a jugadores"
-                        description="No aparece en Mundo para jugadores; en escena puede mostrarse como Desconocido"
-                        tone="rose"
-                        disabled={updateMutation.isPending}
-                        className="entity-card__hide-switch"
-                      />
-                    )}
-                  </div>
-                  {isMaster && (
-                    <div className="entity-card__actions">
-                      {onEdit && (entity.entity_type === "NPC" || isWorldEntity(entity.entity_type)) && (
-                        <Button className="secondary" onClick={() => onEdit(entity)}>
-                          {editingId === entity.id ? "Editando" : editLabel(entity.entity_type)}
-                        </Button>
-                      )}
-                      {onDelete && (
-                        <Button
-                          className="secondary"
-                          disabled={deletingId === entity.id}
-                          onClick={() => onDelete(entity.id)}
-                        >
-                          {deletingId === entity.id ? "..." : "Eliminar"}
-                        </Button>
+                  <div className="entity-card__main">
+                    <div className="entity-card__header">
+                      <span className="entity-card__name">{getEntityDisplayName(entity, entities)}</span>
+                      {isMaster && (
+                        <div className="entity-card__actions">
+                          {onEdit && (entity.entity_type === "NPC" || isWorldEntity(entity.entity_type)) && (
+                            <Button className="secondary" onClick={() => onEdit(entity)}>
+                              {editingId === entity.id ? "Editando" : editLabel(entity.entity_type)}
+                            </Button>
+                          )}
+                          {onDelete && (
+                            <Button
+                              className="secondary"
+                              disabled={deletingId === entity.id}
+                              onClick={() => onDelete(entity.id)}
+                            >
+                              {deletingId === entity.id ? "..." : "Eliminar"}
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
+                    {summary && <p className="muted entity-summary">{summary}</p>}
+                    {isMaster && entity.entity_type === "NPC" && (
+                      <div className="entity-card__visibility">
+                        <Switch
+                          checked={npcHidden}
+                          onCheckedChange={(checked) => handleToggleNpcHidden(entity, checked)}
+                          label="Ocultar"
+                          description="No visible en Mundo para jugadores"
+                          tone="rose"
+                          disabled={updateMutation.isPending}
+                          className="entity-card__hide-switch"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </li>
               );
             })}
