@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Send } from "lucide-react";
@@ -64,7 +64,7 @@ const SHADOW_MASTER_MODE_META: Record<
   narrative: {
     summaryTitle: "Análisis",
     suggestionsTitle: "Sugerencias narrativas",
-    hint: "Texto listo para publicar en el chat. Puedes enviarlo directamente a la escena activa.",
+    hint: "Edita antes de enviar. El texto se publicará en la escena activa tal como lo dejes.",
   },
   rules: {
     summaryTitle: "Respuesta",
@@ -104,6 +104,18 @@ export function MasterDeskPage() {
   const [savingName, setSavingName] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [sendingSuggestionKey, setSendingSuggestionKey] = useState<string | null>(null);
+  const [narrativeDrafts, setNarrativeDrafts] = useState<string[]>([]);
+
+  const narrativeSuggestions = useMemo(() => {
+    if (!response || assistMode !== "narrative") return [];
+    if (response.suggestions.length > 0) return response.suggestions;
+    if (response.context_summary.trim()) return [response.context_summary.trim()];
+    return [];
+  }, [response, assistMode]);
+
+  useEffect(() => {
+    setNarrativeDrafts(narrativeSuggestions);
+  }, [narrativeSuggestions]);
 
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
@@ -376,12 +388,6 @@ export function MasterDeskPage() {
                 const displayKind = assistMode;
                 const meta = SHADOW_MASTER_MODE_META[displayKind] ?? SHADOW_MASTER_MODE_META.campaign;
                 const isNarrative = assistMode === "narrative";
-                const narrativeSuggestions =
-                  response.suggestions.length > 0
-                    ? response.suggestions
-                    : isNarrative && response.context_summary.trim()
-                      ? [response.context_summary.trim()]
-                      : [];
                 return (
                 <div className="master-result">
                   <section className="master-result__section">
@@ -400,18 +406,33 @@ export function MasterDeskPage() {
                         </p>
                       )}
                       <ul className="master-narrative-suggestions">
-                        {narrativeSuggestions.map((suggestion, index) => {
-                          const suggestionKey = `${index}:${suggestion.slice(0, 40)}`;
+                        {narrativeDrafts.map((draft, index) => {
+                          const suggestionKey = `narrative-${index}`;
                           const sending = sendingSuggestionKey === suggestionKey;
+                          const trimmedDraft = draft.trim();
                           return (
                             <li key={suggestionKey} className="master-narrative-suggestion">
-                              <blockquote className="master-narrative-suggestion__text">{suggestion}</blockquote>
+                              <textarea
+                                id={`narrative-suggestion-${index}`}
+                                className="master-narrative-suggestion__text"
+                                aria-label={`Sugerencia narrativa ${index + 1}`}
+                                value={draft}
+                                onChange={(event) =>
+                                  setNarrativeDrafts((prev) =>
+                                    prev.map((item, itemIndex) =>
+                                      itemIndex === index ? event.target.value : item,
+                                    ),
+                                  )
+                                }
+                                rows={4}
+                                disabled={sending}
+                              />
                               <Button
                                 type="button"
                                 variant="secondary"
                                 className="master-narrative-suggestion__send"
-                                disabled={!openScene || sending}
-                                onClick={() => handleSendToScene(suggestion, suggestionKey)}
+                                disabled={!openScene || sending || !trimmedDraft}
+                                onClick={() => handleSendToScene(trimmedDraft, suggestionKey)}
                               >
                                 <Send size={15} aria-hidden />
                                 {sending ? "Enviando…" : "Enviar a escena"}

@@ -48,6 +48,8 @@
   font-style: italic;
   line-height: 1.55;
   color: var(--text-primary);
+  resize: vertical;
+  min-height: 5.5rem;
 }
 
 .master-narrative-suggestion__send {
