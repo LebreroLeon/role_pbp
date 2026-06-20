@@ -539,6 +539,58 @@ async def upsert_player_character_sheet(
     return entity
 
 
+def _persist_death_save_roll_to_entity(entity: CampaignEntity, roll_result: dict[str, Any]) -> None:
+    if roll_result.get("roll_type") != "death_save":
+        return
+    roll_details = roll_result.get("roll_details")
+    if not isinstance(roll_details, dict):
+        return
+
+    document = deepcopy(entity.document)
+    system_mechanics = document.get("system_mechanics", {})
+    if not isinstance(system_mechanics, dict):
+        return
+    sheet = system_mechanics.get("sheet")
+    if not isinstance(sheet, dict):
+        return
+
+    updated_sheet = deepcopy(sheet)
+    successes = roll_details.get("death_save_successes")
+    failures = roll_details.get("death_save_failures")
+    hp_current = roll_details.get("hp_current")
+
+    if isinstance(updated_sheet.get("defense"), dict):
+        if isinstance(successes, int):
+            updated_sheet["defense"].setdefault("death_saves", {})["successes"] = successes
+        if isinstance(failures, int):
+            updated_sheet["defense"].setdefault("death_saves", {})["failures"] = failures
+        if isinstance(hp_current, int):
+            updated_sheet["defense"].setdefault("hp", {})["current"] = hp_current
+
+    if isinstance(successes, int):
+        updated_sheet.setdefault("death_saves", {})["successes"] = successes
+    if isinstance(failures, int):
+        updated_sheet.setdefault("death_saves", {})["failures"] = failures
+    if isinstance(hp_current, int):
+        updated_sheet.setdefault("hp", {})["current"] = hp_current
+
+    system_mechanics["sheet"] = updated_sheet
+    document["system_mechanics"] = system_mechanics
+
+    flags = document.get("state_flags", {})
+    if not isinstance(flags, dict):
+        flags = {}
+    if roll_details.get("dead"):
+        flags["is_dead"] = True
+        flags["is_incapacitated"] = True
+    elif isinstance(hp_current, int) and hp_current > 0:
+        flags["is_incapacitated"] = False
+        flags["is_dead"] = False
+    document["state_flags"] = flags
+
+    entity.document = document
+
+
 async def roll_player_character_contextual(
     db: AsyncSession,
     *,
@@ -572,6 +624,10 @@ async def roll_player_character_contextual(
         )
     except ValueError as exc:
         raise EntityValidationError(str(exc)) from exc
+
+    _persist_death_save_roll_to_entity(pc, roll_result)
+    await db.commit()
+    await db.refresh(pc)
 
     from app.services.scenes import append_dice_roll_to_scene, get_active_scene
 
@@ -651,6 +707,10 @@ async def roll_entity_contextual(
         )
     except ValueError as exc:
         raise EntityValidationError(str(exc)) from exc
+
+    _persist_death_save_roll_to_entity(entity, roll_result)
+    await db.commit()
+    await db.refresh(entity)
 
     from app.services.scenes import append_dice_roll_to_scene, get_active_scene
 

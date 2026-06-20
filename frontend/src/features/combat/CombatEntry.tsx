@@ -134,6 +134,9 @@ export function CombatEntry({
   const attackRoll = event.attack_roll;
   const damage = event.damage;
   const isHealing = Boolean(event.is_healing || damage?.is_healing);
+  const isCritical = Boolean(
+    event.is_critical || attackRoll?.is_critical || attackRoll?.natural_20 || damage?.is_critical,
+  );
   const hpRemaining = event.defender_hp_remaining ?? event.hp?.after;
   const hpBefore = event.hp?.before;
   const hpLabel = formatHp(hpRemaining, event.defender_hp_max);
@@ -168,7 +171,15 @@ export function CombatEntry({
       ) : null}
 
       {attackRoll && !isHealing && (
-        <p className="combat-card__roll-line">{formatAttackRollLine(attackRoll)}</p>
+        <p className="combat-card__roll-line">
+          {formatAttackRollLine(attackRoll)}
+          {attackRoll.natural_1 && (
+            <span className="combat-card__crit combat-card__crit--fail"> — Fallo automático</span>
+          )}
+          {isCritical && !attackRoll.natural_1 && (
+            <span className="combat-card__crit"> — Crítico</span>
+          )}
+        </p>
       )}
 
       {damage && damage.amount > 0 && (
@@ -176,8 +187,19 @@ export function CombatEntry({
           {isHealing
             ? formatDamageLine({ ...damage, is_healing: true })
             : `Daño ${formatDamageLine(damage)}`}
+          {isCritical && !isHealing && <span className="combat-card__crit"> — Crítico</span>}
         </p>
       )}
+
+      {event.is_instant_death && (
+        <p className="combat-card__crit">Muerte instantánea</p>
+      )}
+
+      {event.death_save_failures_added ? (
+        <p className="combat-card__summary muted">
+          +{event.death_save_failures_added} fallo(s) de salvación contra la muerte
+        </p>
+      ) : null}
 
       {hpLabel && (
         <p className="combat-card__hp">

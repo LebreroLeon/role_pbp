@@ -281,6 +281,7 @@ def _format_damage_line(damage: Any, *, is_healing: bool = False) -> str:
 def _build_attack_roll_payload(attack_roll: Any, *, hit: bool) -> dict[str, Any]:
     natural = attack_roll.rolls[-1] if attack_roll.rolls else None
     modifier = attack_roll.details.get("modifier")
+    is_critical = bool(attack_roll.details.get("is_critical")) or natural == 20
     payload: dict[str, Any] = {
         "total": attack_roll.total,
         "hit": hit,
@@ -294,7 +295,55 @@ def _build_attack_roll_payload(attack_roll: Any, *, hit: bool) -> dict[str, Any]
         payload["natural_20"] = True
     if natural == 1:
         payload["natural_1"] = True
+    if is_critical:
+        payload["is_critical"] = True
     return payload
+
+
+def _damage_flag_updates(entity: CampaignEntity, damage_application: Any) -> dict[str, bool]:
+    flags: dict[str, bool] = {}
+    if damage_application.is_healing:
+        if damage_application.hp_after > 0 and entity.entity_type == "PC":
+            flags["is_incapacitated"] = False
+            flags["is_dead"] = False
+        return flags
+
+    if damage_application.is_instant_death or damage_application.is_dead:
+        flags["is_incapacitated"] = True
+        if entity.entity_type == "NPC" or damage_application.is_instant_death or damage_application.is_dead:
+            flags["is_dead"] = True
+        return flags
+
+    if damage_application.is_unconscious:
+        flags["is_incapacitated"] = True
+        if entity.entity_type == "NPC":
+            flags["is_dead"] = True
+    return flags
+
+
+def _format_damage_application_line(damage_application: Any, damage: Any, *, is_healing: bool = False) -> str:
+    if is_healing:
+        return _format_damage_line(damage, is_healing=True)
+
+    raw_amount = getattr(damage_application, "raw_amount", None)
+    modified_amount = getattr(damage_application, "modified_amount", None)
+    modifier_label = getattr(damage_application, "damage_modifier", None)
+    damage_type = getattr(damage, "damage_type", None) or getattr(damage_application, "damage_type", "")
+
+    if (
+        isinstance(raw_amount, int)
+        and isinstance(modified_amount, int)
+        and modifier_label
+        and raw_amount != modified_amount
+    ):
+        type_label = str(damage_type).replace("_", " ")
+        line = f"{raw_amount} {type_label} → {modified_amount} ({modifier_label})"
+    else:
+        line = _format_damage_line(damage, is_healing=False)
+
+    if getattr(damage, "is_critical", False) or getattr(damage_application, "is_critical", False):
+        line = f"{line} — crítico"
+    return line
 
 
 def _persist_entity_sheet(
@@ -341,7 +390,11 @@ def _build_attack_messages(
 
     if attack_result.hit and attack_result.damage is not None:
         is_healing = bool(getattr(attack_result.damage, "is_healing", False))
-        effect_line = _format_damage_line(attack_result.damage, is_healing=is_healing)
+        effect_line = _format_damage_application_line(
+            damage_application,
+            attack_result.damage,
+            is_healing=is_healing,
+        )
         verb = "cura a" if is_healing else "ataca a"
         summary = (
             f"{attacker_name} {verb} {defender_name}: "
@@ -351,6 +404,10 @@ def _build_attack_messages(
         summary += f"{effect_line}."
         if damage_application is not None:
             summary += f" PV {damage_application.hp_before} → {damage_application.hp_after}."
+            if damage_application.is_instant_death:
+                summary += " Muerte instantánea."
+            elif damage_application.death_save_failures_added:
+                summary += f" +{damage_application.death_save_failures_added} fallo(s) de salvación."
     else:
         summary = f"{attacker_name} ataca a {defender_name}: {roll_line}."
 
@@ -374,8 +431,22 @@ def _build_attack_messages(
             "rolls": damage.rolls,
             "modifier": damage.modifier,
             "is_healing": is_healing,
-            "chat_summary": _format_damage_line(damage, is_healing=is_healing),
+            "is_critical": bool(getattr(damage, "is_critical", False)),
+            "chat_summary": _format_damage_application_line(
+                damage_application,
+                damage,
+                is_healing=is_healing,
+            )
+            if damage_application is not None
+            else _format_damage_line(damage, is_healing=is_healing),
         }
+        if damage_application is not None:
+            if damage_application.raw_amount is not None:
+                combat_event["damage"]["raw_amount"] = damage_application.raw_amount
+            if damage_application.modified_amount is not None:
+                combat_event["damage"]["modified_amount"] = damage_application.modified_amount
+            if damage_application.damage_modifier:
+                combat_event["damage"]["damage_modifier"] = damage_application.damage_modifier
         if is_healing:
             combat_event["is_healing"] = True
     if damage_application is not None:
@@ -384,6 +455,12 @@ def _build_attack_messages(
             "after": damage_application.hp_after,
         }
         combat_event["defender_hp_remaining"] = damage_application.hp_after
+        if damage_application.is_instant_death:
+            combat_event["is_instant_death"] = True
+        if damage_application.is_critical:
+            combat_event["is_critical"] = True
+        if damage_application.death_save_failures_added:
+            combat_event["death_save_failures_added"] = damage_application.death_save_failures_added
 
     visibility = "master_only" if str(attacker.id) in hidden_npc_ids else "all"
 
@@ -459,16 +536,7 @@ async def execute_attack(
     damage_application = None
     if attack_result.hit and attack_result.damage is not None:
         updated_sheet, damage_application = plugin.apply_damage(defender_sheet, attack_result.damage)
-        flag_updates: dict[str, bool] = {}
-        is_healing = bool(getattr(attack_result.damage, "is_healing", False))
-        if is_healing:
-            if damage_application.hp_after > 0 and defender.entity_type == "PC":
-                flag_updates["is_incapacitated"] = False
-        elif damage_application.is_unconscious:
-            if defender.entity_type == "PC":
-                flag_updates["is_incapacitated"] = True
-            elif defender.entity_type == "NPC":
-                flag_updates["is_dead"] = True
+        flag_updates = _damage_flag_updates(defender, damage_application)
         _persist_entity_sheet(defender, updated_sheet, state_flag_updates=flag_updates or None)
         _sync_initiative_hp_flags(state, defender)
 
@@ -508,20 +576,20 @@ async def execute_manual_damage(
         damage_type=damage_type,
     )
     updated_sheet, damage_application = plugin.apply_damage(defender_sheet, damage)
-    flag_updates: dict[str, bool] = {}
-    if damage_application.is_unconscious:
-        if target.entity_type == "PC":
-            flag_updates["is_incapacitated"] = True
-        elif target.entity_type == "NPC":
-            flag_updates["is_dead"] = True
+    flag_updates = _damage_flag_updates(target, damage_application)
     _persist_entity_sheet(target, updated_sheet, state_flag_updates=flag_updates or None)
     _sync_initiative_hp_flags(state, target)
 
     target_name = entity_display_name(target)
+    effect_line = _format_damage_application_line(damage_application, damage)
     summary = (
-        f"Daño manual a {target_name}: {amount} {damage_type}. "
+        f"Daño manual a {target_name}: {effect_line}. "
         f"PV {damage_application.hp_before} → {damage_application.hp_after}."
     )
+    if damage_application.is_instant_death:
+        summary += " Muerte instantánea."
+    elif damage_application.death_save_failures_added:
+        summary += f" +{damage_application.death_save_failures_added} fallo(s) de salvación."
     messages = [
         {
             "id": str(uuid.uuid4()),
@@ -533,12 +601,23 @@ async def execute_manual_damage(
                 "kind": "DAMAGE_APPLIED",
                 "defender_id": str(target.id),
                 "defender_name": target_name,
-                "damage": {"amount": amount, "type": damage_type},
+                "damage": {
+                    "amount": damage_application.modified_amount
+                    if damage_application.modified_amount is not None
+                    else amount,
+                    "raw_amount": damage_application.raw_amount,
+                    "modified_amount": damage_application.modified_amount,
+                    "damage_modifier": damage_application.damage_modifier,
+                    "type": damage_type,
+                    "chat_summary": effect_line,
+                },
                 "hp": {
                     "before": damage_application.hp_before,
                     "after": damage_application.hp_after,
                 },
                 "defender_hp_remaining": damage_application.hp_after,
+                "is_instant_death": damage_application.is_instant_death,
+                "death_save_failures_added": damage_application.death_save_failures_added,
             },
             "entity_id": str(target.id),
             "entity_name": target_name,

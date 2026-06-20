@@ -40,6 +40,25 @@ class DeathSavesBlock(BaseModel):
     failures: int = Field(default=0, ge=0, le=3)
 
 
+class DamageModifiersBlock(BaseModel):
+    resistances: list[str] = Field(default_factory=list)
+    vulnerabilities: list[str] = Field(default_factory=list)
+    immunities: list[str] = Field(default_factory=list)
+
+    @field_validator("resistances", "vulnerabilities", "immunities", mode="before")
+    @classmethod
+    def normalize_modifier_types(cls, value: object) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        result: list[str] = []
+        for item in value:
+            if isinstance(item, str) and item.strip():
+                slug = normalize_damage_type(item.strip())
+                if slug in DND5E_DAMAGE_TYPE_SLUGS:
+                    result.append(slug)
+        return result
+
+
 class CurrencyBlock(BaseModel):
     cp: int = Field(default=0, ge=0)
     sp: int = Field(default=0, ge=0)
@@ -175,12 +194,15 @@ def normalize_dnd5e_sheet_input(data: object) -> object:
     hit_dice = data.get("hit_dice", "1d8")
     death_saves = data.get("death_saves", {"successes": 0, "failures": 0})
     initiative_modifier = data.get("initiative_modifier", 0)
+    damage_modifiers = data.get("damage_modifiers", {"resistances": [], "vulnerabilities": [], "immunities": []})
     if isinstance(data.get("defense"), dict):
         defense = data["defense"]
         ac = defense.get("ac", ac)
         hp = defense.get("hp", hp)
         hit_dice = defense.get("hit_dice", hit_dice)
         death_saves = defense.get("death_saves", death_saves)
+        if isinstance(defense.get("damage_modifiers"), dict):
+            damage_modifiers = defense["damage_modifiers"]
     if isinstance(data.get("initiative"), dict):
         initiative_modifier = data["initiative"].get("modifier", initiative_modifier)
 
@@ -213,6 +235,7 @@ def normalize_dnd5e_sheet_input(data: object) -> object:
         "hp": hp,
         "hit_dice": hit_dice,
         "death_saves": death_saves,
+        "damage_modifiers": damage_modifiers,
         "initiative_modifier": initiative_modifier,
         "identity": identity,
         "roleplay": roleplay,
@@ -273,6 +296,7 @@ class Dnd5eSheet(BaseModel):
     hp: HpBlock = Field(default_factory=HpBlock)
     hit_dice: str = ""
     death_saves: DeathSavesBlock = Field(default_factory=DeathSavesBlock)
+    damage_modifiers: DamageModifiersBlock = Field(default_factory=DamageModifiersBlock)
     initiative_modifier: int = 0
     identity: SheetIdentityBlock = Field(default_factory=SheetIdentityBlock)
     roleplay: RoleplayBlock = Field(default_factory=RoleplayBlock)

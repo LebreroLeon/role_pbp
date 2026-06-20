@@ -187,6 +187,20 @@ export function formatDamageLine(damage: CombatDamageSummary): string {
     return damage.chat_summary.trim();
   }
 
+  const rawAmount = damage.raw_amount;
+  const modifiedAmount = damage.modified_amount ?? damage.amount;
+  const modifierLabel = damage.damage_modifier;
+  const typeLabel = damage.type?.replace(/_/g, " ");
+
+  if (
+    rawAmount != null &&
+    modifierLabel &&
+    rawAmount !== modifiedAmount &&
+    typeLabel
+  ) {
+    return `${rawAmount} ${typeLabel} → ${modifiedAmount} (${modifierLabel})`;
+  }
+
   const rolls = damage.rolls;
   const modifier = damage.modifier ?? 0;
   let dicePart = damage.expression ?? "?";
@@ -202,7 +216,7 @@ export function formatDamageLine(damage: CombatDamageSummary): string {
   if (modifier) {
     line += modifier > 0 ? ` + ${modifier}` : ` - ${Math.abs(modifier)}`;
   }
-  line += ` = ${damage.amount}`;
+  line += ` = ${modifiedAmount}`;
   if (damage.type) {
     line += ` ${damage.type.replace(/_/g, " ")}`;
   }

@@ -126,6 +126,8 @@ export type CombatAttackRollSummary = {
 
   natural_1?: boolean;
 
+  is_critical?: boolean;
+
   target_ac?: number;
 
   modifier?: number;
@@ -144,6 +146,12 @@ export type CombatDamageSummary = {
 
   amount: number;
 
+  raw_amount?: number;
+
+  modified_amount?: number;
+
+  damage_modifier?: string;
+
   type?: string;
 
   expression?: string;
@@ -153,6 +161,8 @@ export type CombatDamageSummary = {
   modifier?: number;
 
   is_healing?: boolean;
+
+  is_critical?: boolean;
 
   chat_summary?: string;
 
@@ -199,6 +209,12 @@ export type CombatEvent = {
   weapon_name?: string;
 
   is_healing?: boolean;
+
+  is_critical?: boolean;
+
+  is_instant_death?: boolean;
+
+  death_save_failures_added?: number;
 
   hp?: {
 

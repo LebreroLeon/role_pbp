@@ -126,6 +126,11 @@ export const dnd5eSheetSchema = z.object({
       successes: z.number().int().min(0).max(3),
       failures: z.number().int().min(0).max(3),
     }),
+    damage_modifiers: z.object({
+      resistances: z.array(z.enum(DND5E_DAMAGE_TYPE_VALUES)),
+      vulnerabilities: z.array(z.enum(DND5E_DAMAGE_TYPE_VALUES)),
+      immunities: z.array(z.enum(DND5E_DAMAGE_TYPE_VALUES)),
+    }),
   }),
   attacks: z.array(attackSchema).min(1),
   initiative: z.object({
@@ -187,6 +192,7 @@ export function defaultDnd5eSheet(): Dnd5eSheet {
       hp: { max: 10, current: 10, temp: 0 },
       hit_dice: "1d8",
       death_saves: { successes: 0, failures: 0 },
+      damage_modifiers: { resistances: [], vulnerabilities: [], immunities: [] },
     },
     attacks: [
       {
@@ -330,6 +336,14 @@ export function convertBackendDnd5eSheet(raw: Record<string, unknown>): Dnd5eShe
 
   const hpRaw = raw.hp as { max?: number; current?: number; temp?: number } | undefined;
   const deathSavesRaw = raw.death_saves as { successes?: number; failures?: number } | undefined;
+  const damageModsRaw = (raw.damage_modifiers ??
+    (raw.defense as { damage_modifiers?: Record<string, unknown> } | undefined)?.damage_modifiers) as
+    | { resistances?: string[]; vulnerabilities?: string[]; immunities?: string[] }
+    | undefined;
+  const normalizeModList = (values?: string[]) =>
+    (values ?? [])
+      .map((item) => normalizeAttackDamageType(item))
+      .filter((item): item is Dnd5eDamageType => DND5E_DAMAGE_TYPE_VALUES.includes(item as Dnd5eDamageType));
   const defense = {
     ac: typeof raw.ac === "number" ? raw.ac : defaults.defense.ac,
     hp: {
@@ -341,6 +355,11 @@ export function convertBackendDnd5eSheet(raw: Record<string, unknown>): Dnd5eShe
     death_saves: {
       successes: deathSavesRaw?.successes ?? defaults.defense.death_saves.successes,
       failures: deathSavesRaw?.failures ?? defaults.defense.death_saves.failures,
+    },
+    damage_modifiers: {
+      resistances: normalizeModList(damageModsRaw?.resistances),
+      vulnerabilities: normalizeModList(damageModsRaw?.vulnerabilities),
+      immunities: normalizeModList(damageModsRaw?.immunities),
     },
   };
 

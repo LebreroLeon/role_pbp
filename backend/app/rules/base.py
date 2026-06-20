@@ -49,6 +49,7 @@ class DamageResult:
     damage_type: str
     modifier: int = 0
     is_healing: bool = False
+    is_critical: bool = False
 
 
 @dataclass
@@ -70,6 +71,12 @@ class DamageApplication:
     is_healing: bool = False
     amount_applied: int | None = None
     chat_summary: str = ""
+    raw_amount: int | None = None
+    modified_amount: int | None = None
+    damage_modifier: str | None = None
+    is_critical: bool = False
+    is_instant_death: bool = False
+    death_save_failures_added: int = 0
 
 
 class GameSystemPlugin(ABC):

@@ -20,6 +20,7 @@ import {
   type Dnd5eSheet,
 } from "./schema";
 import { DND5E_DAMAGE_TYPE_GROUPS } from "./damageTypes";
+import type { Dnd5eDamageType } from "./damageTypes";
 
 type Dnd5eSheetFormProps = {
   defaultValues: Dnd5eSheet;
@@ -88,6 +89,50 @@ function formatMod(mod: number): string {
   return mod >= 0 ? `+${mod}` : String(mod);
 }
 
+type DamageModifierField = "resistances" | "vulnerabilities" | "immunities";
+
+type DamageModifiersPickerProps = {
+  field: DamageModifierField;
+  label: string;
+  selected: Dnd5eDamageType[];
+  disabled?: boolean;
+  onChange: (values: Dnd5eDamageType[]) => void;
+};
+
+function DamageModifiersPicker({ field, label, selected, disabled, onChange }: DamageModifiersPickerProps) {
+  function toggle(value: Dnd5eDamageType) {
+    if (selected.includes(value)) {
+      onChange(selected.filter((item) => item !== value));
+      return;
+    }
+    onChange([...selected, value]);
+  }
+
+  return (
+    <div className="sheet-damage-modifiers__group">
+      <h4>{label}</h4>
+      {DND5E_DAMAGE_TYPE_GROUPS.map((group) => (
+        <fieldset key={`${field}-${group.label}`} className="sheet-damage-modifiers__fieldset">
+          <legend>{group.label}</legend>
+          <div className="sheet-damage-modifiers__options">
+            {group.options.map((option) => (
+              <label key={option.value} className="sheet-damage-modifiers__option">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(option.value)}
+                  disabled={disabled}
+                  onChange={() => toggle(option.value)}
+                />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ))}
+    </div>
+  );
+}
+
 export function Dnd5eSheetForm({
   defaultValues,
   onSubmit,
@@ -127,6 +172,9 @@ export function Dnd5eSheetForm({
   const proficiencyBonus = watch("proficiency.bonus") ?? 0;
   const deathSuccesses = watch("defense.death_saves.successes") ?? 0;
   const deathFailures = watch("defense.death_saves.failures") ?? 0;
+  const resistances = watch("defense.damage_modifiers.resistances") ?? [];
+  const vulnerabilities = watch("defense.damage_modifiers.vulnerabilities") ?? [];
+  const immunities = watch("defense.damage_modifiers.immunities") ?? [];
 
   const perceptionSkill = skills?.find(
     (skill) => skill.name.trim().toLowerCase().replace(/\s+/g, "_") === "perception",
@@ -365,6 +413,37 @@ export function Dnd5eSheetForm({
             disabled={disabled}
             onChange={(value) =>
               setValue("defense.death_saves.failures", value, { shouldDirty: true })
+            }
+          />
+        </div>
+
+        <div className="sheet-damage-modifiers">
+          <h4>Defensas de daño</h4>
+          <DamageModifiersPicker
+            field="resistances"
+            label="Resistencias"
+            selected={resistances}
+            disabled={disabled}
+            onChange={(values) =>
+              setValue("defense.damage_modifiers.resistances", values, { shouldDirty: true })
+            }
+          />
+          <DamageModifiersPicker
+            field="vulnerabilities"
+            label="Vulnerabilidades"
+            selected={vulnerabilities}
+            disabled={disabled}
+            onChange={(values) =>
+              setValue("defense.damage_modifiers.vulnerabilities", values, { shouldDirty: true })
+            }
+          />
+          <DamageModifiersPicker
+            field="immunities"
+            label="Inmunidades"
+            selected={immunities}
+            disabled={disabled}
+            onChange={(values) =>
+              setValue("defense.damage_modifiers.immunities", values, { shouldDirty: true })
             }
           />
         </div>

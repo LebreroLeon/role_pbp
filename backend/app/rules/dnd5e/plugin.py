@@ -13,7 +13,12 @@ from app.rules.base import (
     RollContext,
     RollResult,
 )
-from app.rules.dnd5e.mechanics import apply_death_save_roll, passive_perception_from_sheet
+from app.rules.dnd5e.mechanics import (
+    apply_damage_pipeline,
+    apply_death_save_roll,
+    double_damage_dice,
+    passive_perception_from_sheet,
+)
 from app.rules.dnd5e.rolls import roll_d20 as _roll_d20
 from app.rules.dnd5e.schema import (
     Dnd5eSheet,
@@ -294,15 +299,18 @@ class Dnd5ePlugin(GameSystemPlugin):
         )
         if context.target_ac is not None and result.total is not None:
             natural = result.rolls[-1] if result.rolls else None
-            hit = natural == 20 or (natural != 1 and result.total >= context.target_ac)
+            is_critical = natural == 20
+            hit = is_critical or (natural != 1 and result.total >= context.target_ac)
             result.success = hit
             result.details["target_ac"] = context.target_ac
             result.details["hit"] = hit
+            result.details["is_critical"] = is_critical
             dice_label = self._d20_dice_label(context)
             mod_str = f"{modifier:+d}" if modifier else ""
+            hit_label = "impacto crítico" if is_critical and hit else ("impacto" if hit else "fallo")
             result.chat_summary = (
                 f"{attack.name}: {dice_label}{mod_str} = {result.total} vs CA {context.target_ac} — "
-                f"{'impacto' if hit else 'fallo'}"
+                f"{hit_label}"
             )
         else:
             dice_label = self._d20_dice_label(context)
@@ -577,17 +585,17 @@ class Dnd5ePlugin(GameSystemPlugin):
         )
         attack_roll = self.resolve_roll("attack_roll", attacker_sheet, roll_ctx)
         hit = bool(attack_roll.details.get("hit", attack_roll.success))
+        is_critical = bool(attack_roll.details.get("is_critical"))
 
         damage_result = None
         if hit:
-            damage_roll = self.resolve_roll(
-                "damage",
-                attacker_sheet,
-                RollContext(
-                    attack_name=weapon_or_attack_id or context.attack_name,
-                    attack_index=context.attack_index,
-                ),
+            damage_ctx = RollContext(
+                attack_name=weapon_or_attack_id or context.attack_name,
+                attack_index=context.attack_index,
             )
+            if is_critical:
+                damage_ctx.expression = double_damage_dice(attack.damage_dice)
+            damage_roll = self.resolve_roll("damage", attacker_sheet, damage_ctx)
             damage_type = str(damage_roll.details.get("damage_type", "untyped"))
             damage_result = DamageResult(
                 amount=damage_roll.total or 0,
@@ -596,11 +604,13 @@ class Dnd5ePlugin(GameSystemPlugin):
                 damage_type=damage_type,
                 modifier=int(damage_roll.details.get("modifier", 0)),
                 is_healing=False,
+                is_critical=is_critical,
             )
 
         if hit and damage_result:
+            crit_note = " (crítico)" if is_critical else ""
             summary = (
-                f"{attacker_name}: {attack_roll.total} vs CA {target_ac} — impacto. "
+                f"{attacker_name}: {attack_roll.total} vs CA {target_ac} — impacto{crit_note}. "
                 f"{damage_result.amount} {damage_result.damage_type}."
             )
         else:
@@ -618,14 +628,23 @@ class Dnd5ePlugin(GameSystemPlugin):
         defender_sheet: dict,
         damage: DamageResult,
     ) -> tuple[dict, DamageApplication]:
-        updated = deepcopy(defender_sheet)
-        sheet = _parse_sheet(updated)
-        hp_before = sheet.hp.current
-
         if damage.is_healing:
+            updated = deepcopy(defender_sheet)
+            sheet = _parse_sheet(updated)
+            hp_before = sheet.hp.current
             applied = min(damage.amount, max(0, sheet.hp.max - sheet.hp.current))
             sheet.hp.current = hp_before + applied
+            if isinstance(updated.get("defense"), dict):
+                updated["defense"]["hp"] = sheet.hp.model_dump()
             updated["hp"] = sheet.hp.model_dump()
+
+            if sheet.hp.current > 0:
+                death_saves = sheet.death_saves.model_dump()
+                death_saves["successes"] = 0
+                death_saves["failures"] = 0
+                if isinstance(updated.get("defense"), dict):
+                    updated["defense"]["death_saves"] = death_saves
+                updated["death_saves"] = death_saves
 
             application = DamageApplication(
                 damage_dealt=damage.amount,
@@ -643,27 +662,29 @@ class Dnd5ePlugin(GameSystemPlugin):
             )
             return updated, application
 
-        remaining = damage.amount
-        if sheet.hp.temp > 0:
-            absorbed = min(sheet.hp.temp, remaining)
-            sheet.hp.temp -= absorbed
-            remaining -= absorbed
-
-        sheet.hp.current = max(0, sheet.hp.current - remaining)
-        updated["hp"] = sheet.hp.model_dump()
+        result = apply_damage_pipeline(
+            defender_sheet,
+            amount=damage.amount,
+            damage_type=damage.damage_type,
+            is_critical=damage.is_critical,
+        )
+        updated = result["updated_sheet"]
 
         application = DamageApplication(
-            damage_dealt=damage.amount,
+            damage_dealt=result["raw_amount"],
             damage_type=damage.damage_type,
-            hp_before=hp_before,
-            hp_after=sheet.hp.current,
-            is_unconscious=sheet.hp.current == 0,
-            is_dead=False,
+            hp_before=result["hp_before"],
+            hp_after=result["hp_after"],
+            is_unconscious=result["hp_after"] == 0 and not result["is_dead"],
+            is_dead=result["is_dead"],
             is_healing=False,
-            amount_applied=damage.amount,
-            chat_summary=(
-                f"Daño {damage.amount} ({damage.damage_type}): "
-                f"PV {hp_before} → {sheet.hp.current}"
-            ),
+            amount_applied=result["amount_applied"],
+            raw_amount=result["raw_amount"],
+            modified_amount=result["modified_amount"],
+            damage_modifier=result["damage_modifier"],
+            is_critical=result["is_critical"],
+            is_instant_death=result["is_instant_death"],
+            death_save_failures_added=result["death_save_failures_added"],
+            chat_summary=result["chat_summary"],
         )
         return updated, application

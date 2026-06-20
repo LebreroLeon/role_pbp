@@ -297,6 +297,15 @@ function EntityTurnList({
           sceneState,
           isMaster,
         );
+        const entity = entities?.find((item) => item.id === entry.entity_id);
+        const stateFlags = entity?.document.state_flags as
+          | { is_incapacitated?: boolean; is_dead?: boolean }
+          | undefined;
+        const statusMarker = stateFlags?.is_dead
+          ? "☠"
+          : stateFlags?.is_incapacitated
+            ? "💤"
+            : null;
         const canAssign = isMaster && pbpOn && !isCurrent;
 
         return (
@@ -317,7 +326,10 @@ function EntityTurnList({
                 <span className="initiative-entry__marker" aria-hidden>
                   ·
                 </span>
-                <span className="initiative-entry__name">{displayName}</span>
+                <span className="initiative-entry__name">
+                  {statusMarker ? `${statusMarker} ` : ""}
+                  {displayName}
+                </span>
                 {entry.initiative_score != null && (
                   <span className="initiative-entry__score">{entry.initiative_score}</span>
                 )}
@@ -329,7 +341,10 @@ function EntityTurnList({
                 <span className="initiative-entry__marker" aria-hidden>
                   {isCurrent ? "►" : "·"}
                 </span>
-                <span className="initiative-entry__name">{displayName}</span>
+                <span className="initiative-entry__name">
+                  {statusMarker ? `${statusMarker} ` : ""}
+                  {displayName}
+                </span>
                 {entry.initiative_score != null && (
                   <span className="initiative-entry__score">{entry.initiative_score}</span>
                 )}
