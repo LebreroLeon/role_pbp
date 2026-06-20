@@ -174,7 +174,7 @@ class Dnd5ePlugin(GameSystemPlugin):
                     "name": "Longsword",
                     "to_hit_bonus": 5,
                     "damage_dice": "1d8+3",
-                    "damage_type": "slashing",
+                    "damage_type": "cortante",
                 }
             ],
         ).model_dump()
@@ -190,7 +190,7 @@ class Dnd5ePlugin(GameSystemPlugin):
                     "name": "Claw",
                     "to_hit_bonus": 4,
                     "damage_dice": "1d6+2",
-                    "damage_type": "slashing",
+                    "damage_type": "cortante",
                 }
             ],
         ).model_dump()

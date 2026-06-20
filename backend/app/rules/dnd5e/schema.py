@@ -1,6 +1,9 @@
+import re
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.rules.dnd5e.damage_types import DND5E_DAMAGE_TYPE_SLUGS, normalize_damage_type
 
 
 class AbilityScores(BaseModel):
@@ -45,11 +48,57 @@ class CurrencyBlock(BaseModel):
     pp: int = Field(default=0, ge=0)
 
 
+def parse_class_level(combined: str) -> tuple[str, int]:
+    trimmed = combined.strip()
+    if not trimmed:
+        return "", 1
+    match = re.match(r"^(.+?)\s+(\d+)\s*$", trimmed)
+    if match:
+        level = max(1, min(20, int(match.group(2))))
+        return match.group(1).strip(), level
+    return trimmed, 1
+
+
+def normalize_sheet_identity(raw: object) -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        return {"class": "", "level": 1, "background": "", "race": "", "alignment": ""}
+
+    data = dict(raw)
+    character_class = str(data.get("class", data.get("class_", "")) or "").strip()
+    level_raw = data.get("level")
+    level = level_raw if isinstance(level_raw, int) else None
+
+    if not character_class and level is None and "class_level" in data:
+        character_class, level = parse_class_level(str(data.get("class_level", "")))
+
+    if level is None:
+        level = 1
+    level = max(1, min(20, int(level)))
+
+    return {
+        "class": character_class,
+        "level": level,
+        "background": str(data.get("background", "") or ""),
+        "race": str(data.get("race", "") or ""),
+        "alignment": str(data.get("alignment", "") or ""),
+    }
+
+
 class SheetIdentityBlock(BaseModel):
-    class_level: str = ""
+    model_config = ConfigDict(populate_by_name=True)
+
+    class_: str = Field(default="", alias="class")
+    level: int = Field(default=1, ge=1, le=20)
     background: str = ""
     race: str = ""
     alignment: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_class_level(cls, data: object) -> object:
+        if isinstance(data, dict):
+            return normalize_sheet_identity(data)
+        return data
 
 
 class RoleplayBlock(BaseModel):
@@ -78,7 +127,7 @@ def _normalize_attack_entry(
     if damage_dice is None and isinstance(damage, dict):
         damage_dice = damage.get("dice", "1d4")
     if damage_type is None and isinstance(damage, dict):
-        damage_type = damage.get("type", "untyped")
+        damage_type = damage.get("type", "contundente")
 
     ability = str(attack.get("ability", "str")).strip().lower()
     proficient = bool(attack.get("proficient", False))
@@ -92,7 +141,7 @@ def _normalize_attack_entry(
         "name": attack.get("name", "Attack"),
         "to_hit_bonus": to_hit_bonus,
         "damage_dice": damage_dice or "1d4",
-        "damage_type": damage_type or "untyped",
+        "damage_type": normalize_damage_type(str(damage_type) if damage_type is not None else None),
     }
 
 
@@ -129,7 +178,7 @@ def normalize_dnd5e_sheet_input(data: object) -> object:
     if isinstance(data.get("initiative"), dict):
         initiative_modifier = data["initiative"].get("modifier", initiative_modifier)
 
-    identity = data.get("identity", {})
+    identity = normalize_sheet_identity(data.get("identity", {}))
     roleplay = data.get("roleplay", {})
     features_traits = data.get("features_traits", "")
     equipment = data.get("equipment", "")
@@ -175,22 +224,37 @@ class AttackEntry(BaseModel):
     damage_dice: str
     damage_type: str
 
+    @field_validator("damage_type", mode="before")
+    @classmethod
+    def normalize_damage_type_field(cls, value: object) -> str:
+        return normalize_damage_type(str(value) if value is not None else None)
+
     @model_validator(mode="before")
     @classmethod
     def normalize_frontend_attack(cls, data: object) -> object:
         if not isinstance(data, dict):
             return data
         if "damage_dice" in data and "damage_type" in data:
-            return data
+            return {
+                **data,
+                "damage_type": normalize_damage_type(str(data.get("damage_type", ""))),
+            }
         damage = data.get("damage")
         if isinstance(damage, dict):
             return {
                 "name": data.get("name", "Attack"),
                 "to_hit_bonus": data.get("to_hit_bonus", 0),
                 "damage_dice": damage.get("dice", "1d4"),
-                "damage_type": damage.get("type", "untyped"),
+                "damage_type": normalize_damage_type(str(damage.get("type", ""))),
             }
         return data
+
+    @field_validator("damage_type")
+    @classmethod
+    def validate_damage_type(cls, value: str) -> str:
+        if value not in DND5E_DAMAGE_TYPE_SLUGS:
+            raise ValueError(f"Tipo de daño no válido: {value}")
+        return value
 
 
 class Dnd5eSheet(BaseModel):

@@ -58,6 +58,8 @@ class TestDnd5eSchema:
         }
         validated = plugin.validate_pc_sheet(sheet)
         assert isinstance(validated, Dnd5eSheet)
+        assert validated.identity.class_ == "Guerrero"
+        assert validated.identity.level == 3
         assert validated.attacks[0].damage_dice == "1d4"
         assert validated.attacks[0].damage_type == "contundente"
         assert validated.attacks[0].to_hit_bonus == 2
@@ -138,7 +140,7 @@ class TestDnd5eRolls:
         monkeypatch.setattr("random.randint", lambda a, b: 6 if b == 8 else 10)
         result = plugin.resolve_roll("damage", sample_sheet, RollContext(attack_name="Longsword"))
         assert result.total == 9  # 1d8(6) + 3
-        assert result.details["damage_type"] == "slashing"
+        assert result.details["damage_type"] == "cortante"
         assert result.details["modifier_breakdown"]
         assert "1d8=6" in result.chat_summary
         assert result.chat_summary.endswith("= 9")

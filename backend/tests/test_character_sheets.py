@@ -47,7 +47,7 @@ def _npc_document_with_typed_sheet(sheet: dict | None = None) -> dict:
 
 def _frontend_dnd5e_sheet() -> dict:
     return {
-        "identity": {"class_level": "", "background": "", "race": "", "alignment": ""},
+        "identity": {"class": "Guerrero", "level": 3, "background": "", "race": "", "alignment": ""},
         "roleplay": {"personality_traits": "", "ideals": "", "bonds": "", "flaws": ""},
         "features_traits": "",
         "equipment": "",

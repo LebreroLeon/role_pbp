@@ -19,6 +19,7 @@ import {
   type Dnd5eAbility,
   type Dnd5eSheet,
 } from "./schema";
+import { DND5E_DAMAGE_TYPE_GROUPS } from "./damageTypes";
 
 type Dnd5eSheetFormProps = {
   defaultValues: Dnd5eSheet;
@@ -246,7 +247,16 @@ export function Dnd5eSheetForm({
       <section className="sheet-section">
         <h3>Identidad</h3>
         <div className="sheet-grid sheet-grid--2">
-          <Input label="Clase y nivel" disabled={disabled} {...register("identity.class_level")} />
+          <Input label="Clase" disabled={disabled} {...register("identity.class")} />
+          <Input
+            label="Nivel"
+            type="number"
+            min={1}
+            max={20}
+            disabled={disabled}
+            error={errors.identity?.level?.message}
+            {...register("identity.level", { valueAsNumber: true })}
+          />
           <Input label="Trasfondo" disabled={disabled} {...register("identity.background")} />
           <Input label="Raza" disabled={disabled} {...register("identity.race")} />
           <Input label="Alineación" disabled={disabled} {...register("identity.alignment")} />
@@ -536,12 +546,23 @@ export function Dnd5eSheetForm({
               error={errors.attacks?.[index]?.damage?.dice?.message}
               {...register(`attacks.${index}.damage.dice`)}
             />
-            <Input
-              label="Tipo de daño"
-              disabled={disabled}
-              error={errors.attacks?.[index]?.damage?.type?.message}
-              {...register(`attacks.${index}.damage.type`)}
-            />
+            <label className="form-field">
+              <span>Tipo de daño</span>
+              <select disabled={disabled} {...register(`attacks.${index}.damage.type`)}>
+                {DND5E_DAMAGE_TYPE_GROUPS.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.options.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              {errors.attacks?.[index]?.damage?.type?.message ? (
+                <span className="form-field__error">{errors.attacks[index]?.damage?.type?.message}</span>
+              ) : null}
+            </label>
             <Controller
               control={control}
               name={`attacks.${index}.proficient`}

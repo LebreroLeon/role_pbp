@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import {
+  DND5E_DAMAGE_TYPE_VALUES,
+  normalizeDamageType,
+  type Dnd5eDamageType,
+} from "./damageTypes";
+
 export const DND5E_ABILITIES = ["str", "dex", "con", "int", "wis", "cha"] as const;
 export type Dnd5eAbility = (typeof DND5E_ABILITIES)[number];
 
@@ -62,10 +68,12 @@ const attackSchema = z.object({
   proficient: z.boolean(),
   damage: z.object({
     dice: z.string().min(1, "Dados requeridos"),
-    type: z.string().min(1, "Tipo requerido"),
+    type: z.enum(DND5E_DAMAGE_TYPE_VALUES),
   }),
   properties: z.array(z.string()),
 });
+
+const levelSchema = z.number().int().min(1).max(20);
 
 const currencySchema = z.object({
   cp: z.number().int().min(0),
@@ -77,7 +85,8 @@ const currencySchema = z.object({
 
 export const dnd5eSheetSchema = z.object({
   identity: z.object({
-    class_level: z.string(),
+    class: z.string(),
+    level: levelSchema,
     background: z.string(),
     race: z.string(),
     alignment: z.string(),
@@ -135,10 +144,24 @@ export function skillLabelEs(skillName: string): string {
   return DND5E_SKILL_LABELS_ES[key] ?? skillName;
 }
 
+export function parseClassLevel(combined: string): { class: string; level: number } {
+  const trimmed = combined.trim();
+  if (!trimmed) {
+    return { class: "", level: 1 };
+  }
+  const match = /^(.+?)\s+(\d+)\s*$/.exec(trimmed);
+  if (match) {
+    const level = Math.min(20, Math.max(1, Number.parseInt(match[2], 10)));
+    return { class: match[1].trim(), level };
+  }
+  return { class: trimmed, level: 1 };
+}
+
 export function defaultDnd5eSheet(): Dnd5eSheet {
   return {
     identity: {
-      class_level: "",
+      class: "",
+      level: 1,
       background: "",
       race: "",
       alignment: "",
@@ -221,12 +244,45 @@ function readSheetIdentity(raw: unknown): Dnd5eSheet["identity"] {
   const defaults = defaultDnd5eSheet().identity;
   if (!raw || typeof raw !== "object") return defaults;
   const entry = raw as Record<string, unknown>;
+
+  const classDirect = readString(entry.class, "");
+  const levelDirect = typeof entry.level === "number" ? entry.level : undefined;
+
+  if (classDirect || levelDirect !== undefined) {
+    return {
+      class: classDirect,
+      level:
+        levelDirect !== undefined
+          ? Math.min(20, Math.max(1, Math.trunc(levelDirect)))
+          : defaults.level,
+      background: readString(entry.background, defaults.background),
+      race: readString(entry.race, defaults.race),
+      alignment: readString(entry.alignment, defaults.alignment),
+    };
+  }
+
+  if (typeof entry.class_level === "string" && entry.class_level.trim()) {
+    const parsed = parseClassLevel(entry.class_level);
+    return {
+      class: parsed.class,
+      level: parsed.level,
+      background: readString(entry.background, defaults.background),
+      race: readString(entry.race, defaults.race),
+      alignment: readString(entry.alignment, defaults.alignment),
+    };
+  }
+
   return {
-    class_level: readString(entry.class_level, defaults.class_level),
+    class: defaults.class,
+    level: defaults.level,
     background: readString(entry.background, defaults.background),
     race: readString(entry.race, defaults.race),
     alignment: readString(entry.alignment, defaults.alignment),
   };
+}
+
+function normalizeAttackDamageType(raw: string | undefined): Dnd5eDamageType {
+  return normalizeDamageType(raw);
 }
 
 /** Map backend canonical sheet (flat) to frontend nested editor shape. */
@@ -308,7 +364,7 @@ export function convertBackendDnd5eSheet(raw: Record<string, unknown>): Dnd5eShe
             proficient: entry.proficient ?? false,
             damage: {
               dice: entry.damage_dice?.trim() || "1d4",
-              type: entry.damage_type?.trim() || "contundente",
+              type: normalizeAttackDamageType(entry.damage_type),
             },
             properties: entry.properties ?? [],
           };
