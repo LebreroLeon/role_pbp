@@ -174,6 +174,55 @@ class Dnd5eSheet(BaseModel):
         return data
 
 
+ABILITY_LABELS_ES: dict[str, str] = {
+    "str": "Fuerza",
+    "dex": "Destreza",
+    "con": "Constitución",
+    "int": "Inteligencia",
+    "wis": "Sabiduría",
+    "cha": "Carisma",
+}
+
+SKILL_LABELS_ES: dict[str, str] = {
+    "athletics": "Atletismo",
+    "acrobatics": "Acrobacias",
+    "sleight_of_hand": "Juego de manos",
+    "stealth": "Sigilo",
+    "arcana": "Arcano",
+    "history": "Historia",
+    "investigation": "Investigación",
+    "nature": "Naturaleza",
+    "religion": "Religión",
+    "animal_handling": "Trato con animales",
+    "insight": "Perspicacia",
+    "medicine": "Medicina",
+    "perception": "Percepción",
+    "survival": "Supervivencia",
+    "deception": "Engaño",
+    "intimidation": "Intimidación",
+    "performance": "Interpretación",
+    "persuasion": "Persuasión",
+}
+
+ROLL_TYPE_LABELS_ES: dict[str, str] = {
+    "ability_check": "Tirada de atributo",
+    "saving_throw": "Salvación",
+    "skill_check": "Tirada de habilidad",
+    "attack_roll": "Ataque",
+    "damage": "Daño",
+    "initiative": "Iniciativa",
+}
+
+
+def ability_label_es(ability: str) -> str:
+    return ABILITY_LABELS_ES.get(ability.strip().lower(), ability)
+
+
+def skill_label_es(skill: str) -> str:
+    key = skill.strip().lower().replace(" ", "_")
+    return SKILL_LABELS_ES.get(key, skill)
+
+
 SKILL_ABILITY_MAP: dict[str, str] = {
     "athletics": "str",
     "acrobatics": "dex",

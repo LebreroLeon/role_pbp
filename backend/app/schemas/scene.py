@@ -22,12 +22,15 @@ class ChatMessage(BaseModel):
     type: str
     text: str | None = None
     dice_expression: str | None = None
+    rolls: list[int] | None = None
     raw_result: int | None = None
     final_result: int | None = None
     skill_checked: str | None = None
     entity_id: str | None = None
     roll_type: str | None = None
     roll_details: dict | None = None
+    chat_summary: str | None = None
+    success: bool | None = None
     combat_event: dict | None = None
     read_by: list[str] = Field(default_factory=list)
     like_count: int = 0

@@ -146,6 +146,14 @@ export type CombatDamageSummary = {
 
   type?: string;
 
+  expression?: string;
+
+  rolls?: number[];
+
+  modifier?: number;
+
+  chat_summary?: string;
+
 };
 
 
@@ -227,6 +235,8 @@ export type ChatMessage = {
   text?: string;
 
   dice_expression?: string;
+
+  rolls?: number[];
 
   raw_result?: number;
 

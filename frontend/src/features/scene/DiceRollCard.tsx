@@ -4,6 +4,13 @@ import { ChatMessageDeleteButton } from "./ChatMessageDeleteButton";
 import { ChatAvatar } from "./ChatAvatar";
 import { MESSAGE_TYPE_META } from "./messageTypes";
 import { MessageLikeBadge } from "./MessageLikeBadge";
+import {
+  formatModifierBreakdownLine,
+  formatRollSummaryLine,
+  parseModifierBreakdown,
+  resolveRollDice,
+  resolveRollLabel,
+} from "./rollFormat";
 
 type DiceRollCardProps = {
   message: ChatMessage;
@@ -34,12 +41,16 @@ export function DiceRollCard({
   currentUserId,
   members,
 }: DiceRollCardProps) {
-  const expression = message.dice_expression ?? message.roll_details?.expression?.toString() ?? "?";
-  const raw = message.raw_result ?? message.final_result ?? 0;
-  const final = message.final_result ?? raw;
-  const modifierMatch = expression.match(/([+-]\d+)$/);
-  const modifier = modifierMatch ? Number(modifierMatch[1]) : 0;
-  const baseExpr = modifierMatch ? expression.replace(modifierMatch[0], "").trim() : expression;
+  const rollLabel = resolveRollLabel(message);
+  const dice = resolveRollDice(message);
+  const modifierBreakdown = parseModifierBreakdown(message.roll_details);
+  const breakdownLine = formatModifierBreakdownLine(modifierBreakdown);
+  const summaryLine = formatRollSummaryLine(message);
+  const final = message.final_result ?? message.raw_result ?? 0;
+  const natural =
+    typeof message.roll_details?.natural_roll === "number"
+      ? message.roll_details.natural_roll
+      : dice[dice.length - 1] ?? final;
   const meta = MESSAGE_TYPE_META.DICE_ROLL;
 
   function handleDeleteClick() {
@@ -66,23 +77,35 @@ export function DiceRollCard({
         </div>
       </header>
 
+      {rollLabel && <p className="dice-card__roll-label">{rollLabel}</p>}
+
       <div className="dice-card__stage">
-        <div className="dice-card__die" aria-hidden>
-          <span className="dice-card__face">{raw}</span>
-        </div>
-        {modifier !== 0 && (
-          <span className="dice-card__modifier">{modifier > 0 ? `+ ${modifier}` : modifier}</span>
+        {dice.length > 1 ? (
+          <div className="dice-card__dice-group" aria-hidden>
+            {dice.map((value, index) => (
+              <div key={`${value}-${index}`} className="dice-card__die dice-card__die--small">
+                <span
+                  className={`dice-card__face${
+                    value === natural ? " dice-card__face--chosen" : ""
+                  }`}
+                >
+                  {value}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="dice-card__die" aria-hidden>
+            <span className="dice-card__face">{natural}</span>
+          </div>
         )}
         <span className="dice-card__total">{final}</span>
       </div>
-      <p className="dice-card__formula">
-        {baseExpr}
-        {modifier !== 0 ? ` ${modifier > 0 ? "+" : ""}${modifier}` : ""} = {final}
-      </p>
-      {message.skill_checked && <p className="muted dice-card__skill">{message.skill_checked}</p>}
-      {message.chat_summary && !message.skill_checked && (
-        <p className="muted dice-card__skill">{message.chat_summary}</p>
-      )}
+
+      <p className="combat-card__roll-line dice-card__formula">{summaryLine}</p>
+
+      {breakdownLine && <p className="dice-card__breakdown muted">{breakdownLine}</p>}
+
       <MessageLikeBadge
         messageId={message.id}
         likeCount={message.like_count}

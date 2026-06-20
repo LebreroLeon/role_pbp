@@ -417,7 +417,47 @@
 .dice-card__skill {
   margin: 0.35rem 0 0;
   text-align: center;
+}
+
+.dice-card__roll-label {
+  margin: 0.15rem 0 0;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--accent-sky);
+}
+
+.dice-card__breakdown {
+  margin: 0.35rem 0 0;
+  text-align: center;
   font-size: 0.85rem;
+}
+
+.dice-card__dice-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.dice-card__die--small {
+  width: 3rem;
+  height: 3rem;
+}
+
+.dice-card__die--small .dice-card__face {
+  font-size: 1.25rem;
+}
+
+.dice-card__face--chosen {
+  border-color: rgba(110, 181, 255, 0.85);
+  box-shadow:
+    0 0 0 2px rgba(110, 181, 255, 0.35),
+    0 8px 20px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.combat-card__damage-line {
+  margin-top: 0.35rem;
 }
 
 /* —— Combat chat cards —— */

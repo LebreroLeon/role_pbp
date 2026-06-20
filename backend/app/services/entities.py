@@ -531,8 +531,13 @@ async def roll_player_character_contextual(
     active_scene = await get_active_scene(db, campaign_id)
     scene_id: str | None = None
     if active_scene is not None and active_scene.status == "ACTIVE":
+        roll_details = roll_result.get("roll_details")
         skill_checked = None
-        if context and isinstance(context.get("skill"), str):
+        if isinstance(roll_details, dict):
+            roll_label = roll_details.get("roll_label")
+            if isinstance(roll_label, str) and roll_label.strip():
+                skill_checked = roll_label.strip()
+        if skill_checked is None and context and isinstance(context.get("skill"), str):
             skill_checked = context["skill"]
         await append_dice_roll_to_scene(
             db,

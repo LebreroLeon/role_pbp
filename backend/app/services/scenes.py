@@ -24,7 +24,11 @@ from app.schemas.scene import (
     StateFlags,
     TurnManagement,
 )
-from app.services.dice import roll_dice as roll_dice_expression
+from app.services.dice import (
+    build_generic_roll_details,
+    format_raw_roll_summary,
+    roll_dice as roll_dice_expression,
+)
 from app.services.message_likes import delete_likes_for_message, fetch_likes_by_message_id, toggle_message_like
 from app.services.combat_parser import try_parse_combat_command
 from app.services.combat_resolver import CombatResolverError, entity_display_name, execute_combat_command
@@ -710,16 +714,22 @@ async def roll_scene_dice(
     except ValueError as exc:
         raise SceneServiceError(str(exc)) from exc
 
+    summary = format_raw_roll_summary(payload.dice_expression, result)
+    roll_details = build_generic_roll_details(payload.dice_expression, result)
+
     message = {
         "id": str(uuid.uuid4()),
         "timestamp": utc_now_iso(),
         "sender_id": sender_id,
         "type": "DICE_ROLL",
-        "text": f"Roll: {payload.dice_expression} => {result['final_result']}",
+        "text": summary,
+        "chat_summary": summary,
         "dice_expression": payload.dice_expression,
+        "rolls": result.get("rolls"),
         "raw_result": result["raw_result"],
         "final_result": result["final_result"],
         "skill_checked": payload.skill_checked,
+        "roll_details": roll_details,
         "read_by": [sender_id],
     }
     state.chat_buffer.append(ChatMessage.model_validate(message))
@@ -912,6 +922,14 @@ def build_dice_roll_message(
     entity_id: str | None = None,
     skill_checked: str | None = None,
 ) -> dict[str, Any]:
+    roll_details = roll_result.get("roll_details")
+    if not isinstance(roll_details, dict):
+        roll_details = {}
+
+    roll_label = roll_details.get("roll_label")
+    if isinstance(roll_label, str) and roll_label.strip():
+        skill_checked = skill_checked or roll_label.strip()
+
     text = roll_result.get("chat_summary")
     if not isinstance(text, str) or not text.strip():
         expression = roll_result.get("dice_expression", "")
@@ -925,17 +943,20 @@ def build_dice_roll_message(
         "type": "DICE_ROLL",
         "text": text,
         "dice_expression": roll_result.get("dice_expression"),
+        "rolls": roll_result.get("rolls"),
         "raw_result": roll_result.get("raw_result"),
         "final_result": roll_result.get("final_result"),
         "skill_checked": skill_checked,
+        "chat_summary": roll_result.get("chat_summary"),
+        "success": roll_result.get("success"),
         "read_by": [sender_id],
     }
     if entity_id:
         message["entity_id"] = entity_id
     if roll_result.get("roll_type"):
         message["roll_type"] = roll_result["roll_type"]
-    if roll_result.get("roll_details"):
-        message["roll_details"] = roll_result["roll_details"]
+    if roll_details:
+        message["roll_details"] = roll_details
     return message
 
 

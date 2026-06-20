@@ -203,20 +203,32 @@ class TestDiceRollMessage:
             sender_id="player-1",
             roll_result={
                 "dice_expression": "1d20+3",
+                "rolls": [12],
                 "raw_result": 12,
                 "final_result": 15,
-                "chat_summary": "Perception 15",
+                "chat_summary": "Percepción: 1d20=12 +3 = 15",
                 "roll_type": "skill_check",
-                "roll_details": {"skill": "Perception"},
+                "roll_details": {
+                    "skill": "Perception",
+                    "roll_label": "Percepción",
+                    "modifier_breakdown": [
+                        {"label": "Sabiduría", "value": 0},
+                        {"label": "Competencia", "value": 2},
+                    ],
+                },
             },
             entity_id="entity-1",
-            skill_checked="Perception",
+            skill_checked="Percepción",
         )
 
         assert message["type"] == "DICE_ROLL"
-        assert message["text"] == "Perception 15"
+        assert message["text"] == "Percepción: 1d20=12 +3 = 15"
         assert message["entity_id"] == "entity-1"
         assert message["roll_type"] == "skill_check"
+        assert message["rolls"] == [12]
+        assert message["chat_summary"] == "Percepción: 1d20=12 +3 = 15"
+        assert message["skill_checked"] == "Percepción"
+        assert message["roll_details"]["roll_label"] == "Percepción"
 
 
 class TestUpdateSceneNpcPresence:

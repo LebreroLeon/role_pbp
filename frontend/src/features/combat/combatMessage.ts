@@ -1,8 +1,11 @@
 import type { CampaignEntity, ChatMessage, CombatEvent } from "../../api/types";
 import { getEntityDisplayName } from "../entities/entityDefaults";
 import type { SceneStateInput } from "../scene/sceneState";
+import {
+  formatAttackRollLine as formatAttackRollLineShared,
+  formatDamageType as formatDamageTypeShared,
+} from "../scene/rollFormat";
 import { HIDDEN_NPC_LABEL, isNpcHiddenFromPlayer } from "./sceneRoster";
-
 export function isCombatMessage(message: ChatMessage): boolean {
   return message.type === "COMBAT" || Boolean(message.combat_event);
 }
@@ -47,6 +50,12 @@ export function resolveCombatEvent(message: ChatMessage): CombatEvent | null {
         damage: {
           amount: message.final_result ?? (details.amount as number | undefined) ?? 0,
           type: (details.damage_type as string | undefined) ?? (details.type as string | undefined),
+          expression: message.dice_expression,
+          rolls: Array.isArray(message.rolls)
+            ? message.rolls
+            : (details.rolls as number[] | undefined),
+          modifier: details.modifier as number | undefined,
+          chat_summary: message.chat_summary,
         },
         defender_hp_remaining: details.defender_hp_remaining as number | undefined,
         defender_hp_max: details.defender_hp_max as number | undefined,
@@ -67,7 +76,9 @@ export function resolveCombatEvent(message: ChatMessage): CombatEvent | null {
         target_ac: details.target_ac as number | undefined,
         modifier: details.modifier as number | undefined,
         expression: message.dice_expression,
-        rolls: message.roll_details?.rolls as number[] | undefined,
+        rolls: Array.isArray(message.rolls)
+          ? message.rolls
+          : (message.roll_details?.rolls as number[] | undefined),
         chat_summary: message.chat_summary,
       },
       damage:
@@ -113,29 +124,10 @@ export function resolveCombatSpeakerEntityId(event: CombatEvent): string | undef
   return undefined;
 }
 
-export function formatAttackRollLine(
-  attackRoll: NonNullable<CombatEvent["attack_roll"]>,
-): string {
-  if (attackRoll.chat_summary?.trim()) {
-    return attackRoll.chat_summary.trim();
-  }
-
-  const modifier = attackRoll.modifier ?? 0;
-  let modStr = "";
-  if (modifier > 0) modStr = ` + ${modifier}`;
-  else if (modifier < 0) modStr = ` - ${Math.abs(modifier)}`;
-
-  let line = `1d20${modStr} = ${attackRoll.total}`;
-  if (attackRoll.target_ac != null) {
-    line += ` vs CA ${attackRoll.target_ac}`;
-  }
-  if (attackRoll.hit != null) {
-    line += ` — ${attackRoll.hit ? "Impacto" : "Fallo"}`;
-  }
-  return line;
+export function formatAttackRollLine(attackRoll: NonNullable<CombatEvent["attack_roll"]>): string {
+  return formatAttackRollLineShared(attackRoll);
 }
 
 export function formatDamageType(type?: string): string {
-  if (!type) return "";
-  return type.replace(/_/g, " ");
+  return formatDamageTypeShared(type);
 }

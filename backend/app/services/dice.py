@@ -22,6 +22,60 @@ _ROLL_CONTEXT_FIELDS = {
 }
 
 
+def format_raw_roll_summary(expression: str, result: dict) -> str:
+    """Human-readable summary for generic dice expressions (e.g. 3d20+5)."""
+    rolls = result.get("rolls") or []
+    total = result.get("final_result", 0)
+    raw = result.get("raw_result", 0)
+    misc = total - raw if isinstance(total, int) and isinstance(raw, int) else 0
+
+    if len(rolls) > 1:
+        line = " + ".join(str(r) for r in rolls)
+        if misc:
+            line += f" {misc:+d}"
+        return f"{line} = {total}"
+
+    if len(rolls) == 1:
+        base_expr = expression.strip()
+        for sep in ("+", "-"):
+            if sep in base_expr:
+                base_expr = base_expr.split(sep, 1)[0].strip()
+                break
+        line = f"{base_expr}={rolls[0]}"
+        if misc:
+            line += f" {misc:+d}"
+        return f"{line} = {total}"
+
+    return f"{expression} = {total}"
+
+
+def build_generic_roll_details(expression: str, result: dict) -> dict:
+    rolls = result.get("rolls") or []
+    raw = result.get("raw_result", 0)
+    misc = result.get("final_result", 0) - raw
+    modifier_breakdown: list[dict] = []
+
+    if rolls:
+        sides = result.get("dice_sides")
+        if len(rolls) == 1 and sides:
+            label = f"1d{sides}={rolls[0]}"
+        elif len(rolls) > 1:
+            label = " + ".join(str(r) for r in rolls)
+        else:
+            label = str(rolls[0])
+        modifier_breakdown.append({"label": label, "value": raw, "rolls": rolls})
+
+    if misc:
+        modifier_breakdown.append({"label": "Modificador", "value": misc})
+
+    return {
+        "expression": expression,
+        "modifier": misc,
+        "modifier_breakdown": modifier_breakdown,
+        "rolls": rolls,
+    }
+
+
 def roll_dice(
     expression: str,
     modifier: int = 0,
@@ -60,12 +114,21 @@ def _roll_raw(expression: str, modifier: int = 0) -> dict:
     rolls = [random.randint(1, sides) for _ in range(count)]
     raw_result = sum(rolls)
     final_result = raw_result + inline_mod + modifier
+    misc_mod = inline_mod + modifier
+    modifier_breakdown: dict = {}
+    if misc_mod:
+        modifier_breakdown["misc_mod"] = misc_mod
 
     return {
         "dice_expression": expression,
         "rolls": rolls,
         "raw_result": raw_result,
         "final_result": final_result,
+        "inline_modifier": inline_mod,
+        "extra_modifier": modifier,
+        "modifier_breakdown": modifier_breakdown,
+        "dice_count": count,
+        "dice_sides": sides,
     }
 
 
@@ -80,6 +143,11 @@ def _build_roll_context(context: dict, expression: str, modifier: int) -> RollCo
 
 def _roll_result_to_dict(result: RollResult, game_system: str) -> dict:
     raw_result = sum(result.rolls) if result.rolls else None
+    roll_details = dict(result.details)
+    if result.rolls and "rolls" not in roll_details:
+        roll_details["rolls"] = result.rolls
+    if "expression" not in roll_details:
+        roll_details["expression"] = result.expression
     payload = {
         "dice_expression": result.expression,
         "rolls": result.rolls,
@@ -89,9 +157,11 @@ def _roll_result_to_dict(result: RollResult, game_system: str) -> dict:
         "game_system": game_system,
         "roll_type": result.roll_type,
         "success": result.success,
-        "roll_details": result.details,
+        "roll_details": roll_details,
         "chat_summary": result.chat_summary,
     }
+    if roll_details.get("modifier_breakdown"):
+        payload["modifier_breakdown"] = roll_details["modifier_breakdown"]
     return payload
 
 

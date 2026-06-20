@@ -83,6 +83,21 @@ class TestDnd5eRolls:
         assert result.total == 17
         assert result.success is True
         assert result.details["skill"] == "perception"
+        assert result.details["roll_label"] == "Percepción (Sabiduría)"
+        assert result.details["modifier_breakdown"]
+        assert "Percepción" in result.chat_summary
+        assert "1d20=15" in result.chat_summary
+
+    def test_ability_check_includes_spanish_label(self, plugin: Dnd5ePlugin, sample_sheet: dict, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda _a, b: 12 if b == 20 else 1)
+        result = plugin.resolve_roll(
+            "ability_check",
+            sample_sheet,
+            RollContext(ability="str"),
+        )
+        assert result.details["roll_label"] == "Fuerza"
+        assert result.details["modifier_breakdown"][0]["label"] == "Fuerza"
+        assert "Fuerza" in result.chat_summary
 
     def test_saving_throw_dex_proficient(self, plugin: Dnd5ePlugin, sample_sheet: dict, monkeypatch):
         monkeypatch.setattr("random.randint", lambda _a, b: 10 if b == 20 else 1)
@@ -119,6 +134,9 @@ class TestDnd5eRolls:
         result = plugin.resolve_roll("damage", sample_sheet, RollContext(attack_name="Longsword"))
         assert result.total == 9  # 1d8(6) + 3
         assert result.details["damage_type"] == "slashing"
+        assert result.details["modifier_breakdown"]
+        assert "1d8=6" in result.chat_summary
+        assert result.chat_summary.endswith("= 9")
 
 
 class TestDiceDelegation:

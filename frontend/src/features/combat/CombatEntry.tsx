@@ -6,9 +6,8 @@ import { ChatAvatar } from "../scene/ChatAvatar";
 import { MessageLikeBadge } from "../scene/MessageLikeBadge";
 import { formatChatTimestamp } from "../scene/messageTypes";
 import type { SceneStateInput } from "../scene/sceneState";
+import { formatAttackRollLine, formatDamageLine } from "../scene/rollFormat";
 import {
-  formatAttackRollLine,
-  formatDamageType,
   resolveCombatEntityName,
   resolveCombatEvent,
   resolveCombatSpeakerEntityId,
@@ -169,13 +168,9 @@ export function CombatEntry({
       )}
 
       {damage && damage.amount > 0 && (
-        <div className="combat-card__damage">
-          <span className="combat-card__damage-label">Daño</span>
-          <span className="combat-card__damage-amount">{damage.amount}</span>
-          {damage.type && (
-            <span className="combat-card__damage-type">{formatDamageType(damage.type)}</span>
-          )}
-        </div>
+        <p className="combat-card__roll-line combat-card__damage-line">
+          Daño {formatDamageLine(damage)}
+        </p>
       )}
 
       {hpLabel && (

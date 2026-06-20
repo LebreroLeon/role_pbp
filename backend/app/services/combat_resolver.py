@@ -1,3 +1,4 @@
+import re
 import uuid
 import unicodedata
 from copy import deepcopy
@@ -243,6 +244,34 @@ def _format_d20_attack_roll_line(attack_roll: Any, *, hit: bool | None) -> str:
     return line
 
 
+def _format_damage_line(damage: Any) -> str:
+    expression = getattr(damage, "expression", None)
+    rolls = getattr(damage, "rolls", None)
+    amount = getattr(damage, "amount", 0)
+    modifier = getattr(damage, "modifier", 0)
+    damage_type = getattr(damage, "damage_type", None)
+
+    dice_sides = None
+    if isinstance(expression, str):
+        match = re.match(r"(\d+)d(\d+)", expression)
+        if match:
+            dice_sides = int(match.group(2))
+
+    if isinstance(rolls, list) and rolls:
+        die = f"d{dice_sides}" if dice_sides else "d?"
+        dice_part = f"1{die}={rolls[0]}" if len(rolls) == 1 else f"[{', '.join(str(r) for r in rolls)}]"
+    else:
+        dice_part = expression or "?"
+
+    line = dice_part
+    if isinstance(modifier, int) and modifier:
+        line += f" {modifier:+d}"
+    line += f" = {amount}"
+    if isinstance(damage_type, str) and damage_type.strip():
+        line += f" {damage_type.replace('_', ' ')}"
+    return line
+
+
 def _build_attack_roll_payload(attack_roll: Any, *, hit: bool) -> dict[str, Any]:
     natural = attack_roll.rolls[-1] if attack_roll.rolls else None
     modifier = attack_roll.details.get("modifier")
@@ -303,10 +332,11 @@ def _build_attack_messages(
         resolved_weapon = None
 
     if attack_result.hit and attack_result.damage is not None:
+        damage_line = _format_damage_line(attack_result.damage)
         summary = (
             f"{attacker_name} ataca a {defender_name}: "
             f"{roll_line}. "
-            f"{attack_result.damage.amount} {attack_result.damage.damage_type}."
+            f"{damage_line}."
         )
         if damage_application is not None:
             summary += f" PV {damage_application.hp_before} → {damage_application.hp_after}."
@@ -324,11 +354,14 @@ def _build_attack_messages(
     if isinstance(resolved_weapon, str):
         combat_event["weapon_name"] = resolved_weapon
     if attack_result.damage is not None:
+        damage = attack_result.damage
         combat_event["damage"] = {
-            "amount": attack_result.damage.amount,
-            "type": attack_result.damage.damage_type,
-            "expression": attack_result.damage.expression,
-            "rolls": attack_result.damage.rolls,
+            "amount": damage.amount,
+            "type": damage.damage_type,
+            "expression": damage.expression,
+            "rolls": damage.rolls,
+            "modifier": damage.modifier,
+            "chat_summary": _format_damage_line(damage),
         }
     if damage_application is not None:
         combat_event["hp"] = {

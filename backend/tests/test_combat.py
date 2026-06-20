@@ -252,5 +252,6 @@ class TestExecuteAttack:
         assert "modifier" in combat["combat_event"]["attack_roll"]
         assert combat["combat_event"]["attack_roll"]["rolls"]
         assert "vs CA" in combat["combat_event"]["attack_roll"]["chat_summary"]
+        assert "1d8=" in combat["combat_event"]["damage"]["chat_summary"]
         assert entity_display_name(attacker) in combat["text"]
         assert "1d20" in combat["chat_summary"]
