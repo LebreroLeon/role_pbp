@@ -313,21 +313,22 @@
 
 .chat-card__like {
   position: absolute;
-  right: 0.65rem;
-  bottom: -0.45rem;
+  right: 0.5rem;
+  bottom: 0.5rem;
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  padding: 0.12rem 0.4rem;
+  padding: 0.2rem 0.35rem;
   border-radius: 999px;
   border: 1px solid var(--border-subtle);
-  background: var(--bg-elevated);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text-muted);
   font-size: 0.72rem;
   line-height: 1;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .chat-card:hover .chat-card__like--hint,
@@ -337,8 +338,9 @@
 }
 
 .chat-card__like--active {
+  color: var(--accent-rose);
   border-color: rgba(233, 69, 96, 0.35);
-  background: var(--accent-rose-soft);
+  background: rgba(233, 69, 96, 0.12);
 }
 
 .chat-card__like:disabled {
@@ -347,12 +349,13 @@
 }
 
 .chat-card__like-icon {
-  font-size: 0.85rem;
+  flex-shrink: 0;
 }
 
 .chat-card__like-count {
   font-weight: 600;
-  color: var(--text-muted);
+  color: inherit;
+  opacity: 0.9;
 }
 
 .chat-paused {

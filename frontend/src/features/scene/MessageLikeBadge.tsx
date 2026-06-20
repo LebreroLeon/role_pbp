@@ -1,3 +1,4 @@
+import { ThumbsUp } from "lucide-react";
 import type { MouseEvent } from "react";
 import type { MemberLookup } from "./ChatEntry";
 
@@ -48,9 +49,13 @@ export function MessageLikeBadge({
       aria-label={userHasLiked ? "Quitar me gusta" : "Dar me gusta"}
       aria-pressed={userHasLiked}
     >
-      <span className="chat-card__like-icon" aria-hidden>
-        👍
-      </span>
+      <ThumbsUp
+        size={13}
+        strokeWidth={2}
+        className="chat-card__like-icon"
+        fill={userHasLiked ? "currentColor" : "none"}
+        aria-hidden
+      />
       {likeCount > 0 && <span className="chat-card__like-count">{likeCount}</span>}
     </button>
   );
