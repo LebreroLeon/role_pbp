@@ -218,6 +218,10 @@ export type CombatAttackRequest = {
 
   attack_index?: number;
 
+  advantage?: boolean;
+
+  disadvantage?: boolean;
+
 };
 
 

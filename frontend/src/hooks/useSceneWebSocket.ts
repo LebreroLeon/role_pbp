@@ -96,7 +96,17 @@ export function useSceneWebSocket({ sceneId, onSceneUpdate, onError }: UseSceneW
   );
 
   const sendDiceRoll = useCallback(
-    (diceExpression: string) => send({ action: "dice", dice_expression: diceExpression }),
+    (
+      diceExpression: string,
+      options?: { modifier?: number; advantage?: boolean; disadvantage?: boolean },
+    ) =>
+      send({
+        action: "dice",
+        dice_expression: diceExpression,
+        modifier: options?.modifier ?? 0,
+        advantage: options?.advantage ?? false,
+        disadvantage: options?.disadvantage ?? false,
+      }),
     [send],
   );
 

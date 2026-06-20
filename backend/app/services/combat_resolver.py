@@ -406,6 +406,8 @@ async def execute_attack(
     defender_ref: str,
     weapon_name: str | None = None,
     attack_index: int | None = None,
+    advantage: bool = False,
+    disadvantage: bool = False,
 ) -> CombatExecutionResult:
     plugin = get_combat_plugin(campaign.game_system)
     scene_entities = await fetch_scene_combat_entities(db, campaign.id, state)
@@ -424,7 +426,12 @@ async def execute_attack(
         attacker_sheet,
         defender_sheet,
         weapon_name,
-        AttackContext(attack_name=weapon_name, attack_index=attack_index),
+        AttackContext(
+            attack_name=weapon_name,
+            attack_index=attack_index,
+            advantage=advantage,
+            disadvantage=disadvantage,
+        ),
     )
 
     damage_application = None

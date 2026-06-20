@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Dices } from "lucide-react";
 
 import type { SheetRollRequest } from "../../../../api/types";
 import { Button, Input, Switch } from "../../../../components/ui";
+import { mergeAdvantageIntoContext, type AdvantageMode } from "../../../systems";
+import { AdvantageToggle } from "../../../systems/dnd5e/AdvantageToggle";
 import {
   DND5E_ABILITIES,
   DND5E_ABILITY_LABELS,
@@ -53,6 +56,14 @@ export function Dnd5eSheetForm({
   isRolling,
 }: Dnd5eSheetFormProps) {
   const rollDisabled = disabled || isRolling || !onRoll;
+  const [advantageMode, setAdvantageMode] = useState<AdvantageMode>("normal");
+
+  function rollWithAdvantage(payload: SheetRollRequest) {
+    onRoll?.({
+      ...payload,
+      context: mergeAdvantageIntoContext(payload.context, advantageMode),
+    });
+  }
 
   const {
     register,
@@ -88,15 +99,15 @@ export function Dnd5eSheetForm({
   }
 
   function rollAbilityCheck(ability: Dnd5eAbility) {
-    onRoll?.({ roll_type: "ability_check", context: { ability } });
+    rollWithAdvantage({ roll_type: "ability_check", context: { ability } });
   }
 
   function rollSavingThrow(ability: Dnd5eAbility) {
-    onRoll?.({ roll_type: "saving_throw", context: { ability } });
+    rollWithAdvantage({ roll_type: "saving_throw", context: { ability } });
   }
 
   function rollSkillCheck(skillName: string) {
-    onRoll?.({ roll_type: "skill_check", context: { skill: skillName } });
+    rollWithAdvantage({ roll_type: "skill_check", context: { skill: skillName } });
   }
 
   function rollDamage(index: number) {
@@ -111,11 +122,26 @@ export function Dnd5eSheetForm({
   }
 
   function rollInitiative() {
-    onRoll?.({ roll_type: "initiative" });
+    rollWithAdvantage({ roll_type: "initiative" });
+  }
+
+  function rollAttack(index: number) {
+    const attack = attacks?.[index];
+    rollWithAdvantage({
+      roll_type: "attack_roll",
+      context: {
+        attack_index: index,
+        ...(attack?.name ? { attack_name: attack.name } : {}),
+      },
+    });
   }
 
   return (
     <form className="sheet-form" onSubmit={handleSubmit(onSubmit)}>
+      <div className="sheet-form__roll-toolbar">
+        <AdvantageToggle value={advantageMode} onChange={setAdvantageMode} disabled={rollDisabled} />
+      </div>
+
       <section className="sheet-section">
         <h3>Atributos</h3>
         <div className="sheet-abilities">
@@ -341,6 +367,9 @@ export function Dnd5eSheetForm({
               )}
             />
             <div className="sheet-attack__rolls">
+              <Button type="button" variant="secondary" disabled={rollDisabled} onClick={() => rollAttack(index)}>
+                Tirar ataque
+              </Button>
               <Button type="button" variant="secondary" disabled={rollDisabled} onClick={() => rollDamage(index)}>
                 Tirar daño
               </Button>

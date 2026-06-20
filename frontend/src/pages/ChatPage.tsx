@@ -16,6 +16,7 @@ import {
   Toast,
 } from "../components/ui";
 import { ChatComposer, ChatLog, DiceRoller, getChatBuffer, type MemberLookup } from "../features/scene";
+import { GameSystemChatMiniSheet, type AdvantageMode } from "../features/systems";
 import {
   canUserPostInPbp,
   isPbpEnabled,
@@ -53,6 +54,7 @@ export function ChatPage() {
   const [messageType, setMessageType] = useState<MessageType>("ACTION");
   const [speakerId, setSpeakerId] = useState(DEFAULT_SPEAKER_OPTION_ID);
   const [dice, setDice] = useState("1d20");
+  const [diceAdvantageMode, setDiceAdvantageMode] = useState<AdvantageMode>("normal");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [newSceneName, setNewSceneName] = useState("");
@@ -198,21 +200,21 @@ export function ChatPage() {
     }
   }
 
-  async function handleRoll() {
+  async function handleRoll(options?: { advantage?: boolean; disadvantage?: boolean }) {
     if (!currentScene) return;
 
     setLoading(true);
     setErrorMessage(null);
     const expression = dice.trim();
 
-    const sent = sendDiceRoll(expression);
+    const sent = sendDiceRoll(expression, options);
     if (sent) {
       setLoading(false);
       return;
     }
 
     try {
-      const updated = await api.rollDice(currentScene.id, expression);
+      const updated = await api.rollDice(currentScene.id, expression, options);
       handleSceneUpdate(updated);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Error al tirar dados");
@@ -448,6 +450,16 @@ export function ChatPage() {
               onExpressionChange={setDice}
               onRoll={handleRoll}
               disabled={composerDisabled}
+              gameSystem={campaign?.game_system ?? undefined}
+              advantageMode={diceAdvantageMode}
+              onAdvantageModeChange={setDiceAdvantageMode}
+            />
+
+            <GameSystemChatMiniSheet
+              campaignId={campaignId}
+              gameSystem={campaign?.game_system ?? undefined}
+              disabled={composerDisabled}
+              onSceneRefresh={() => refetch()}
             />
 
             {currentScene.status === "PAUSED" && (

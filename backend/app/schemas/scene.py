@@ -127,6 +127,8 @@ class DiceRollRequest(BaseModel):
     dice_expression: str
     modifier: int = 0
     skill_checked: str | None = None
+    advantage: bool = False
+    disadvantage: bool = False
 
 
 class MarkReadRequest(BaseModel):
@@ -142,6 +144,8 @@ class CombatAttackRequest(BaseModel):
     defender_ref: str = Field(min_length=1)
     weapon_name: str | None = None
     attack_index: int | None = Field(default=None, ge=0)
+    advantage: bool = False
+    disadvantage: bool = False
 
 
 class CombatInitiativeRequest(BaseModel):

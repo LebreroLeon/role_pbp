@@ -13,6 +13,7 @@ from app.rules.base import (
     RollContext,
     RollResult,
 )
+from app.rules.dnd5e.rolls import roll_d20 as _roll_d20
 from app.rules.dnd5e.schema import (
     Dnd5eSheet,
     SKILL_ABILITY_MAP,
@@ -29,20 +30,6 @@ def ability_modifier(score: int) -> int:
 
 def _normalize_key(value: str) -> str:
     return value.strip().lower().replace(" ", "_")
-
-
-def _roll_d20(advantage: bool = False, disadvantage: bool = False) -> tuple[list[int], int]:
-    if advantage and disadvantage:
-        advantage = False
-        disadvantage = False
-
-    if advantage or disadvantage:
-        rolls = [random.randint(1, 20), random.randint(1, 20)]
-        chosen = max(rolls) if advantage else min(rolls)
-        return rolls, chosen
-
-    roll = random.randint(1, 20)
-    return [roll], roll
 
 
 def _parse_sheet(actor_sheet: dict) -> Dnd5eSheet:
@@ -406,7 +393,7 @@ class Dnd5ePlugin(GameSystemPlugin):
         modifier_breakdown: list[dict[str, int | str]] | None = None,
         **extra_details: object,
     ) -> RollResult:
-        rolls, natural = _roll_d20(context.advantage, context.disadvantage)
+        rolls, natural = _roll_d20(advantage=context.advantage, disadvantage=context.disadvantage)
         total = natural + modifier
         success = None
         if context.dc is not None:

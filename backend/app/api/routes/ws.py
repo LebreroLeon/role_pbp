@@ -111,7 +111,12 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
                             db,
                             scene,
                             str(user.id),
-                            DiceRollRequest(dice_expression=expression),
+                            DiceRollRequest(
+                                dice_expression=expression,
+                                modifier=int(data.get("modifier") or 0),
+                                advantage=bool(data.get("advantage")),
+                                disadvantage=bool(data.get("disadvantage")),
+                            ),
                             sender_role=role,
                         )
                     elif action == "mark_read":

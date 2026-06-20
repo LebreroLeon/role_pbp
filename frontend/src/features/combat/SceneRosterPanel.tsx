@@ -464,6 +464,7 @@ export function SceneRosterPanel({
         <SceneAttackSheet
           sceneId={sceneId}
           campaignId={campaignId}
+          gameSystem={gameSystem ?? undefined}
           attacker={attackPair.attacker}
           target={attackPair.target}
           entities={entities}

@@ -8,6 +8,8 @@ _DICE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_D20_ROLL_TYPES = frozenset({"dnd5e"})
+
 _ROLL_CONTEXT_FIELDS = {
     "ability",
     "skill",
@@ -76,6 +78,15 @@ def build_generic_roll_details(expression: str, result: dict) -> dict:
     }
 
 
+def is_single_d20_expression(expression: str) -> bool:
+    """True when expression is exactly one d20 (optional inline modifier)."""
+    expression = expression.strip().lower().replace(" ", "")
+    match = _DICE_PATTERN.match(expression)
+    if not match or not match.group(1):
+        return False
+    return int(match.group(1)) == 1 and int(match.group(2)) == 20
+
+
 def roll_dice(
     expression: str,
     modifier: int = 0,
@@ -84,12 +95,75 @@ def roll_dice(
     sheet: dict | None = None,
     roll_type: str | None = None,
     context: dict | None = None,
+    advantage: bool = False,
+    disadvantage: bool = False,
 ) -> dict:
     """Roll dice. Delegates to the RuleEngine plugin when contextual args are provided."""
     if game_system and roll_type and sheet is not None:
         return _roll_contextual(game_system, sheet, roll_type, context or {}, expression, modifier)
 
+    if (advantage or disadvantage) and game_system in _D20_ROLL_TYPES and is_single_d20_expression(expression):
+        return _roll_d20_expression(expression, modifier, advantage=advantage, disadvantage=disadvantage)
+
     return _roll_raw(expression, modifier)
+
+
+def _roll_d20_expression(
+    expression: str,
+    modifier: int = 0,
+    *,
+    advantage: bool = False,
+    disadvantage: bool = False,
+) -> dict:
+    from app.rules.dnd5e.rolls import roll_d20
+
+    expression = expression.strip().lower().replace(" ", "")
+    match = _DICE_PATTERN.match(expression)
+    if not match or not match.group(1):
+        raise ValueError(f"Invalid d20 expression: {expression}")
+
+    inline_mod = int(match.group(3) or 0)
+    rolls, natural = roll_d20(advantage=advantage, disadvantage=disadvantage)
+    misc_mod = inline_mod + modifier
+    final_result = natural + misc_mod
+
+    dice_label = "2d20 (ventaja)" if advantage else "2d20 (desventaja)" if disadvantage else "1d20"
+    sign = f"{misc_mod:+d}" if misc_mod else ""
+    expr = f"{dice_label}{sign}"
+    summary = f"{dice_label}={natural}"
+    if misc_mod:
+        summary += f" {sign}"
+    summary += f" = {final_result}"
+
+    modifier_breakdown: list[dict] = []
+    if len(rolls) > 1:
+        modifier_breakdown.append({"label": dice_label, "value": natural, "rolls": rolls})
+    else:
+        modifier_breakdown.append({"label": f"1d20={natural}", "value": natural, "rolls": rolls})
+    if misc_mod:
+        modifier_breakdown.append({"label": "Modificador", "value": misc_mod})
+
+    return {
+        "dice_expression": expr,
+        "rolls": rolls,
+        "raw_result": natural,
+        "final_result": final_result,
+        "inline_modifier": inline_mod,
+        "extra_modifier": modifier,
+        "modifier_breakdown": {"misc_mod": misc_mod} if misc_mod else {},
+        "dice_count": len(rolls),
+        "dice_sides": 20,
+        "roll_details": {
+            "natural_roll": natural,
+            "modifier": misc_mod,
+            "advantage": advantage,
+            "disadvantage": disadvantage,
+            "modifier_breakdown": modifier_breakdown,
+            "rolls": rolls,
+            "expression": expr,
+        },
+        "chat_summary": summary,
+    }
 
 
 def _roll_raw(expression: str, modifier: int = 0) -> dict:

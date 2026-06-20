@@ -428,6 +428,8 @@ async def combat_attack_route(
             defender_ref=payload.defender_ref,
             weapon_name=payload.weapon_name,
             attack_index=payload.attack_index,
+            advantage=payload.advantage,
+            disadvantage=payload.disadvantage,
         )
     except CombatResolverError as exc:
         raise scene_service_error_to_http(SceneServiceError(str(exc))) from exc

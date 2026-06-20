@@ -115,10 +115,19 @@ export const api = {
         ...(speaker ?? {}),
       }),
     }),
-  rollDice: (sceneId: string, diceExpression: string) =>
+  rollDice: (
+    sceneId: string,
+    diceExpression: string,
+    options?: { modifier?: number; advantage?: boolean; disadvantage?: boolean },
+  ) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/dice`, {
       method: "POST",
-      body: JSON.stringify({ dice_expression: diceExpression }),
+      body: JSON.stringify({
+        dice_expression: diceExpression,
+        modifier: options?.modifier ?? 0,
+        advantage: options?.advantage ?? false,
+        disadvantage: options?.disadvantage ?? false,
+      }),
     }),
   markSceneRead: (sceneId: string, messageIds?: string[]) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/read`, {

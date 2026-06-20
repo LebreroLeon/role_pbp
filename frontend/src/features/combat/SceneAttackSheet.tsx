@@ -3,6 +3,8 @@ import { ArrowRight, Swords } from "lucide-react";
 
 import type { CampaignEntity } from "../../api/types";
 import { Button, Modal } from "../../components/ui";
+import { supportsAdvantage, type AdvantageMode } from "../systems";
+import { AdvantageToggle } from "../systems/dnd5e/AdvantageToggle";
 import { useCombatAttackMutation } from "../../hooks/mutations/useSceneMutations";
 import { extractAttacksFromEntity } from "./combatEntityOptions";
 import type { SceneRosterEntry } from "./sceneRoster";
@@ -10,6 +12,7 @@ import type { SceneRosterEntry } from "./sceneRoster";
 type SceneAttackSheetProps = {
   sceneId: string;
   campaignId: string;
+  gameSystem?: string;
   attacker: SceneRosterEntry;
   target: SceneRosterEntry;
   entities: CampaignEntity[];
@@ -21,6 +24,7 @@ type SceneAttackSheetProps = {
 export function SceneAttackSheet({
   sceneId,
   campaignId,
+  gameSystem,
   attacker,
   target,
   entities,
@@ -30,6 +34,7 @@ export function SceneAttackSheet({
 }: SceneAttackSheetProps) {
   const [weaponIndex, setWeaponIndex] = useState(0);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [advantageMode, setAdvantageMode] = useState<AdvantageMode>("normal");
 
   const attackerEntity = entities.find((entity) => entity.id === attacker.id) ?? null;
   const attacks = useMemo(() => extractAttacksFromEntity(attackerEntity), [attackerEntity]);
@@ -49,6 +54,8 @@ export function SceneAttackSheet({
         ),
         weapon_name: selectedAttack?.name,
         attack_index: attacks.length > 0 ? weaponIndex : undefined,
+        ...(advantageMode === "advantage" ? { advantage: true } : {}),
+        ...(advantageMode === "disadvantage" ? { disadvantage: true } : {}),
       });
       onClose();
     } catch (err) {
@@ -109,6 +116,12 @@ export function SceneAttackSheet({
         </>
       }
     >
+      {supportsAdvantage(gameSystem) && (
+        <div className="scene-attack-sheet__advantage">
+          <AdvantageToggle value={advantageMode} onChange={setAdvantageMode} disabled={isBusy} compact />
+        </div>
+      )}
+
       {attacks.length > 0 ? (
         <div className="scene-attack-sheet__attacks" role="radiogroup" aria-label="Elegir ataque">
           {attacks.map((attack, index) => {

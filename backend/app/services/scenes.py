@@ -709,13 +709,21 @@ async def roll_scene_dice(
     except PbpTurnError as exc:
         raise SceneServiceError(str(exc)) from exc
 
+    campaign = await get_campaign_or_error(db, scene.campaign_id)
+
     try:
-        result = roll_dice_expression(payload.dice_expression, payload.modifier)
+        result = roll_dice_expression(
+            payload.dice_expression,
+            payload.modifier,
+            game_system=campaign.game_system,
+            advantage=payload.advantage,
+            disadvantage=payload.disadvantage,
+        )
     except ValueError as exc:
         raise SceneServiceError(str(exc)) from exc
 
-    summary = format_raw_roll_summary(payload.dice_expression, result)
-    roll_details = build_generic_roll_details(payload.dice_expression, result)
+    summary = result.get("chat_summary") or format_raw_roll_summary(payload.dice_expression, result)
+    roll_details = result.get("roll_details") or build_generic_roll_details(payload.dice_expression, result)
 
     message = {
         "id": str(uuid.uuid4()),
