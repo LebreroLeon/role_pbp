@@ -4,7 +4,7 @@ import { Crown, User } from "lucide-react";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { CAMPAIGN_NAV_ICONS } from "../icons";
 import { ErrorBanner, SectionToneProvider, getToneFromPath } from "../ui";
-import { gameSystemLabel } from "../../features/campaign/gameSystems";
+import { CampaignStatusBadges } from "../../features/campaign/CampaignStatusBadges";
 import { useCampaignQuery } from "../../hooks/queries/useCampaignQueries";
 import { useOpenSceneQuery } from "../../hooks/queries/useSceneQueries";
 import { CampaignWsProvider } from "../../providers/CampaignWsContext";
@@ -43,7 +43,6 @@ export function CampaignLayout() {
 
   const isMaster = campaign.role === "MASTER";
   const links = isMaster ? MASTER_LINKS : PLAYER_LINKS;
-  const sceneStatus = openScene?.status ?? "sin escena";
   const playerChatBlocked = !isMaster && !openSceneLoading && !openScene;
   const RoleIcon = isMaster ? Crown : User;
 
@@ -59,12 +58,13 @@ export function CampaignLayout() {
       <header className="campaign-shell__header">
         <div>
           <h2 className="campaign-shell__title">{campaign.name}</h2>
-          <p className="muted campaign-shell__meta">
-            {gameSystemLabel(campaign.game_system)}
-            {campaign.tone ? ` · ${campaign.tone}` : ""}
-            {" · "}
-            Escena: {sceneStatus}
-          </p>
+          {campaign.tone && <p className="muted campaign-shell__meta">{campaign.tone}</p>}
+          <CampaignStatusBadges
+            campaign={campaign}
+            openScene={openScene}
+            showSceneCounts
+            className="campaign-shell__badges"
+          />
         </div>
         <span className={`role-pill ${isMaster ? "role-pill--master" : "role-pill--player"}`}>
           <RoleIcon size={14} aria-hidden />

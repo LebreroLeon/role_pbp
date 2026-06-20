@@ -536,6 +536,14 @@ select {
   font-size: 0.88rem;
 }
 
+.campaign-shell__badges {
+  margin-top: 0.65rem;
+}
+
+.campaign-status-badges {
+  margin-top: 0.55rem;
+}
+
 .breadcrumbs {
   display: flex;
   flex-wrap: wrap;

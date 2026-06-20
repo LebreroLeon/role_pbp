@@ -1,3 +1,4 @@
+export { CampaignStatusBadges } from "./CampaignStatusBadges";
 export { CampaignEntryRedirect } from "./CampaignEntryRedirect";
 export { CampaignList } from "./CampaignList";
 export { campaignDefaultPath } from "./campaignRoutes";

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { Activity, CheckCircle2, Circle, Crown, SECTION_ICONS } from "../components/icons";
-import { Panel, PanelHeader, SlideOver, Toast, Button, ErrorBanner } from "../components/ui";
+import { SlideOver, Toast, Button, ErrorBanner, CollapsibleSection } from "../components/ui";
 import { EntitySheetEditor } from "../features/character-sheet/EntitySheetEditor";
 import { CampaignSceneLog, formatSceneLabel } from "../features/campaign";
 import { CreateEntityForm, EntityList, ImportExportPanel, WorldEntityEditor, ArcManifestEditor } from "../features/entities";
@@ -105,17 +105,16 @@ export function WorldPage() {
     <div className="world-page">
       <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
 
-      <Panel>
-        <PanelHeader
-          icon={Activity}
-          iconTone="teal"
-          title="Historial de escenas"
-          description={
-            isMaster
-              ? "Compendio de resúmenes y escena en curso. Reanuda escenas pausadas desde aquí."
-              : "Resúmenes de escenas que ya vivió la mesa y la escena actual."
-          }
-        />
+      <CollapsibleSection
+        icon={Activity}
+        iconTone="teal"
+        title="Historial de escenas"
+        description={
+          isMaster
+            ? "Compendio de resúmenes y escena en curso. Reanuda escenas pausadas desde aquí."
+            : "Resúmenes de escenas que ya vivió la mesa y la escena actual."
+        }
+      >
         {!openScene && (
           <p className="muted hub-hint">
             {isMaster ? (
@@ -135,16 +134,16 @@ export function WorldPage() {
           </p>
         )}
         <CampaignSceneLog campaignId={campaignId} activeSceneId={openScene?.id} isMaster={isMaster} />
-      </Panel>
+      </CollapsibleSection>
 
       {!isMaster && (
-        <Panel>
-          <PanelHeader
-            icon={Crown}
-            iconTone="amber"
-            title="Tu rol: jugador"
-            description="Completa estos pasos para unirte a la partida."
-          />
+        <CollapsibleSection
+          icon={Crown}
+          iconTone="amber"
+          title="Tu rol: jugador"
+          description="Completa estos pasos para unirte a la partida."
+          defaultOpen={!onboardingComplete}
+        >
           <ul className="player-onboarding">
             <li className={hasPlayerSheet ? "is-done" : ""}>
               {hasPlayerSheet ? <CheckCircle2 aria-hidden /> : <Circle aria-hidden />}
@@ -183,20 +182,20 @@ export function WorldPage() {
               <Link to={`${base}/ooc`}>OOC</Link>.
             </p>
           )}
-        </Panel>
+        </CollapsibleSection>
       )}
 
-      <Panel>
-        <PanelHeader
-          icon={SECTION_ICONS.mundo}
-          iconTone="violet"
-          title="Mundo"
-          description={
-            isMaster
-              ? "NPCs, ubicaciones, facciones y relaciones. Edita lore y fichas aquí; los jugadores solo ven lo público."
-              : "Personajes y lugares que tu PJ conoce. Los secretos del Máster no se muestran aquí."
-          }
-        />
+      <CollapsibleSection
+        icon={SECTION_ICONS.mundo}
+        iconTone="violet"
+        title="Mundo"
+        description={
+          isMaster
+            ? "NPCs, ubicaciones, facciones y relaciones. Edita lore y fichas aquí; los jugadores solo ven lo público."
+            : "Personajes y lugares que tu PJ conoce. Los secretos del Máster no se muestran aquí."
+        }
+        defaultOpen={isMaster}
+      >
         {isMaster && (
           <div className="world-arc-panel">
             {arcManifest ? (
@@ -230,7 +229,7 @@ export function WorldPage() {
           onDelete={isMaster ? handleDelete : undefined}
           deletingId={deletingId}
         />
-      </Panel>
+      </CollapsibleSection>
 
       {isMaster && editingEntity?.entity_type === "NPC" && (
         <SlideOver

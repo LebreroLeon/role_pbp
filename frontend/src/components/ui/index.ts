@@ -1,3 +1,4 @@
+export { CollapsibleSection } from "./CollapsibleSection";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { Modal, type ModalSize } from "./Modal";
 export { Button } from "./Button";

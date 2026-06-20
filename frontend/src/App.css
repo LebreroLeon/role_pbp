@@ -2324,6 +2324,34 @@
   font-size: 0.72rem;
 }
 
+.collapsible-section__summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.collapsible-section__summary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-section__header {
+  margin: 0;
+  align-items: center;
+}
+
+.collapsible-section__chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.collapsible-section[open] .collapsible-section__chevron {
+  transform: rotate(180deg);
+}
+
+.collapsible-section__body {
+  padding-top: 0.85rem;
+}
+
 .scene-log {
   margin-top: 1rem;
 }
