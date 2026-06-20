@@ -1,6 +1,6 @@
 import type { CampaignEntity, CampaignMember, ChatMessage } from "../../api/types";
 import { CombatEntry } from "../combat/CombatEntry";
-import { shouldRenderCombatEntry } from "../combat/combatMessage";
+import { resolveCombatEntityName, shouldRenderCombatEntry } from "../combat/combatMessage";
 import type { SceneStateInput } from "./sceneState";
 import { Eye } from "../../components/icons";
 import { ChatMessageDeleteButton } from "./ChatMessageDeleteButton";
@@ -36,6 +36,7 @@ type ChatEntryProps = {
 
 const FALLBACK_NARRATOR_NAME = "Máster / Narrador";
 const FALLBACK_CHARACTER_NAME = "Personaje";
+const MASTER_DICE_ROLL_NAME = "Máster";
 
 function resolveCharacterName(
   message: ChatMessage,
@@ -99,7 +100,13 @@ export function ChatEntry({
   }
 
   if (type === "DICE_ROLL") {
-    const characterName = resolveDiceRollCharacterName(message, members);
+    const characterName = resolveDiceRollCharacterName(
+      message,
+      members,
+      entities,
+      sceneState,
+      isMaster,
+    );
     const playerName = resolvePlayerName(message, members);
     const avatarUrl = resolveMessageAvatarUrl(message, entities);
     return (
@@ -178,13 +185,33 @@ export function ChatEntry({
   );
 }
 
-function resolveDiceRollCharacterName(message: ChatMessage, members: MemberLookup): string {
-  if (message.entity_name?.trim()) return message.entity_name.trim();
-  if (message.speaker_display_name?.trim()) return message.speaker_display_name.trim();
-  const textPrefix = message.text?.split(" — ")[0]?.trim();
-  if (textPrefix) return textPrefix;
+function resolveDiceRollCharacterName(
+  message: ChatMessage,
+  members: MemberLookup,
+  entities?: CampaignEntity[],
+  sceneState?: SceneStateInput | null,
+  isMaster = false,
+): string {
+  if (message.speaker_display_name?.trim()) {
+    return message.speaker_display_name.trim();
+  }
+
+  const storedName = message.entity_name?.trim();
+  const resolvedFromEntity = resolveCombatEntityName(
+    message.entity_id,
+    storedName,
+    entities,
+    sceneState,
+    isMaster,
+  );
+  if (resolvedFromEntity !== "Desconocido") {
+    return resolvedFromEntity;
+  }
+
   const sender = members[message.sender_id];
-  if (sender?.role === "MASTER") return FALLBACK_NARRATOR_NAME;
+  if (sender?.role === "MASTER" || message.speaker_type === "MASTER") {
+    return MASTER_DICE_ROLL_NAME;
+  }
   return FALLBACK_CHARACTER_NAME;
 }
 

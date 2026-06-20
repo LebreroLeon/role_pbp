@@ -21,6 +21,7 @@ from app.services.scenes import (
     build_dice_roll_message,
     load_scene_state,
     mark_all_campaign_pcs_present_for_scene,
+    resolve_dice_roll_speaker_fields,
     update_scene_npc_presence,
 )
 
@@ -229,6 +230,69 @@ class TestDiceRollMessage:
         assert message["chat_summary"] == "Percepción: 1d20=12 +3 = 15"
         assert message["skill_checked"] == "Percepción"
         assert message["roll_details"]["roll_label"] == "Percepción"
+
+    def test_build_dice_roll_message_includes_speaker_identity(self):
+        message = build_dice_roll_message(
+            sender_id="player-1",
+            roll_result={
+                "dice_expression": "1d20",
+                "rolls": [3],
+                "raw_result": 3,
+                "final_result": 3,
+                "chat_summary": "Salvación contra la muerte: 1d20=3 — fallo. Éxitos 0/3, fallos 1/3",
+                "roll_type": "death_save",
+                "roll_details": {"roll_label": "Salvación contra la muerte"},
+            },
+            entity_id="entity-1",
+            entity_name="Grommash Turbado",
+            speaker_display_name="Grommash Turbado",
+            speaker_type="PC",
+        )
+
+        assert message["speaker_display_name"] == "Grommash Turbado"
+        assert message["entity_name"] == "Grommash Turbado"
+        assert message["speaker_type"] == "PC"
+        assert message["text"] == "Salvación contra la muerte: 1d20=3 — fallo. Éxitos 0/3, fallos 1/3"
+
+
+class TestResolveDiceRollSpeakerFields:
+    def test_entity_roll_uses_entity_name(self):
+        campaign_id = uuid.uuid4()
+        pc = _make_pc(name="Grommash Turbado")
+        pc.campaign_id = campaign_id
+
+        db = AsyncMock()
+        with patch(
+            "app.services.scenes.fetch_entities_by_id",
+            AsyncMock(return_value={str(pc.id): pc}),
+        ):
+            fields = asyncio.run(
+                resolve_dice_roll_speaker_fields(
+                    db,
+                    campaign_id,
+                    sender_id="player-1",
+                    sender_role="PLAYER",
+                    entity_id=str(pc.id),
+                )
+            )
+
+        assert fields["speaker_display_name"] == "Grommash Turbado"
+        assert fields["entity_name"] == "Grommash Turbado"
+        assert fields["speaker_type"] == "PC"
+
+    def test_master_free_roll_uses_master_label(self):
+        db = AsyncMock()
+        fields = asyncio.run(
+            resolve_dice_roll_speaker_fields(
+                db,
+                uuid.uuid4(),
+                sender_id="master-1",
+                sender_role="MASTER",
+            )
+        )
+
+        assert fields["speaker_display_name"] == "Máster"
+        assert fields["speaker_type"] == "MASTER"
 
 
 class TestUpdateSceneNpcPresence:

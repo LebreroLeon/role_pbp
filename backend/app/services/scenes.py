@@ -51,6 +51,7 @@ ALLOWED_MESSAGE_TYPES = {"SPEAK", "ACTION", "CONTEXT", "MASTER", "NARRATIVE", "D
 NARRATIVE_MESSAGE_TYPES = {"SPEAK", "ACTION", "CONTEXT", "MASTER", "NARRATIVE"}
 ALLOWED_SPEAKER_TYPES = {"MASTER", "NPC", "PC", "NARRATOR"}
 DEFAULT_NARRATOR_DISPLAY_NAME = "Máster / Narrador"
+MASTER_DICE_ROLL_DISPLAY_NAME = "Máster"
 INTERACTIVE_SCENE_STATUSES = {"ACTIVE"}
 FALLBACK_SUMMARY_MESSAGE_COUNT = 5
 
@@ -757,6 +758,13 @@ async def roll_scene_dice(
         sender_role=sender_role,
     )
 
+    speaker_fields = await resolve_dice_roll_speaker_fields(
+        db,
+        scene.campaign_id,
+        sender_id=sender_id,
+        sender_role=sender_role,
+    )
+
     message = {
         "id": str(uuid.uuid4()),
         "timestamp": utc_now_iso(),
@@ -772,6 +780,7 @@ async def roll_scene_dice(
         "roll_details": roll_details,
         "read_by": [sender_id],
         "visibility": visibility,
+        **speaker_fields,
     }
     state.chat_buffer.append(ChatMessage.model_validate(message))
     state.chat_buffer = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
@@ -956,11 +965,59 @@ async def update_scene_npc_presence(
     return scene_to_response(scene)
 
 
+async def resolve_dice_roll_speaker_fields(
+    db: AsyncSession,
+    campaign_id: uuid.UUID,
+    *,
+    sender_id: str,
+    sender_role: str,
+    entity_id: str | None = None,
+) -> dict[str, str]:
+    if entity_id:
+        entities = await fetch_entities_by_id(db, campaign_id, [entity_id])
+        entity = entities.get(entity_id)
+        if entity is not None:
+            name = entity_display_name(entity)
+            speaker_type = "NPC" if entity.entity_type == "NPC" else "PC"
+            return {
+                "entity_id": entity_id,
+                "entity_name": name,
+                "speaker_display_name": name,
+                "speaker_type": speaker_type,
+            }
+
+    if sender_role == "MASTER":
+        return {
+            "speaker_display_name": MASTER_DICE_ROLL_DISPLAY_NAME,
+            "speaker_type": "MASTER",
+        }
+
+    try:
+        user_uuid = uuid.UUID(str(sender_id))
+    except ValueError:
+        return {}
+
+    pc = await find_pc_by_user(db, campaign_id, user_uuid)
+    if pc is None:
+        return {}
+
+    name = entity_display_name(pc)
+    return {
+        "entity_id": str(pc.id),
+        "entity_name": name,
+        "speaker_display_name": name,
+        "speaker_type": "PC",
+    }
+
+
 def build_dice_roll_message(
     *,
     sender_id: str,
     roll_result: dict[str, Any],
     entity_id: str | None = None,
+    entity_name: str | None = None,
+    speaker_display_name: str | None = None,
+    speaker_type: str | None = None,
     skill_checked: str | None = None,
     visibility: str = "all",
 ) -> dict[str, Any]:
@@ -996,6 +1053,12 @@ def build_dice_roll_message(
     }
     if entity_id:
         message["entity_id"] = entity_id
+    if entity_name:
+        message["entity_name"] = entity_name
+    if speaker_display_name:
+        message["speaker_display_name"] = speaker_display_name
+    if speaker_type:
+        message["speaker_type"] = speaker_type
     if roll_result.get("roll_type"):
         message["roll_type"] = roll_result["roll_type"]
     if roll_details:
@@ -1012,13 +1075,24 @@ async def append_dice_roll_to_scene(
     entity_id: str | None = None,
     skill_checked: str | None = None,
     visibility: str = "all",
+    sender_role: str = "PLAYER",
 ) -> SceneResponse:
     ensure_scene_interactive(scene)
     state = load_scene_state(scene)
+    speaker_fields = await resolve_dice_roll_speaker_fields(
+        db,
+        scene.campaign_id,
+        sender_id=sender_id,
+        sender_role=sender_role,
+        entity_id=entity_id,
+    )
     message = build_dice_roll_message(
         sender_id=sender_id,
         roll_result=roll_result,
-        entity_id=entity_id,
+        entity_id=speaker_fields.get("entity_id", entity_id),
+        entity_name=speaker_fields.get("entity_name"),
+        speaker_display_name=speaker_fields.get("speaker_display_name"),
+        speaker_type=speaker_fields.get("speaker_type"),
         skill_checked=skill_checked,
         visibility=visibility,
     )

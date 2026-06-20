@@ -241,3 +241,5 @@ class TestRollSceneDiceMasterOnly:
         state = load_scene_state(scene)
         assert len(state.chat_buffer) == 1
         assert state.chat_buffer[0].visibility == "master_only"
+        assert state.chat_buffer[0].speaker_display_name == "Máster"
+        assert state.chat_buffer[0].speaker_type == "MASTER"

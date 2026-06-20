@@ -28,6 +28,7 @@ class ChatMessage(BaseModel):
     final_result: int | None = None
     skill_checked: str | None = None
     entity_id: str | None = None
+    entity_name: str | None = None
     roll_type: str | None = None
     roll_details: dict | None = None
     chat_summary: str | None = None

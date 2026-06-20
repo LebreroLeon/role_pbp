@@ -602,6 +602,7 @@ async def roll_player_character_contextual(
             entity_id=str(pc.id),
             skill_checked=skill_checked,
             visibility=visibility,
+            sender_role=sender_role,
         )
         scene_id = str(active_scene.id)
 
@@ -679,6 +680,7 @@ async def roll_entity_contextual(
             entity_id=str(entity.id),
             skill_checked=skill_checked,
             visibility=visibility,
+            sender_role=sender_role,
         )
         scene_id = str(active_scene.id)
 
