@@ -94,6 +94,32 @@ def _normalize_monster_key(value: str) -> str:
     return "".join(ch for ch in normalized if not unicodedata.combining(ch))
 
 
+def _manuals_dir() -> Path:
+    return BACKEND_ROOT.parent / "data" / "manuals" / SYSTEM_ID
+
+
+def _pdf_globs_for_source(source_key: str) -> list[str]:
+    source = MANUAL_SOURCES.get(source_key, {})
+    patterns = [
+        str(source.get("default_pdf_glob", "")),
+        "manual-de-monstruos.pdf",
+        "manual-de-monstruos*.pdf",
+        "*[Mm]onstruos*Edge*.pdf",
+        "*[Mm]onstruos*Volo*.pdf",
+        "*[Mm]ultiverso*.pdf",
+        "*.pdf",
+        "*.PDF",
+    ]
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for pattern in patterns:
+        pattern = pattern.strip()
+        if pattern and pattern not in seen:
+            seen.add(pattern)
+            ordered.append(pattern)
+    return ordered
+
+
 def resolve_pdf_path(explicit: str | None, *, source_key: str) -> Path:
     if explicit:
         path = Path(explicit).expanduser()
@@ -101,16 +127,26 @@ def resolve_pdf_path(explicit: str | None, *, source_key: str) -> Path:
             raise FileNotFoundError(f"PDF not found: {path}")
         return path
 
-    repo_root = BACKEND_ROOT.parent
-    manuals_dir = repo_root / "data" / "manuals" / SYSTEM_ID
-    glob_pattern = str(MANUAL_SOURCES[source_key].get("default_pdf_glob", "*.pdf"))
-    matches = sorted(manuals_dir.glob(glob_pattern), key=lambda p: p.name.lower())
-    if not matches:
+    manuals_dir = _manuals_dir()
+    if not manuals_dir.is_dir():
         raise FileNotFoundError(
-            f"No PDF matching {glob_pattern!r} under {manuals_dir}. "
-            "Pass --pdf with the full path to your local manual."
+            f"Manuals directory not found: {manuals_dir}. "
+            "Create it and copy your PDF (see data/manuals/dnd5e/README.md)."
         )
-    return matches[0]
+
+    for glob_pattern in _pdf_globs_for_source(source_key):
+        matches = sorted(manuals_dir.glob(glob_pattern), key=lambda p: p.name.lower())
+        if matches:
+            return matches[0]
+
+    available = sorted(manuals_dir.iterdir(), key=lambda p: p.name.lower()) if manuals_dir.is_dir() else []
+    listing = ", ".join(p.name for p in available) or "(vacío)"
+    patterns = ", ".join(_pdf_globs_for_source(source_key))
+    raise FileNotFoundError(
+        f"No PDF found under {manuals_dir} for source {source_key!r}. "
+        f"Tried patterns: {patterns}. Contents: {listing}. "
+        "Copy the manual to that folder (gitignored) or pass --pdf."
+    )
 
 
 def _source_meta(source_key: str) -> dict[str, str]:
