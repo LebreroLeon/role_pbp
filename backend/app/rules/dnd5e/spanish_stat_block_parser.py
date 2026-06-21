@@ -133,10 +133,18 @@ _DAMAGE_TYPE_WORD = (
     r"el[eé]ctrico|necr[oó]tico|radiante|trueno|veneno|contun|ps[ií]quic"
 )
 _ATTACK = re.compile(
-    r"Ataque.*?:\s*\+?\s*(?P<to_hit>\d+)\s+a\s+impactar.*?"
+    r"Ataque[^:]*:\s*\+?\s*(?P<to_hit>\d+)\s+a\s+impactar.*?"
     r"(?:Impacto|Al impactar):\s*\d+\s*\((?P<dice>[^)]+)\)\s*"
     rf"(?:de\s+da[ñn]o\s+)?(?P<damage_type>{_DAMAGE_TYPE_WORD}|\w+)",
     re.IGNORECASE | re.DOTALL,
+)
+_DAMAGE_ROLL = re.compile(
+    rf"(?P<avg>\d+)\s*\((?P<dice>[^)]+)\)\s*(?:de\s+)?daño\s+(?P<damage_type>{_DAMAGE_TYPE_WORD})",
+    re.IGNORECASE,
+)
+_SPELLCASTING_NAME = re.compile(
+    r"lanzamiento\s+(?:innato\s+)?de\s+conjuros",
+    re.IGNORECASE,
 )
 _ACTION_BLOCK = re.compile(
     r"(?:^|\n)"
@@ -149,10 +157,13 @@ _FEATURE_NAME_INVALID = re.compile(
     re.IGNORECASE,
 )
 _ABILITY_SCORE_PAIR = re.compile(r"(\d+)\s*\([+-]?\d+\)")
-_SECTION_HEADERS = re.compile(
-    r"^(ACCIONES(?:\s+ADICIONALES)?|REACCIONES|ACCIONES LEGENDARIAS)\s*$",
-    re.MULTILINE | re.IGNORECASE,
+_ACTION_SECTION_SPECS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("legendary", re.compile(r"^ACCIONES\s+LEGENDARIAS\s*$", re.MULTILINE | re.IGNORECASE)),
+    ("bonus_actions", re.compile(r"^ACCIONES\s+ADICIONALES\s*$", re.MULTILINE | re.IGNORECASE)),
+    ("reactions", re.compile(r"^REACCIONES\s*$", re.MULTILINE | re.IGNORECASE)),
+    ("actions", re.compile(r"^ACCIONES\s*$", re.MULTILINE | re.IGNORECASE)),
 )
+_TRAIT_KIND_METADATA = frozenset({"Sentidos", "Idiomas", "Inmunidad a estados", "Velocidad"})
 _PAGE_FOOTER_NOISE = re.compile(
     r"\d{2,4}\s+CAP[IÍ]TULO.*?$|^[•·]\s*$",
     re.IGNORECASE | re.MULTILINE | re.DOTALL,
@@ -300,6 +311,107 @@ def _parse_saving_throw_bonuses(text: str) -> dict[str, int]:
     return bonuses
 
 
+def _is_spellcasting_feature(name: str, desc: str = "") -> bool:
+    combined = f"{name} {desc}"
+    return bool(_SPELLCASTING_NAME.search(combined))
+
+
+def _trait_kind(name: str, desc: str = "") -> str:
+    if name in _TRAIT_KIND_METADATA:
+        return "metadata"
+    if _is_spellcasting_feature(name, desc):
+        return "spellcasting"
+    return "trait"
+
+
+def _tag_trait(trait: dict[str, str]) -> dict[str, str]:
+    name = str(trait.get("name", "")).strip()
+    desc = str(trait.get("desc", "")).strip()
+    tagged = dict(trait)
+    tagged["kind"] = _trait_kind(name, desc)
+    return tagged
+
+
+def _find_action_sections(text: str) -> list[tuple[str, int, int]]:
+    """Return ordered (section_key, start, end) slices for action areas."""
+    matches: list[tuple[str, int]] = []
+    for section_key, pattern in _ACTION_SECTION_SPECS:
+        for match in pattern.finditer(text):
+            matches.append((section_key, match.start()))
+
+    if not matches:
+        return []
+
+    matches.sort(key=lambda item: item[1])
+    deduped: list[tuple[str, int]] = []
+    seen_positions: set[int] = set()
+    for section_key, start in matches:
+        if start in seen_positions:
+            continue
+        seen_positions.add(start)
+        deduped.append((section_key, start))
+
+    sections: list[tuple[str, int, int]] = []
+    for index, (section_key, start) in enumerate(deduped):
+        header_match = None
+        for _, pattern in _ACTION_SECTION_SPECS:
+            header_match = pattern.search(text, start)
+            if header_match and header_match.start() == start:
+                break
+        content_start = header_match.end() if header_match else start
+        end = deduped[index + 1][1] if index + 1 < len(deduped) else len(text)
+        sections.append((section_key, content_start, end))
+    return sections
+
+
+def _first_action_section_start(text: str) -> int | None:
+    positions: list[int] = []
+    for _, pattern in _ACTION_SECTION_SPECS:
+        for match in pattern.finditer(text):
+            positions.append(match.start())
+    return min(positions) if positions else None
+
+
+def _format_damage_summary(block: str) -> str:
+    rolls = list(_DAMAGE_ROLL.finditer(block))
+    if not rolls:
+        return ""
+    parts: list[str] = []
+    for roll in rolls:
+        dice = _normalize_dice(roll.group("dice"))
+        damage_type = _normalize_damage_type_word(roll.group("damage_type"))
+        parts.append(f"{dice} {damage_type}")
+    return " + ".join(parts)
+
+
+def _parse_attack_payload(block: str) -> list[dict[str, Any]]:
+    attack_match = _ATTACK.search(block)
+    if not attack_match:
+        return []
+
+    dice_raw = _normalize_dice(attack_match.group("dice"))
+    dice_match = re.match(r"(\d+)d(\d+)([+-]\d+)?", dice_raw)
+    if not dice_match:
+        return []
+
+    damage_bonus = int(dice_match.group(3) or 0)
+    damage_type = _normalize_damage_type_word(attack_match.group("damage_type"))
+    payload: dict[str, Any] = {
+        "to_hit_mod": int(attack_match.group("to_hit")),
+        "damage_die_count": int(dice_match.group(1)),
+        "damage_die_type": f"D{dice_match.group(2)}",
+        "damage_bonus": damage_bonus,
+        "damage_type": {"key": damage_type},
+    }
+    extra_summary = _format_damage_summary(block)
+    primary_summary = f"{dice_match.group(1)}d{dice_match.group(2)}"
+    if damage_bonus:
+        primary_summary += f"{damage_bonus:+d}"
+    if extra_summary and extra_summary != f"{primary_summary} {damage_type}":
+        payload["damage_summary"] = extra_summary
+    return [payload]
+
+
 def _strip_trait_metadata_prefix(text: str) -> str:
     cleaned = re.sub(r"^\([\d,]+\s*(?:PX|XP)\)\.?\s*", "", text.strip(), flags=re.IGNORECASE)
     cleaned = re.sub(
@@ -357,11 +469,11 @@ def _split_traits(traits_text: str) -> list[dict[str, str]]:
                 if traits:
                     traits[-1]["desc"] = f"{traits[-1]['desc']} {cleaned}".strip()
                 else:
-                    traits.append({"name": cleaned, "desc": cleaned})
+                    traits.append(_tag_trait({"name": cleaned, "desc": cleaned}))
                 continue
-            traits.append({"name": trait_name.strip(), "desc": trait_desc.strip()})
+            traits.append(_tag_trait({"name": trait_name.strip(), "desc": trait_desc.strip()}))
         else:
-            traits.append({"name": cleaned, "desc": cleaned})
+            traits.append(_tag_trait({"name": cleaned, "desc": cleaned}))
     return traits
 
 
@@ -385,55 +497,53 @@ def _iter_action_blocks(actions_text: str) -> list[tuple[str, str]]:
     return blocks
 
 
-def _parse_actions_from_section(actions_text: str) -> list[dict[str, Any]]:
+def _parse_actions_from_section(
+    actions_text: str,
+    *,
+    section: str = "actions",
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    """Parse one action section; spellcasting blocks are returned as traits."""
     actions: list[dict[str, Any]] = []
+    spell_traits: list[dict[str, str]] = []
     for name, block in _iter_action_blocks(actions_text):
-        attack_match = _ATTACK.search(block)
-        if attack_match:
-            dice_raw = _normalize_dice(attack_match.group("dice"))
-            dice_match = re.match(r"(\d+)d(\d+)([+-]\d+)?", dice_raw)
-            if dice_match:
-                damage_bonus = int(dice_match.group(3) or 0)
-                damage_type = _normalize_damage_type_word(attack_match.group("damage_type"))
-                actions.append(
-                    {
-                        "name": name,
-                        "desc": block,
-                        "attacks": [
-                            {
-                                "to_hit_mod": int(attack_match.group("to_hit")),
-                                "damage_die_count": int(dice_match.group(1)),
-                                "damage_die_type": f"D{dice_match.group(2)}",
-                                "damage_bonus": damage_bonus,
-                                "damage_type": {"key": damage_type},
-                            }
-                        ],
-                    }
-                )
-                continue
-        actions.append({"name": name, "desc": block, "attacks": []})
-    return actions
+        if _is_spellcasting_feature(name, block):
+            spell_traits.append(_tag_trait({"name": name, "desc": block}))
+            continue
+
+        attacks = _parse_attack_payload(block)
+        action_entry: dict[str, Any] = {
+            "name": name,
+            "desc": block,
+            "section": section,
+            "attacks": attacks,
+        }
+        if attacks and attacks[0].get("damage_summary"):
+            action_entry["damage_summary"] = attacks[0]["damage_summary"]
+        actions.append(action_entry)
+    return actions, spell_traits
 
 
 def _metadata_traits(text: str) -> list[dict[str, str]]:
     traits: list[dict[str, str]] = []
     senses_match = _SENSES.search(text)
     if senses_match:
-        traits.append({"name": "Sentidos", "desc": " ".join(senses_match.group(1).split())})
+        traits.append(_tag_trait({"name": "Sentidos", "desc": " ".join(senses_match.group(1).split())}))
     languages_match = _LANGUAGES.search(text)
     if languages_match:
-        traits.append({"name": "Idiomas", "desc": " ".join(languages_match.group(1).split())})
+        traits.append(_tag_trait({"name": "Idiomas", "desc": " ".join(languages_match.group(1).split())}))
     immunities_match = _CONDITION_IMMUNITIES.search(text)
     if immunities_match:
         traits.append(
-            {
-                "name": "Inmunidad a estados",
-                "desc": " ".join(immunities_match.group(1).split()),
-            }
+            _tag_trait(
+                {
+                    "name": "Inmunidad a estados",
+                    "desc": " ".join(immunities_match.group(1).split()),
+                }
+            )
         )
     speed_match = _SPEED.search(text)
     if speed_match:
-        traits.append({"name": "Velocidad", "desc": speed_match.group(0).strip()})
+        traits.append(_tag_trait({"name": "Velocidad", "desc": speed_match.group(0).strip()}))
     return traits
 
 
@@ -697,24 +807,21 @@ def parse_spanish_stat_block(block_text: str) -> ParsedSpanishStatBlock:
     proficiency_match = _PROFICIENCY_BONUS.search(text)
     proficiency_bonus = int(proficiency_match.group(1)) if proficiency_match else None
 
-    actions_header = _SECTION_HEADERS.search(text)
-    traits_text = text[cr_match.end() : actions_header.start() if actions_header else len(text)]
+    first_action_start = _first_action_section_start(text)
+    traits_text = text[cr_match.end() : first_action_start if first_action_start is not None else len(text)]
     for pattern in (_SAVING_THROWS, _SKILLS, _SENSES, _LANGUAGES, _CONDITION_IMMUNITIES, _PROFICIENCY_BONUS):
         traits_text = pattern.sub("", traits_text)
     traits = _split_traits(traits_text)
     traits = _metadata_traits(text) + traits
 
     actions: list[dict[str, Any]] = []
-    if actions_header:
-        actions_text = text[actions_header.end() :]
-        next_section = _SECTION_HEADERS.search(actions_text)
-        if next_section:
-            primary_actions = actions_text[: next_section.start()]
-            bonus_actions = actions_text[next_section.end() :]
-            actions.extend(_parse_actions_from_section(primary_actions))
-            actions.extend(_parse_actions_from_section(bonus_actions))
-        else:
-            actions.extend(_parse_actions_from_section(actions_text))
+    for section_key, content_start, content_end in _find_action_sections(text):
+        section_actions, spell_traits = _parse_actions_from_section(
+            text[content_start:content_end],
+            section=section_key,
+        )
+        actions.extend(section_actions)
+        traits.extend(spell_traits)
 
     return ParsedSpanishStatBlock(
         name=name.title() if name.isupper() else name,

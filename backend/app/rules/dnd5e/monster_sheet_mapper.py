@@ -220,29 +220,72 @@ def _map_attacks(creature: dict[str, Any], *, proficiency_bonus: int) -> list[di
 
 def _format_features(creature: dict[str, Any]) -> str:
     sections: list[str] = []
+
+    def _append_section(title: str, entries: list[str]) -> None:
+        if not entries:
+            return
+        sections.append(f"--- {title} ---")
+        sections.extend(entries)
+
+    metadata_lines: list[str] = []
+    trait_lines: list[str] = []
+    spell_lines: list[str] = []
     traits = creature.get("traits")
     if isinstance(traits, list):
         for trait in traits:
-            if isinstance(trait, dict):
-                name = str(trait.get("name", "")).strip()
-                desc = str(trait.get("desc", "")).strip()
-                if name and desc:
-                    sections.append(f"{name}. {desc}")
-                elif desc:
-                    sections.append(desc)
+            if not isinstance(trait, dict):
+                continue
+            name = str(trait.get("name", "")).strip()
+            desc = str(trait.get("desc", "")).strip()
+            if not desc:
+                continue
+            line = f"{name}. {desc}" if name and name != desc else desc
+            kind = str(trait.get("kind", "trait"))
+            if kind == "metadata":
+                metadata_lines.append(line)
+            elif kind == "spellcasting":
+                spell_lines.append(line)
+            else:
+                trait_lines.append(line)
+
+    _append_section("Notas", metadata_lines)
+    _append_section("Características especiales", trait_lines)
+    _append_section("Hechizos", spell_lines)
+
+    action_sections: dict[str, list[str]] = {
+        "actions": [],
+        "bonus_actions": [],
+        "legendary": [],
+        "reactions": [],
+    }
+    section_titles = {
+        "actions": "Acciones",
+        "bonus_actions": "Acciones adicionales",
+        "legendary": "Acciones legendarias",
+        "reactions": "Reacciones",
+    }
 
     actions = creature.get("actions")
     if isinstance(actions, list):
         for action in actions:
             if not isinstance(action, dict):
                 continue
-            action_attacks = action.get("attacks")
-            if isinstance(action_attacks, list) and action_attacks:
-                continue
             name = str(action.get("name", "")).strip()
             desc = str(action.get("desc", "")).strip()
-            if name and desc:
-                sections.append(f"{name}. {desc}")
+            if not desc:
+                continue
+            if name and desc.lower().startswith(name.lower()):
+                line = desc
+            else:
+                line = f"{name}. {desc}" if name else desc
+            damage_summary = action.get("damage_summary")
+            if isinstance(damage_summary, str) and damage_summary:
+                line = f"{line}\nDaño: {damage_summary}"
+            section_key = str(action.get("section", "actions"))
+            action_sections.setdefault(section_key, []).append(line)
+
+    for section_key, title in section_titles.items():
+        _append_section(title, action_sections.get(section_key, []))
 
     return "\n\n".join(sections)
 
