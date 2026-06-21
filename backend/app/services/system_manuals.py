@@ -54,6 +54,24 @@ def chunk_text(
     return chunks
 
 
+def _looks_image_only(pages: list[tuple[int, str]]) -> bool:
+    if len(pages) < 2:
+        return False
+    total_chars = sum(len(text.strip()) for _, text in pages)
+    nonempty = sum(1 for _, text in pages if len(text.strip()) > 50)
+    return total_chars < 1000 and nonempty < max(1, len(pages) * 0.05)
+
+
+def _ocr_page_text(page) -> str:
+    import fitz
+
+    try:
+        textpage = page.get_textpage_ocr(language="spa+eng", dpi=200, full=True)
+    except RuntimeError:
+        return ""
+    return page.get_text(textpage=textpage)
+
+
 def extract_pdf_pages(pdf_path: Path) -> list[tuple[int, str]]:
     import fitz
 
@@ -61,7 +79,16 @@ def extract_pdf_pages(pdf_path: Path) -> list[tuple[int, str]]:
     with fitz.open(pdf_path) as document:
         for page_number, page in enumerate(document, start=1):
             pages.append((page_number, page.get_text()))
-    return pages
+
+        if not _looks_image_only(pages):
+            return pages
+
+        ocr_pages: list[tuple[int, str]] = []
+        for page_number, page in enumerate(document, start=1):
+            ocr_text = _ocr_page_text(page)
+            fallback = pages[page_number - 1][1]
+            ocr_pages.append((page_number, ocr_text or fallback))
+        return ocr_pages
 
 
 def build_chunks_from_pages(

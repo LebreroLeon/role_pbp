@@ -12,6 +12,7 @@ from app.services.system_manuals import (
     chunk_text,
     extract_pdf_pages,
     validate_system_id,
+    _looks_image_only,
 )
 
 MOCK_EMBEDDING = [0.1] * 1536
@@ -34,6 +35,15 @@ class TestChunkText:
 
 
 class TestExtractPdfPages:
+    def test_looks_image_only_detects_rasterized_pdf(self):
+        pages = [(index, "") for index in range(1, 11)]
+        pages[1] = (2, "https://www.facebook.com/elgrimoriorol/")
+        assert _looks_image_only(pages) is True
+
+    def test_looks_image_only_rejects_text_pdf(self):
+        pages = [(index, "word " * 200) for index in range(1, 6)]
+        assert _looks_image_only(pages) is False
+
     def test_extract_pdf_pages_reads_fixture_text(self, tmp_path: Path):
         pdf_path = tmp_path / "sample.pdf"
         sample_text = (FIXTURES_DIR / "sample_manual_text.txt").read_text(encoding="utf-8")

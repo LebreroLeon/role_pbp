@@ -53,10 +53,16 @@ async def scan_system(
     dry_run: bool,
     force: bool,
     skip_if_indexed: bool,
+    filename: str | None = None,
     log=print,
 ) -> int:
     system_dir = manuals_root / system_id
     pdfs = list_pdfs(system_dir)
+    if filename:
+        pdfs = [pdf for pdf in pdfs if pdf.name == filename]
+        if not pdfs:
+            log(f"  (PDF not found: {filename})")
+            return 0
 
     log(f"\n[{system_id}] {system_dir}")
     if not pdfs:
@@ -114,6 +120,7 @@ async def seed_system_manuals(
     force: bool = False,
     dry_run: bool = False,
     skip_if_indexed: bool = True,
+    filename: str | None = None,
     log=print,
 ) -> int:
     if not settings.openai_api_key.strip():
@@ -137,6 +144,7 @@ async def seed_system_manuals(
                 dry_run=dry_run,
                 force=force,
                 skip_if_indexed=skip_if_indexed,
+                filename=filename,
                 log=log,
             )
 

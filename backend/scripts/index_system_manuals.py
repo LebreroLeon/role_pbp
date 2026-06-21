@@ -4,6 +4,7 @@ Usage (from repo root):
     cd backend
     python scripts/index_system_manuals.py --system dnd5e
     python scripts/index_system_manuals.py --system dnd5e --dry-run
+    python scripts/index_system_manuals.py --system dnd5e --force --filename "Guía del aventurero de la Costa de la Espada.pdf"
     python scripts/index_system_manuals.py --all --force
 
 Requires: pymupdf, OPENAI_API_KEY, migration 008 (system_manual_* tables).
@@ -36,6 +37,7 @@ async def run(args: argparse.Namespace) -> int:
         force=args.force,
         dry_run=args.dry_run,
         skip_if_indexed=False,
+        filename=args.filename,
     )
     print(f"\nDone. {total_chunks} chunk(s) processed.")
     return 0
@@ -56,6 +58,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--dry-run", action="store_true", help="List files and chunk counts only; no DB writes.")
     parser.add_argument("--force", action="store_true", help="Re-index even if already indexed.")
+    parser.add_argument(
+        "--filename",
+        default=None,
+        help="Index only this PDF basename (exact match under data/manuals/{system_id}/).",
+    )
     return parser.parse_args()
 
 
