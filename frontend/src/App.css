@@ -30,15 +30,38 @@
 
 .dice-panel__body {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
   gap: 0.65rem;
 }
 
+.dice-panel__primary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.dice-panel__options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.dice-panel__options .advantage-toggle {
+  display: flex;
+  width: 100%;
+}
+
+.dice-panel__options .advantage-toggle__btn {
+  flex: 1;
+  text-align: center;
+}
+
 .dice-panel__expression {
-  flex: 0 1 5.5rem;
-  min-width: 4.5rem;
-  max-width: 7rem;
+  width: 100%;
+  min-width: 0;
   padding: 0.45rem 0.6rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
@@ -46,6 +69,11 @@
   color: inherit;
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
+}
+
+.dice-panel__roll-btn {
+  white-space: nowrap;
+  min-height: 2.5rem;
 }
 
 .dice-panel__expression:disabled {
@@ -1814,6 +1842,7 @@
   padding: 0.45rem 0.5rem;
   border-radius: var(--radius-sm);
   background: var(--bg-base);
+  touch-action: manipulation;
 }
 
 .initiative-manage-item__name {
@@ -1823,20 +1852,30 @@
 
 .initiative-manage-item__actions {
   display: flex;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
-.initiative-manage-item__actions button {
-  min-width: 1.75rem;
-  padding: 0.2rem 0.35rem;
+.initiative-manage-item__move {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.35rem 0.5rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
-  background: transparent;
+  background: var(--bg-elevated, var(--bg-base));
   color: inherit;
   cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.initiative-manage-item__actions button:disabled {
+.initiative-manage-item__move:active:not(:disabled) {
+  background: var(--accent-violet-soft, rgba(139, 92, 246, 0.15));
+}
+
+.initiative-manage-item__actions button:disabled,
+.initiative-manage-item__move:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
@@ -3112,13 +3151,14 @@
     grid-template-columns: 1fr;
   }
 
-  .dice-panel__expression {
-    flex: 1 1 100%;
-    max-width: none;
+  .dice-panel__primary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
   }
 
-  .dice-panel__body .button {
-    width: 100%;
+  .dice-panel__roll-btn {
+    min-height: 2.75rem;
+    padding-inline: 0.85rem;
   }
 
   .member-list li,

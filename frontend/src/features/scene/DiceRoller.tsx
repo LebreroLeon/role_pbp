@@ -48,34 +48,46 @@ export function DiceRoller({
         <h4>Tirada de dados</h4>
       </div>
       <div className="dice-panel__body">
-        <input
-          className="dice-panel__expression"
-          value={expression}
-          onChange={(event) => onExpressionChange(event.target.value)}
-          disabled={disabled}
-          aria-label="Expresión de dados"
-        />
-        {showAdvantage && onAdvantageModeChange && (
-          <AdvantageToggle
-            value={advantageMode}
-            onChange={onAdvantageModeChange}
+        <div className="dice-panel__primary">
+          <input
+            className="dice-panel__expression"
+            value={expression}
+            onChange={(event) => onExpressionChange(event.target.value)}
             disabled={disabled}
-            compact
+            aria-label="Expresión de dados"
           />
-        )}
-        {isMaster && onMasterOnlyChange && (
-          <Switch
-            checked={masterOnly}
-            onCheckedChange={onMasterOnlyChange}
-            label="Tirada en secreto"
-            description="Solo visible para el Máster"
-            tone="rose"
+          <Button
+            variant="secondary"
+            type="button"
+            className="dice-panel__roll-btn"
+            onClick={handleRoll}
             disabled={disabled}
-          />
+          >
+            Tirar dados
+          </Button>
+        </div>
+        {(showAdvantage || (isMaster && onMasterOnlyChange)) && (
+          <div className="dice-panel__options">
+            {showAdvantage && onAdvantageModeChange && (
+              <AdvantageToggle
+                value={advantageMode}
+                onChange={onAdvantageModeChange}
+                disabled={disabled}
+                compact
+              />
+            )}
+            {isMaster && onMasterOnlyChange && (
+              <Switch
+                checked={masterOnly}
+                onCheckedChange={onMasterOnlyChange}
+                label="Tirada en secreto"
+                description="Solo visible para el Máster"
+                tone="rose"
+                disabled={disabled}
+              />
+            )}
+          </div>
         )}
-        <Button variant="secondary" type="button" onClick={handleRoll} disabled={disabled}>
-          Tirar dados
-        </Button>
       </div>
     </section>
   );

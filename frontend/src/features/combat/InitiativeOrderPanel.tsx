@@ -133,9 +133,6 @@ export function InitiativeOrderPanel({
       sceneState={sceneState}
       isMaster={isMaster}
       orderSource={orderSource}
-      onOrderSourceChange={(next) =>
-        void updateTurnManagement.mutateAsync({ sceneId, order_source: next }).catch(() => undefined)
-      }
       onClose={() => setManageOpen(false)}
       onRollAll={() =>
         rollInitiative
@@ -425,7 +422,6 @@ type InitiativeManageModalProps = {
   sceneState: SceneStateInput;
   isMaster: boolean;
   orderSource: TurnOrderSource;
-  onOrderSourceChange: (source: TurnOrderSource) => void;
   onClose: () => void;
   onRollAll: () => void;
   onSave: (entries: CombatInitiativeEntry[], source: TurnOrderSource) => Promise<void>;
@@ -440,7 +436,6 @@ function InitiativeManageModal({
   sceneState,
   isMaster,
   orderSource,
-  onOrderSourceChange,
   onClose,
   onRollAll,
   onSave,
@@ -450,14 +445,19 @@ function InitiativeManageModal({
 }: InitiativeManageModalProps) {
   const [localEntries, setLocalEntries] = useState(entries);
   const [localSource, setLocalSource] = useState(orderSource);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
-    setLocalEntries(entries);
-  }, [entries]);
+    if (!dirty) {
+      setLocalEntries(entries);
+    }
+  }, [entries, dirty]);
 
   useEffect(() => {
-    setLocalSource(orderSource);
-  }, [orderSource]);
+    if (!dirty) {
+      setLocalSource(orderSource);
+    }
+  }, [orderSource, dirty]);
 
   function moveEntry(index: number, direction: -1 | 1) {
     const target = index + direction;
@@ -467,12 +467,12 @@ function InitiativeManageModal({
     next.splice(target, 0, item);
     setLocalEntries(next);
     setLocalSource("manual");
-    onOrderSourceChange("manual");
+    setDirty(true);
   }
 
   function handleSourceChange(next: TurnOrderSource) {
     setLocalSource(next);
-    onOrderSourceChange(next);
+    setDirty(true);
   }
 
   return (
@@ -549,17 +549,19 @@ function InitiativeManageModal({
               <div className="initiative-manage-item__actions">
                 <button
                   type="button"
-                  disabled={index === 0 || isSaving}
+                  className="initiative-manage-item__move"
+                  disabled={index === 0 || isSaving || isRolling}
                   onClick={() => moveEntry(index, -1)}
-                  aria-label="Subir"
+                  aria-label={`Subir ${displayName}`}
                 >
                   ↑
                 </button>
                 <button
                   type="button"
-                  disabled={index === localEntries.length - 1 || isSaving}
+                  className="initiative-manage-item__move"
+                  disabled={index === localEntries.length - 1 || isSaving || isRolling}
                   onClick={() => moveEntry(index, 1)}
-                  aria-label="Bajar"
+                  aria-label={`Bajar ${displayName}`}
                 >
                   ↓
                 </button>
