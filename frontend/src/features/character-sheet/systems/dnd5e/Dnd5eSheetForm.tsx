@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Dices } from "lucide-react";
+import { ChevronDown, Dices } from "lucide-react";
 
 import type { SheetRollRequest, SheetRollResponse } from "../../../../api/types";
 import { Button, Input, Switch } from "../../../../components/ui";
@@ -403,8 +403,11 @@ export function Dnd5eSheetForm({
         <details className="sheet-damage-defenses">
           <summary className="sheet-damage-defenses__summary">
             <h4>Defensas de daño</h4>
-            <span className="sheet-damage-defenses__counts">
-              {formatDamageDefenseSummary(resistances.length, vulnerabilities.length, immunities.length)}
+            <span className="sheet-damage-defenses__summary-end">
+              <span className="sheet-damage-defenses__counts">
+                {formatDamageDefenseSummary(resistances.length, vulnerabilities.length, immunities.length)}
+              </span>
+              <ChevronDown className="sheet-damage-defenses__chevron" size={18} aria-hidden />
             </span>
           </summary>
           <div className="sheet-damage-defenses__grid" role="group" aria-label="Defensas de daño">
