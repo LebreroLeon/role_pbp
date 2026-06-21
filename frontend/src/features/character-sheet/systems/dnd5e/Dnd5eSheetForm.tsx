@@ -19,7 +19,7 @@ import {
   type Dnd5eAbility,
   type Dnd5eSheet,
 } from "./schema";
-import { DND5E_DAMAGE_TYPE_GROUPS } from "./damageTypes";
+import { DND5E_DAMAGE_TYPE_GROUPS, DND5E_DAMAGE_TYPE_VALUES, damageTypeLabel } from "./damageTypes";
 import type { Dnd5eDamageType } from "./damageTypes";
 
 type Dnd5eSheetFormProps = {
@@ -91,46 +91,19 @@ function formatMod(mod: number): string {
 
 type DamageModifierField = "resistances" | "vulnerabilities" | "immunities";
 
-type DamageModifiersPickerProps = {
-  field: DamageModifierField;
-  label: string;
-  selected: Dnd5eDamageType[];
-  disabled?: boolean;
-  onChange: (values: Dnd5eDamageType[]) => void;
-};
-
-function DamageModifiersPicker({ field, label, selected, disabled, onChange }: DamageModifiersPickerProps) {
-  function toggle(value: Dnd5eDamageType) {
-    if (selected.includes(value)) {
-      onChange(selected.filter((item) => item !== value));
-      return;
-    }
-    onChange([...selected, value]);
+function toggleDamageModifierList(
+  selected: Dnd5eDamageType[],
+  value: Dnd5eDamageType,
+  enabled: boolean,
+): Dnd5eDamageType[] {
+  if (enabled) {
+    return selected.includes(value) ? selected : [...selected, value];
   }
+  return selected.filter((item) => item !== value);
+}
 
-  return (
-    <div className="sheet-damage-modifiers__group">
-      <h4>{label}</h4>
-      {DND5E_DAMAGE_TYPE_GROUPS.map((group) => (
-        <fieldset key={`${field}-${group.label}`} className="sheet-damage-modifiers__fieldset">
-          <legend>{group.label}</legend>
-          <div className="sheet-damage-modifiers__options">
-            {group.options.map((option) => (
-              <label key={option.value} className="sheet-damage-modifiers__option">
-                <input
-                  type="checkbox"
-                  checked={selected.includes(option.value)}
-                  disabled={disabled}
-                  onChange={() => toggle(option.value)}
-                />
-                <span>{option.label}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      ))}
-    </div>
-  );
+function formatDamageDefenseSummary(resistances: number, vulnerabilities: number, immunities: number): string {
+  return `${resistances} res · ${vulnerabilities} vul · ${immunities} inm`;
 }
 
 export function Dnd5eSheetForm({
@@ -250,6 +223,16 @@ export function Dnd5eSheetForm({
 
   function rollInitiative() {
     rollWithAdvantage({ roll_type: "initiative" });
+  }
+
+  function setDamageModifier(field: DamageModifierField, value: Dnd5eDamageType, enabled: boolean) {
+    const selected =
+      field === "resistances" ? resistances : field === "vulnerabilities" ? vulnerabilities : immunities;
+    setValue(
+      `defense.damage_modifiers.${field}`,
+      toggleDamageModifierList(selected, value, enabled),
+      { shouldDirty: true },
+    );
   }
 
   function rollAttack(index: number) {
@@ -417,36 +400,48 @@ export function Dnd5eSheetForm({
           />
         </div>
 
-        <div className="sheet-damage-modifiers">
-          <h4>Defensas de daño</h4>
-          <DamageModifiersPicker
-            field="resistances"
-            label="Resistencias"
-            selected={resistances}
-            disabled={disabled}
-            onChange={(values) =>
-              setValue("defense.damage_modifiers.resistances", values, { shouldDirty: true })
-            }
-          />
-          <DamageModifiersPicker
-            field="vulnerabilities"
-            label="Vulnerabilidades"
-            selected={vulnerabilities}
-            disabled={disabled}
-            onChange={(values) =>
-              setValue("defense.damage_modifiers.vulnerabilities", values, { shouldDirty: true })
-            }
-          />
-          <DamageModifiersPicker
-            field="immunities"
-            label="Inmunidades"
-            selected={immunities}
-            disabled={disabled}
-            onChange={(values) =>
-              setValue("defense.damage_modifiers.immunities", values, { shouldDirty: true })
-            }
-          />
-        </div>
+        <details className="sheet-damage-defenses">
+          <summary className="sheet-damage-defenses__summary">
+            <h4>Defensas de daño</h4>
+            <span className="sheet-damage-defenses__counts">
+              {formatDamageDefenseSummary(resistances.length, vulnerabilities.length, immunities.length)}
+            </span>
+          </summary>
+          <div className="sheet-damage-defenses__grid" role="group" aria-label="Defensas de daño">
+            {DND5E_DAMAGE_TYPE_VALUES.map((damageType) => (
+              <div key={damageType} className="sheet-damage-defense-row">
+                <span className="sheet-damage-defense-row__name">{damageTypeLabel(damageType)}</span>
+                <Switch
+                  id={`damage-${damageType}-res`}
+                  className="sheet-switch sheet-switch--compact"
+                  checked={resistances.includes(damageType)}
+                  onCheckedChange={(enabled) => setDamageModifier("resistances", damageType, enabled)}
+                  disabled={disabled}
+                  label="Res"
+                  tone="teal"
+                />
+                <Switch
+                  id={`damage-${damageType}-vul`}
+                  className="sheet-switch sheet-switch--compact"
+                  checked={vulnerabilities.includes(damageType)}
+                  onCheckedChange={(enabled) => setDamageModifier("vulnerabilities", damageType, enabled)}
+                  disabled={disabled}
+                  label="Vul"
+                  tone="rose"
+                />
+                <Switch
+                  id={`damage-${damageType}-inm`}
+                  className="sheet-switch sheet-switch--compact"
+                  checked={immunities.includes(damageType)}
+                  onCheckedChange={(enabled) => setDamageModifier("immunities", damageType, enabled)}
+                  disabled={disabled}
+                  label="Inm"
+                  tone="teal"
+                />
+              </div>
+            ))}
+          </div>
+        </details>
       </section>
 
       <section className="sheet-section">
