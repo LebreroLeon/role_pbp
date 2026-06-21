@@ -10,5 +10,6 @@ export { Section, SectionToneProvider, useSectionTone } from "./SectionToneConte
 export { getToneFromPath, type SectionTone } from "./sectionTone";
 export { SlideOver } from "./SlideOver";
 export { StatusBadge } from "./StatusBadge";
+export { UnreadBadge, adjustCountsForActiveTab } from "./UnreadBadge";
 export { Switch } from "./Switch";
 export { Toast } from "./Toast";

@@ -110,7 +110,10 @@ export type OocMessage = {
 
 };
 
-
+export type UnreadCounts = {
+  play: number;
+  ooc: number;
+};
 
 export type MessageType = "SPEAK" | "ACTION" | "CONTEXT" | "MASTER" | "DICE_ROLL" | "NARRATIVE" | "COMBAT";
 

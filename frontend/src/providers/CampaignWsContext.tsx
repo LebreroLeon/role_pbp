@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 
-import type { OocMessage } from "../api/types";
+import type { OocMessage, UnreadCounts } from "../api/types";
 import { buildWsUrl as buildApiWsUrl } from "../api/apiBase";
 import { connectWebSocketWithRetry } from "../hooks/wsReconnect";
 import { useAuthStore } from "../stores/authStore";
@@ -18,6 +18,7 @@ const HEARTBEAT_INTERVAL_MS = 45_000;
 type CampaignWsEvent =
   | { event: "ooc_snapshot"; messages: OocMessage[] }
   | { event: "ooc_message"; message: OocMessage }
+  | { event: "unread_counts"; play: number; ooc: number }
   | { event: "presence_snapshot"; online_user_ids: string[] }
   | { event: "presence_update"; online_user_ids: string[] }
   | { event: "heartbeat_ack" }
@@ -45,14 +46,20 @@ function buildCampaignWsUrl(campaignId: string, token: string): string {
 type CampaignWsProviderProps = {
   campaignId: string;
   children: ReactNode;
+  onUnreadCounts?: (counts: UnreadCounts) => void;
 };
 
-export function CampaignWsProvider({ campaignId, children }: CampaignWsProviderProps) {
+export function CampaignWsProvider({ campaignId, children, onUnreadCounts }: CampaignWsProviderProps) {
   const token = useAuthStore((state) => state.token);
   const [connected, setConnected] = useState(false);
   const [onlineUserIds, setOnlineUserIds] = useState<ReadonlySet<string>>(() => new Set());
   const oocHandlersRef = useRef<OocWsHandlers>({});
   const socketRef = useRef<WebSocket | null>(null);
+  const onUnreadCountsRef = useRef(onUnreadCounts);
+
+  useEffect(() => {
+    onUnreadCountsRef.current = onUnreadCounts;
+  }, [onUnreadCounts]);
 
   const registerOocHandlers = useCallback((handlers: OocWsHandlers | null) => {
     oocHandlersRef.current = handlers ?? {};
@@ -79,6 +86,8 @@ export function CampaignWsProvider({ campaignId, children }: CampaignWsProviderP
           oocHandlersRef.current.onSnapshot?.(data.messages);
         } else if (data.event === "ooc_message") {
           oocHandlersRef.current.onMessage?.(data.message);
+        } else if (data.event === "unread_counts") {
+          onUnreadCountsRef.current?.({ play: data.play, ooc: data.ooc });
         } else if (data.event === "error" && data.detail) {
           oocHandlersRef.current.onError?.(data.detail);
         }

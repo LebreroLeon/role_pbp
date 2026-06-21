@@ -3,6 +3,10 @@ import uuid
 from typing import Any
 
 from fastapi import WebSocket
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.services.campaigns import get_user_campaign_role
+from app.services.unread_counts import get_unread_counts
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +90,26 @@ class CampaignConnectionManager:
                 continue
             try:
                 await websocket.send_json({"event": "ooc_message", "message": message})
+            except Exception:
+                logger.debug("Dropping stale websocket for campaign %s", campaign_id)
+                self.disconnect(campaign_id, websocket)
+
+    async def broadcast_unread_counts(self, db: AsyncSession, campaign_id: str) -> None:
+        campaign_uuid = uuid.UUID(campaign_id)
+        room = list(self._rooms.get(campaign_id, {}).items())
+        for websocket, user_id in room:
+            try:
+                role = await get_user_campaign_role(db, user_id, campaign_uuid)
+                if role is None:
+                    continue
+                counts = await get_unread_counts(db, campaign_uuid, user_id, viewer_role=role)
+                await websocket.send_json(
+                    {
+                        "event": "unread_counts",
+                        "play": counts.play,
+                        "ooc": counts.ooc,
+                    },
+                )
             except Exception:
                 logger.debug("Dropping stale websocket for campaign %s", campaign_id)
                 self.disconnect(campaign_id, websocket)

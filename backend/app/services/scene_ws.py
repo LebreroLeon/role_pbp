@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.campaign import Scene
 from app.schemas.scene import SceneResponse
+from app.services.campaign_ws import campaign_ws_manager
 
 logger = logging.getLogger(__name__)
 
@@ -67,4 +68,5 @@ async def broadcast_scene_update(
         return {"event": "scene_update", "scene": response.model_dump(mode="json")}
 
     await scene_ws_manager.broadcast(scene_id, build_payload)
+    await campaign_ws_manager.broadcast_unread_counts(db, str(scene.campaign_id))
     return await scene_response_with_likes(db, scene, viewer_role=requester_role)

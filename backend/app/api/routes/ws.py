@@ -16,6 +16,7 @@ from app.services.scenes import (
     post_message,
     roll_scene_dice,
 )
+from app.services.unread_counts import get_unread_counts, mark_ooc_read
 
 router = APIRouter(tags=["websocket"])
 
@@ -153,8 +154,9 @@ async def campaign_websocket(campaign_id: str, websocket: WebSocket, token: str 
     async with SessionLocal() as db:
         try:
             user = await _authenticate_ws(token, db)
-            await require_campaign_member(db, user, campaign_uuid)
+            role = await require_campaign_member(db, user, campaign_uuid)
             initial_messages = await list_ooc_messages(db, campaign_uuid, user.id)
+            initial_unread = await get_unread_counts(db, campaign_uuid, user.id, viewer_role=role)
         except HTTPException:
             await websocket.close(code=4401)
             return
@@ -169,6 +171,13 @@ async def campaign_websocket(campaign_id: str, websocket: WebSocket, token: str 
             {
                 "event": "ooc_snapshot",
                 "messages": [message.model_dump(mode="json") for message in initial_messages],
+            },
+        )
+        await websocket.send_json(
+            {
+                "event": "unread_counts",
+                "play": initial_unread.play,
+                "ooc": initial_unread.ooc,
             },
         )
         await campaign_ws_manager.send_presence_snapshot(campaign_id, websocket)
@@ -207,6 +216,10 @@ async def campaign_websocket(campaign_id: str, websocket: WebSocket, token: str 
                     elif action == "heartbeat":
                         await websocket.send_json({"event": "heartbeat_ack"})
                         continue
+                    elif action == "mark_ooc_read":
+                        await mark_ooc_read(db, campaign_uuid, user.id)
+                        await campaign_ws_manager.broadcast_unread_counts(db, campaign_id)
+                        continue
                     else:
                         await websocket.send_json({"event": "error", "detail": "Unknown action"})
                         continue
@@ -218,6 +231,8 @@ async def campaign_websocket(campaign_id: str, websocket: WebSocket, token: str 
                 campaign_id,
                 message.model_dump(mode="json"),
             )
+            async with SessionLocal() as db:
+                await campaign_ws_manager.broadcast_unread_counts(db, campaign_id)
     except WebSocketDisconnect:
         pass
     finally:

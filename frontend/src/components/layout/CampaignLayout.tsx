@@ -1,12 +1,15 @@
 import { NavLink, Outlet, useLocation, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Crown, User } from "lucide-react";
 
 import { Breadcrumbs } from "./Breadcrumbs";
 import { CAMPAIGN_NAV_ICONS } from "../icons";
-import { ErrorBanner, SectionToneProvider, getToneFromPath } from "../ui";
+import { ErrorBanner, SectionToneProvider, UnreadBadge, adjustCountsForActiveTab, getToneFromPath } from "../ui";
 import { CampaignStatusBadges } from "../../features/campaign/CampaignStatusBadges";
 import { useCampaignQuery } from "../../hooks/queries/useCampaignQueries";
 import { useOpenSceneQuery } from "../../hooks/queries/useSceneQueries";
+import { useUnreadCountsQuery } from "../../hooks/queries/useUnreadCountsQuery";
+import { queryKeys } from "../../api/queryKeys";
 import { CampaignWsProvider } from "../../providers/CampaignWsContext";
 
 const MASTER_LINKS = [
@@ -25,13 +28,24 @@ const PLAYER_LINKS = [
   { to: "mundo", label: "Mundo", hint: "Lo que tu PJ conoce" },
 ] as const;
 
+const UNREAD_BADGE_CHANNELS = {
+  chat: "play",
+  ooc: "ooc",
+} as const satisfies Record<string, keyof import("../../api/types").UnreadCounts>;
+
 export function CampaignLayout() {
   const { campaignId = "" } = useParams();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const sectionTone = getToneFromPath(location.pathname);
   const base = `/campaigns/${campaignId}`;
   const { data: campaign, isLoading, isError, error } = useCampaignQuery(campaignId);
   const { data: openScene, isLoading: openSceneLoading } = useOpenSceneQuery(campaignId);
+  const { data: unreadCounts } = useUnreadCountsQuery(campaignId);
+  const displayCounts = adjustCountsForActiveTab(
+    unreadCounts ?? { play: 0, ooc: 0 },
+    location.pathname,
+  );
 
   if (isLoading) {
     return <p className="muted">Cargando campaña...</p>;
@@ -76,6 +90,8 @@ export function CampaignLayout() {
         {links.map((link) => {
           const Icon = CAMPAIGN_NAV_ICONS[link.to as keyof typeof CAMPAIGN_NAV_ICONS];
           const chatBlocked = link.to === "chat" && playerChatBlocked;
+          const unreadKey = UNREAD_BADGE_CHANNELS[link.to as keyof typeof UNREAD_BADGE_CHANNELS];
+          const unreadCount = unreadKey ? displayCounts[unreadKey] : 0;
           if (chatBlocked) {
             return (
               <span
@@ -105,7 +121,10 @@ export function CampaignLayout() {
                 <Icon size={18} strokeWidth={1.75} />
               </span>
               <span className="campaign-nav__text">
-                <span className="campaign-nav__label">{link.label}</span>
+                <span className="campaign-nav__label-row">
+                  <span className="campaign-nav__label">{link.label}</span>
+                  <UnreadBadge count={unreadCount} label={`${unreadCount} sin leer en ${link.label}`} />
+                </span>
                 <span className="campaign-nav__hint">{link.hint}</span>
               </span>
             </NavLink>
@@ -114,7 +133,12 @@ export function CampaignLayout() {
       </nav>
 
       <SectionToneProvider tone={sectionTone}>
-        <CampaignWsProvider campaignId={campaignId}>
+        <CampaignWsProvider
+          campaignId={campaignId}
+          onUnreadCounts={(counts) => {
+            queryClient.setQueryData(queryKeys.campaigns.unreadCounts(campaignId), counts);
+          }}
+        >
           <div className="campaign-shell__content">
             <Outlet />
           </div>

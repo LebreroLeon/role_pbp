@@ -77,6 +77,16 @@ export function OocChatPage() {
     [campaignId, initialMessages],
   );
 
+  const markOocRead = useCallback(() => {
+    api.markOocRead(campaignId).catch(() => undefined);
+  }, [campaignId]);
+
+  useEffect(() => {
+    if (!hydrated && initialMessages.length === 0) return;
+    const timer = setTimeout(markOocRead, 400);
+    return () => clearTimeout(timer);
+  }, [hydrated, initialMessages.length, visibleMessages.length, markOocRead]);
+
   if (isLoading && !hydrated) {
     return <p className="muted">Cargando chat OOC...</p>;
   }

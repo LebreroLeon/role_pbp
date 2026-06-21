@@ -80,6 +80,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ content, target_user_id: targetUserId }),
     }),
+  getUnreadCounts: (campaignId: string) =>
+    http<import("./types").UnreadCounts>(`/api/v1/campaigns/${campaignId}/unread-counts`),
+  markOocRead: (campaignId: string) =>
+    http<void>(`/api/v1/campaigns/${campaignId}/ooc/read`, { method: "POST" }),
   inviteMember: (campaignId: string, payload: InviteMemberPayload) =>
     http<CampaignMember>(`/api/v1/campaigns/${campaignId}/members`, {
       method: "POST",

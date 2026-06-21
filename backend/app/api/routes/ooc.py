@@ -57,6 +57,7 @@ async def post_ooc_message(
         campaign_id,
         message.model_dump(mode="json"),
     )
+    await campaign_ws_manager.broadcast_unread_counts(db, campaign_id)
     return message
 
 
@@ -85,4 +86,5 @@ async def create_ooc_whisper_message(
         campaign_id,
         message.model_dump(mode="json"),
     )
+    await campaign_ws_manager.broadcast_unread_counts(db, campaign_id)
     return message

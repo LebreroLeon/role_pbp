@@ -8,6 +8,7 @@ export const queryKeys = {
     detail: (id: string) => ["campaigns", id] as const,
     members: (id: string) => ["campaigns", id, "members"] as const,
     oocMessages: (id: string) => ["campaigns", id, "ooc", "messages"] as const,
+    unreadCounts: (id: string) => ["campaigns", id, "unread-counts"] as const,
     activeScene: (id: string) => ["campaigns", id, "scenes", "active"] as const,
     scenes: (id: string) => ["campaigns", id, "scenes"] as const,
   },

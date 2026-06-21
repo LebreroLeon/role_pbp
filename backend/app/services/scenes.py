@@ -544,6 +544,19 @@ async def get_active_scene(db: AsyncSession, campaign_id: uuid.UUID) -> Scene | 
     )
 
 
+async def get_open_scene(db: AsyncSession, campaign_id: uuid.UUID) -> Scene | None:
+    """Latest ACTIVE or PAUSED scene for unread counts and player chat access."""
+    return await db.scalar(
+        select(Scene)
+        .where(
+            Scene.campaign_id == campaign_id,
+            Scene.status.in_(("ACTIVE", "PAUSED")),
+        )
+        .order_by(Scene.scene_number.desc(), Scene.updated_at.desc())
+        .limit(1)
+    )
+
+
 async def pause_other_active_scenes(
     db: AsyncSession,
     campaign_id: uuid.UUID,

@@ -17,6 +17,7 @@ from app.schemas.campaign_mgmt import (
     CampaignUpdate,
 )
 from app.schemas.scene import SceneResponse
+from app.schemas.unread import UnreadCountsResponse
 from app.services.scenes import (
     SceneServiceError,
     ensure_player_pc_present_in_scene,
@@ -25,6 +26,8 @@ from app.services.scenes import (
     scene_to_response,
     start_active_scene,
 )
+from app.services.unread_counts import get_unread_counts, mark_ooc_read
+from app.services.campaign_ws import campaign_ws_manager
 from app.services.campaigns import (
     CampaignServiceError,
     add_campaign_member,
@@ -184,6 +187,29 @@ async def get_active_campaign_scene(
 
     role = await require_campaign_member(db, current_user, campaign_uuid)
     return scene_to_response(scene, viewer_role=role)
+
+
+@router.get("/{campaign_id}/unread-counts", response_model=UnreadCountsResponse)
+async def get_campaign_unread_counts(
+    campaign_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> UnreadCountsResponse:
+    campaign_uuid = parse_uuid(campaign_id, "campaign_id")
+    role = await require_campaign_member(db, current_user, campaign_uuid)
+    return await get_unread_counts(db, campaign_uuid, current_user.id, viewer_role=role)
+
+
+@router.post("/{campaign_id}/ooc/read", status_code=204)
+async def mark_campaign_ooc_read(
+    campaign_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    campaign_uuid = parse_uuid(campaign_id, "campaign_id")
+    await require_campaign_member(db, current_user, campaign_uuid)
+    await mark_ooc_read(db, campaign_uuid, current_user.id)
+    await campaign_ws_manager.broadcast_unread_counts(db, campaign_id)
 
 
 @router.post("/{campaign_id}/scenes/{scene_id}/activate", response_model=SceneResponse)
