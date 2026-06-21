@@ -30,8 +30,7 @@ from app.services.dice import (
     roll_dice as roll_dice_expression,
 )
 from app.services.message_likes import delete_likes_for_message, fetch_likes_by_message_id, toggle_message_like
-from app.services.combat_parser import try_parse_combat_command
-from app.services.combat_resolver import CombatResolverError, entity_display_name, execute_combat_command
+from app.services.combat_resolver import entity_display_name
 from app.services.entities import CharacterSheetError, find_pc_by_user, get_campaign_or_error
 from app.services.llm import LLMError, LLMNotConfiguredError, chat_completion
 from app.services.master import utc_now_iso
@@ -639,45 +638,6 @@ async def post_message(
         sender_role=sender_role,
         msg_type=msg_type,
     )
-
-    combat_command = try_parse_combat_command(payload.text)
-    if combat_command is not None:
-        try:
-            campaign = await get_campaign_or_error(db, scene.campaign_id)
-        except CharacterSheetError as exc:
-            raise SceneServiceError(str(exc)) from exc
-        try:
-            combat_result = await execute_combat_command(
-                db,
-                campaign,
-                state,
-                sender_id=sender_id,
-                sender_role=sender_role,
-                command=combat_command,
-            )
-        except CombatResolverError as exc:
-            raise SceneServiceError(str(exc)) from exc
-
-        for combat_message in combat_result.messages:
-            state.chat_buffer.append(ChatMessage.model_validate(combat_message))
-        state.chat_buffer = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
-        save_scene_state(scene, state)
-        await db.commit()
-        await db.refresh(scene)
-
-        for combat_message in combat_result.messages:
-            await rag_service.index_message(
-                db,
-                campaign_id=state.metadata.campaign_id,
-                document_id=combat_message["id"],
-                text=combat_message.get("text") or payload.text,
-                metadata={
-                    "scene_id": str(scene.id),
-                    "sender_id": sender_id,
-                    "type": combat_message.get("type", "COMBAT"),
-                },
-            )
-        return scene_to_response(scene)
 
     message = {
         "id": str(uuid.uuid4()),

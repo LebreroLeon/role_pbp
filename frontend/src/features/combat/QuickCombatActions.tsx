@@ -178,10 +178,6 @@ export function QuickCombatActions({
       >
         {attackMutation.isPending ? "Atacando…" : "Atacar"}
       </Button>
-
-      <p className="quick-combat__hint muted">
-        También puedes usar <code>@atacante ataca @objetivo</code> en el chat.
-      </p>
     </section>
   );
 }

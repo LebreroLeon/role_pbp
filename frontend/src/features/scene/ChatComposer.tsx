@@ -231,15 +231,6 @@ export function ChatComposer({
           Enviar
         </Button>
       </div>
-      <p className="chat-composer__hints muted">
-        Usa el panel <strong>Combate rápido</strong> para atacar con la UI.
-        {" · "}
-        También: <code>@atacante ataca @objetivo</code>
-        {" · "}
-        <code>@asistente tu pregunta</code> consulta lore (pool limitado)
-        {" · "}
-        <code>@</code> para mencionar entidades
-      </p>
     </form>
   );
 }

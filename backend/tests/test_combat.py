@@ -7,12 +7,6 @@ import pytest
 from app.models.campaign import Campaign, CampaignEntity
 from app.rules.dnd5e.plugin import Dnd5ePlugin
 from app.schemas.scene import SceneContext, SceneMetadata, SceneState, StateFlags
-from app.services.combat_parser import (
-    ParsedAttackCommand,
-    ParsedDamageCommand,
-    ParsedInitiativeCommand,
-    try_parse_combat_command,
-)
 from app.services.combat_resolver import (
     CombatResolverError,
     assert_attacker_permission,
@@ -55,48 +49,6 @@ def _make_entity(
         document=document,
     )
     return entity
-
-
-class TestCombatParser:
-    def test_parse_natural_attack_es(self):
-        parsed = try_parse_combat_command("@goblin ataca @kaelen")
-        assert isinstance(parsed, ParsedAttackCommand)
-        assert parsed.attacker_ref == "goblin"
-        assert parsed.defender_ref == "kaelen"
-
-    def test_parse_natural_attack_en(self):
-        parsed = try_parse_combat_command("@Goblin attacks @Kaelen")
-        assert isinstance(parsed, ParsedAttackCommand)
-        assert parsed.attacker_ref == "Goblin"
-        assert parsed.defender_ref == "Kaelen"
-
-    def test_parse_slash_attack_without_weapon(self):
-        parsed = try_parse_combat_command("/attack @goblin to @kaelen")
-        assert isinstance(parsed, ParsedAttackCommand)
-        assert parsed.attacker_ref == "goblin"
-        assert parsed.defender_ref == "kaelen"
-        assert parsed.weapon_name is None
-
-    def test_parse_slash_attack_with_weapon(self):
-        parsed = try_parse_combat_command("/attack @kaelen longsword -> @goblin")
-        assert isinstance(parsed, ParsedAttackCommand)
-        assert parsed.attacker_ref == "kaelen"
-        assert parsed.weapon_name == "longsword"
-        assert parsed.defender_ref == "goblin"
-
-    def test_parse_damage(self):
-        parsed = try_parse_combat_command("/damage @goblin 8 slashing")
-        assert isinstance(parsed, ParsedDamageCommand)
-        assert parsed.target_ref == "goblin"
-        assert parsed.amount == 8
-        assert parsed.damage_type == "slashing"
-
-    def test_parse_initiative(self):
-        parsed = try_parse_combat_command("/initiative")
-        assert isinstance(parsed, ParsedInitiativeCommand)
-
-    def test_non_combat_message_returns_none(self):
-        assert try_parse_combat_command("El goblin corre hacia la puerta") is None
 
 
 class TestCombatPluginGate:

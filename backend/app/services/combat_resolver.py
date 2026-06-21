@@ -13,13 +13,10 @@ from app.models.campaign import Campaign, CampaignEntity
 from app.rules.base import AttackContext, DamageResult, GameSystemPlugin, RollContext
 from app.rules.registry import get_plugin
 from app.schemas.scene import InitiativeEntry, SceneState
-from app.services.combat_parser import (
-    ParsedAttackCommand,
-    ParsedCombatCommand,
-    ParsedDamageCommand,
-    ParsedInitiativeCommand,
-    normalize_mention,
-)
+
+
+def _normalize_mention(ref: str) -> str:
+    return ref.lstrip("@").strip()
 
 
 def _utc_now_iso() -> str:
@@ -80,7 +77,7 @@ def resolve_entity_reference(
     ref: str,
     entities: list[CampaignEntity],
 ) -> CampaignEntity:
-    normalized_ref = normalize_entity_name(normalize_mention(ref))
+    normalized_ref = normalize_entity_name(_normalize_mention(ref))
     if not normalized_ref:
         raise CombatResolverError("Entity reference is empty")
 
@@ -709,48 +706,3 @@ async def execute_initiative(
         "visibility": "master_only" if hidden_npc_ids.intersection({entry.entity_id for entry in entries}) else "all",
     }
     return CombatExecutionResult(messages=[combat_message, *roll_messages], state=state)
-
-
-async def execute_combat_command(
-    db: AsyncSession,
-    campaign: Campaign,
-    state: SceneState,
-    *,
-    sender_id: str,
-    sender_role: str,
-    command: ParsedCombatCommand,
-) -> CombatExecutionResult:
-    if isinstance(command, ParsedAttackCommand):
-        result = await execute_attack(
-            db,
-            campaign,
-            state,
-            sender_id=sender_id,
-            sender_role=sender_role,
-            attacker_ref=command.attacker_ref,
-            defender_ref=command.defender_ref,
-            weapon_name=command.weapon_name,
-        )
-    elif isinstance(command, ParsedDamageCommand):
-        result = await execute_manual_damage(
-            db,
-            campaign,
-            state,
-            sender_id=sender_id,
-            sender_role=sender_role,
-            target_ref=command.target_ref,
-            amount=command.amount,
-            damage_type=command.damage_type,
-        )
-    elif isinstance(command, ParsedInitiativeCommand):
-        result = await execute_initiative(
-            db,
-            campaign,
-            state,
-            sender_id=sender_id,
-            sender_role=sender_role,
-        )
-    else:
-        raise CombatResolverError(f"Unsupported combat command: {command}")
-
-    return result
