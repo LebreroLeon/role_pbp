@@ -238,6 +238,9 @@ def run_batch_import(
             row["raw_stat_block"]["page"] = entry.page
             record["status"] = "ok"
             record["slug"] = row["slug"]
+            record["cr"] = row["raw_stat_block"]["parsed"].get("challenge_rating_display", row["challenge_rating"])
+            record["ac"] = row["sheet_template"]["ac"]
+            record["hp"] = row["sheet_template"]["hp"]["max"]
             record["attacks"] = len(row["sheet_template"].get("attacks") or [])
             record["has_spells"] = "--- Hechizos ---" in (row["sheet_template"].get("features_traits") or "")
             print(_summary_line(row))
