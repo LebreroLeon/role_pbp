@@ -145,6 +145,20 @@ class TestVoloNeothelidoParser:
         assert attack["damage_die_count"] == 3
         assert attack["damage_die_type"] == "D8"
 
+    def test_parses_neothelido_saving_throws_and_actions(self):
+        parsed = parse_spanish_stat_block(NEOTHELIDO_FIXTURE.read_text(encoding="utf-8"))
+        assert parsed.saving_throw_bonuses == {
+            "intelligence": 1,
+            "wisdom": 8,
+            "charisma": 6,
+        }
+        action_names = [action["name"] for action in parsed.actions]
+        assert "Tentáculos" in action_names
+        assert any("Aliento" in name for name in action_names)
+        assert not any(trait["name"].startswith("(10") for trait in parsed.traits)
+        assert any("Sentido de Criaturas" in trait["name"] for trait in parsed.traits)
+        assert any("Resistencia Mágica" in trait["name"] for trait in parsed.traits)
+
     def test_neothelido_catalog_row(self):
         block = NEOTHELIDO_FIXTURE.read_text(encoding="utf-8")
         parsed = parse_spanish_stat_block(block)
@@ -181,6 +195,24 @@ class TestMultiverseOblexParser:
         assert attack["to_hit_mod"] == 7
         assert attack["damage_die_count"] == 4
         assert attack["damage_die_type"] == "D6"
+
+    def test_parses_oblex_skills_traits_and_actions(self):
+        parsed = parse_spanish_stat_block(OBLEX_FIXTURE.read_text(encoding="utf-8"))
+        assert parsed.skill_bonuses["arcana"] == 10
+        assert parsed.skill_bonuses["deception"] == 8
+        assert parsed.skill_bonuses["history"] == 10
+        assert parsed.skill_bonuses["nature"] == 10
+        assert parsed.skill_bonuses["perception"] == 5
+        assert parsed.skill_bonuses["religion"] == 10
+        assert parsed.proficiency_bonus == 4
+        trait_names = [trait["name"] for trait in parsed.traits]
+        assert "Amorfo" in trait_names
+        assert "Aversión al Fuego" in trait_names
+        assert "Naturaleza Inusual" in trait_names
+        action_names = [action["name"] for action in parsed.actions]
+        assert any("Ataque múltiple" in name or "Ataque m" in name for name in action_names)
+        assert any("Engullir recuerdos" in name for name in action_names)
+        assert any("Suplantación" in name for name in action_names)
 
     def test_oblex_catalog_row(self):
         block = OBLEX_FIXTURE.read_text(encoding="utf-8")

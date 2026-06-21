@@ -31,10 +31,45 @@ _SKILL_KEY_MAP = {
     "persuasion": "persuasion",
     "historia": "history",
     "arcano": "arcana",
+    "conocimientoarcano": "arcana",
     "naturaleza": "nature",
     "religion": "religion",
     "medicina": "medicine",
     "supervivencia": "survival",
+}
+_SKILL_ES_NAMES: list[tuple[str, str]] = [
+    ("conocimiento arcano", "arcana"),
+    ("juego de manos", "sleight_of_hand"),
+    ("trato con animales", "animal_handling"),
+    ("sigilo", "stealth"),
+    ("atletismo", "athletics"),
+    ("acrobacias", "acrobatics"),
+    ("percepción", "perception"),
+    ("percepcion", "perception"),
+    ("perspicacia", "insight"),
+    ("investigación", "investigation"),
+    ("investigacion", "investigation"),
+    ("engaño", "deception"),
+    ("engano", "deception"),
+    ("intimidación", "intimidation"),
+    ("intimidacion", "intimidation"),
+    ("persuasión", "persuasion"),
+    ("persuasion", "persuasion"),
+    ("historia", "history"),
+    ("naturaleza", "nature"),
+    ("religión", "religion"),
+    ("religion", "religion"),
+    ("medicina", "medicine"),
+    ("supervivencia", "survival"),
+    ("arcano", "arcana"),
+]
+_SAVE_ABBR = {
+    "FUE": "strength",
+    "DES": "dexterity",
+    "CON": "constitution",
+    "INT": "intelligence",
+    "SAB": "wisdom",
+    "CAR": "charisma",
 }
 
 _SIZE_WORDS = frozenset(
@@ -68,8 +103,23 @@ _AC = re.compile(
 )
 _HP = re.compile(r"Puntos de [Gg]olpe:?\s*(\d+)\s*\(([^)]+)\)", re.IGNORECASE)
 _SPEED = re.compile(r"Velocidad:?\s*([O0\d]+)", re.IGNORECASE)
-_CR = re.compile(r"Desaf[ií]o:?\s*([\d/]+)", re.IGNORECASE)
-_SKILLS = re.compile(r"Habilidades:?\s*(.+)", re.IGNORECASE)
+_CR = re.compile(r"Desaf[ií]o:?\s*([\d/]+)(?:\s*\([\d,]+\s*(?:PX|XP)\))?", re.IGNORECASE)
+_SKILLS = re.compile(
+    r"Habilidades:?\s*(.+?)(?=\n(?:Inmunidad|Sentidos|Idiomas|Desaf[ií]o|Tiradas)|\Z)",
+    re.IGNORECASE | re.DOTALL,
+)
+_SAVING_THROWS = re.compile(
+    r"Tiradas de [Ss]alvaci[oó]n:?\s*(.+?)(?:\n|Habilidades|Sentidos|Idiomas|Desaf[ií]o|Inmunidad|$)",
+    re.IGNORECASE | re.DOTALL,
+)
+_SENSES = re.compile(r"Sentidos:?\s*(.+?)(?:\n|Idiomas|Desaf[ií]o|Inmunidad|$)", re.IGNORECASE | re.DOTALL)
+_LANGUAGES = re.compile(r"Idiomas:?\s*(.+?)(?:\n|Desaf[ií]o|Inmunidad|Bonificador|$)", re.IGNORECASE | re.DOTALL)
+_CONDITION_IMMUNITIES = re.compile(
+    r"Inmunidad a estados:?\s*(.+?)(?:\n|Sentidos|Idiomas|Desaf[ií]o|$)",
+    re.IGNORECASE | re.DOTALL,
+)
+_PROFICIENCY_BONUS = re.compile(r"Bonificador por competencia:?\s*\+(\d+)", re.IGNORECASE)
+_CR_XP_NOISE = re.compile(r"^\([\d,]+\s*(?:PX|XP)\)\.?\s*$", re.IGNORECASE)
 _ABILITY_SCORES = re.compile(
     r"(\d+)\s*\(([+-]?\d+)\)\s+"
     r"(\d+)\s*\(([+-]?\d+)\)\s+"
@@ -78,14 +128,35 @@ _ABILITY_SCORES = re.compile(
     r"(\d+)\s*\(([+-]?\d+)\)\s+"
     r"(\d+)\s*\(([+-]?\d+)\)",
 )
+_DAMAGE_TYPE_WORD = (
+    r"contundente|cortante|perforante|ps[ií]quico|[áa]cido|fuego|fr[ií]o|"
+    r"el[eé]ctrico|necr[oó]tico|radiante|trueno|veneno|contun|ps[ií]quic"
+)
 _ATTACK = re.compile(
-    r"(?P<name>[^.\n]+)\.\s*Ataque.*?:\s*\+?\s*(?P<to_hit>\d+)\s+a\s+impactar.*?"
+    r"Ataque.*?:\s*\+?\s*(?P<to_hit>\d+)\s+a\s+impactar.*?"
     r"(?:Impacto|Al impactar):\s*\d+\s*\((?P<dice>[^)]+)\)\s*"
-    r"(?:de\s+da[ñn]o\s+)?(?P<damage_type>\w+)",
+    rf"(?:de\s+da[ñn]o\s+)?(?P<damage_type>{_DAMAGE_TYPE_WORD}|\w+)",
     re.IGNORECASE | re.DOTALL,
 )
+_ACTION_BLOCK = re.compile(
+    r"(?:^|\n)"
+    r"([A-ZÁÉÍÓÚÑ][^\n.]{1,60}?)"
+    r"\.\s+",
+    re.MULTILINE,
+)
+_FEATURE_NAME_INVALID = re.compile(
+    r"\b(?:CD|tirada|salvaci[oó]n|criatura|objetivo|da[ñn]o|turno|pies|metr|voluntad|d[ií]a)\b",
+    re.IGNORECASE,
+)
 _ABILITY_SCORE_PAIR = re.compile(r"(\d+)\s*\([+-]?\d+\)")
-_SECTION_HEADERS = re.compile(r"^(ACCIONES|REACCIONES|ACCIONES LEGENDARIAS)\s*$", re.MULTILINE | re.IGNORECASE)
+_SECTION_HEADERS = re.compile(
+    r"^(ACCIONES(?:\s+ADICIONALES)?|REACCIONES|ACCIONES LEGENDARIAS)\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+_PAGE_FOOTER_NOISE = re.compile(
+    r"\d{2,4}\s+CAP[IÍ]TULO.*?$|^[•·]\s*$",
+    re.IGNORECASE | re.MULTILINE | re.DOTALL,
+)
 _OCR_GARBAGE_LINE = re.compile(
     r"^[/\\|_'\"0-9\s]{0,8}(?:[A-Za-z]{1,4}[\-/\\|_'\"]{0,3})+[A-Za-z0-9\s\-_/\\|.'\"]{0,24}$"
     r"|rendimos"
@@ -178,8 +249,192 @@ def _parse_cr(raw: str) -> float:
     return float(raw)
 
 
+def _normalize_damage_type_word(raw: str) -> str:
+    slug = _slugify(raw)
+    aliases = {
+        "contun": "contundente",
+        "psiquic": "psiquico",
+        "acido": "acido",
+    }
+    return aliases.get(slug, raw)
+
+
+def _fix_ocr_skill_segment(segment: str) -> str:
+    fixed = re.sub(r"\+\s*(\d)\s+O\b", lambda m: f"+{m.group(1)}0", segment)
+    fixed = re.sub(r"(\d)\s+O\b", lambda m: f"{m.group(1)}0", fixed)
+    return fixed
+
+
+def _parse_skill_bonuses(text: str) -> dict[str, int]:
+    skills_match = _SKILLS.search(text)
+    if not skills_match:
+        return {}
+
+    segment = _fix_ocr_skill_segment(skills_match.group(1))
+    bonuses: dict[str, int] = {}
+    for label, key in sorted(_SKILL_ES_NAMES, key=lambda item: -len(item[0])):
+        pattern = rf"{re.escape(label)}\s*\+\s*(\d+)"
+        match = re.search(pattern, segment, re.IGNORECASE)
+        if match:
+            bonuses[key] = int(match.group(1))
+
+    if not bonuses:
+        for skill_name, bonus in re.findall(r"(\w+)\s*\+(\d+)", segment):
+            key = _SKILL_KEY_MAP.get(_slugify(skill_name))
+            if key:
+                bonuses[key] = int(bonus)
+    return bonuses
+
+
+def _parse_saving_throw_bonuses(text: str) -> dict[str, int]:
+    match = _SAVING_THROWS.search(text)
+    if not match:
+        return {}
+
+    segment = match.group(1)
+    bonuses: dict[str, int] = {}
+    for abbr, full in _SAVE_ABBR.items():
+        save_match = re.search(rf"\b{abbr}\s*\+\s*(\d+)", segment, re.IGNORECASE)
+        if save_match:
+            bonuses[full] = int(save_match.group(1))
+    return bonuses
+
+
+def _strip_trait_metadata_prefix(text: str) -> str:
+    cleaned = re.sub(r"^\([\d,]+\s*(?:PX|XP)\)\.?\s*", "", text.strip(), flags=re.IGNORECASE)
+    cleaned = re.sub(
+        r"^Bonificador por competencia:\s*\+\d+\.?\s*",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    return cleaned.strip()
+
+
+def _looks_like_feature_name(name: str) -> bool:
+    cleaned = " ".join(name.split())
+    if len(cleaned) < 3 or len(cleaned) > 60:
+        return False
+    if _FEATURE_NAME_INVALID.search(cleaned):
+        return False
+    if cleaned.lower().startswith(("el ", "la ", "los ", "las ", "una ", "un ", "cada ", "si ", "cuando ")):
+        return False
+    return True
+
+
+def _split_traits(traits_text: str) -> list[dict[str, str]]:
+    text = _strip_trait_metadata_prefix(traits_text)
+    if not text:
+        return []
+
+    paragraphs = [paragraph.strip() for paragraph in re.split(r"\n\s*\n", text) if paragraph.strip()]
+    if len(paragraphs) == 1:
+        flattened = " ".join(paragraphs[0].split())
+        parts = re.split(
+            r"(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ][A-Za-záéíóúñÁÉÍÓÚÑ\s\-]+(?:\([^)]+\))?\.\s)",
+            flattened,
+        )
+        paragraphs = parts if len(parts) > 1 else paragraphs
+
+    traits: list[dict[str, str]] = []
+    for paragraph in paragraphs:
+        cleaned = " ".join(paragraph.split())
+        if not cleaned or _CR_XP_NOISE.match(cleaned):
+            continue
+        if re.match(r"^\([\d,]+\s*(?:PX|XP)\)$", cleaned, re.IGNORECASE):
+            continue
+        if re.match(r"^Bonificador por competencia", cleaned, re.IGNORECASE):
+            continue
+        if ". " in cleaned:
+            trait_name, trait_desc = cleaned.split(". ", 1)
+            if re.match(r"^\([\d,]+\s*(?:PX|XP)\)$", trait_name.strip(), re.IGNORECASE):
+                cleaned = trait_desc
+                if ". " in cleaned:
+                    trait_name, trait_desc = cleaned.split(". ", 1)
+                else:
+                    trait_name, trait_desc = cleaned, cleaned
+            if not _looks_like_feature_name(trait_name):
+                if traits:
+                    traits[-1]["desc"] = f"{traits[-1]['desc']} {cleaned}".strip()
+                else:
+                    traits.append({"name": cleaned, "desc": cleaned})
+                continue
+            traits.append({"name": trait_name.strip(), "desc": trait_desc.strip()})
+        else:
+            traits.append({"name": cleaned, "desc": cleaned})
+    return traits
+
+
 def _normalize_dice(raw: str) -> str:
     return re.sub(r"\s+", "", raw.lower().replace("d", "d"))
+
+
+def _iter_action_blocks(actions_text: str) -> list[tuple[str, str]]:
+    text = _PAGE_FOOTER_NOISE.sub("", actions_text.strip())
+    text = re.sub(r"[•·]\s*", "", text)
+    starts = [
+        match
+        for match in _ACTION_BLOCK.finditer(text)
+        if _looks_like_feature_name(match.group(1).strip())
+    ]
+    blocks: list[tuple[str, str]] = []
+    for index, match in enumerate(starts):
+        name = match.group(1).strip()
+        end = starts[index + 1].start() if index + 1 < len(starts) else len(text)
+        blocks.append((name, text[match.start() : end].strip()))
+    return blocks
+
+
+def _parse_actions_from_section(actions_text: str) -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = []
+    for name, block in _iter_action_blocks(actions_text):
+        attack_match = _ATTACK.search(block)
+        if attack_match:
+            dice_raw = _normalize_dice(attack_match.group("dice"))
+            dice_match = re.match(r"(\d+)d(\d+)([+-]\d+)?", dice_raw)
+            if dice_match:
+                damage_bonus = int(dice_match.group(3) or 0)
+                damage_type = _normalize_damage_type_word(attack_match.group("damage_type"))
+                actions.append(
+                    {
+                        "name": name,
+                        "desc": block,
+                        "attacks": [
+                            {
+                                "to_hit_mod": int(attack_match.group("to_hit")),
+                                "damage_die_count": int(dice_match.group(1)),
+                                "damage_die_type": f"D{dice_match.group(2)}",
+                                "damage_bonus": damage_bonus,
+                                "damage_type": {"key": damage_type},
+                            }
+                        ],
+                    }
+                )
+                continue
+        actions.append({"name": name, "desc": block, "attacks": []})
+    return actions
+
+
+def _metadata_traits(text: str) -> list[dict[str, str]]:
+    traits: list[dict[str, str]] = []
+    senses_match = _SENSES.search(text)
+    if senses_match:
+        traits.append({"name": "Sentidos", "desc": " ".join(senses_match.group(1).split())})
+    languages_match = _LANGUAGES.search(text)
+    if languages_match:
+        traits.append({"name": "Idiomas", "desc": " ".join(languages_match.group(1).split())})
+    immunities_match = _CONDITION_IMMUNITIES.search(text)
+    if immunities_match:
+        traits.append(
+            {
+                "name": "Inmunidad a estados",
+                "desc": " ".join(immunities_match.group(1).split()),
+            }
+        )
+    speed_match = _SPEED.search(text)
+    if speed_match:
+        traits.append({"name": "Velocidad", "desc": speed_match.group(0).strip()})
+    return traits
 
 
 @dataclass
@@ -196,6 +451,8 @@ class ParsedSpanishStatBlock:
     speed_walk: int
     ability_scores: dict[str, int]
     skill_bonuses: dict[str, int] = field(default_factory=dict)
+    saving_throw_bonuses: dict[str, int] = field(default_factory=dict)
+    proficiency_bonus: int | None = None
     challenge_rating: float = 0.0
     challenge_rating_raw: str = ""
     traits: list[dict[str, str]] = field(default_factory=list)
@@ -435,55 +692,29 @@ def parse_spanish_stat_block(block_text: str) -> ParsedSpanishStatBlock:
 
     ability_scores = _parse_ability_scores_from_text(text)
 
-    skill_bonuses: dict[str, int] = {}
-    skills_match = _SKILLS.search(text)
-    if skills_match:
-        for skill_name, bonus in re.findall(r"(\w+)\s*\+(\d+)", skills_match.group(1)):
-            key = _SKILL_KEY_MAP.get(_slugify(skill_name))
-            if key:
-                skill_bonuses[key] = int(bonus)
+    skill_bonuses = _parse_skill_bonuses(text)
+    saving_throw_bonuses = _parse_saving_throw_bonuses(text)
+    proficiency_match = _PROFICIENCY_BONUS.search(text)
+    proficiency_bonus = int(proficiency_match.group(1)) if proficiency_match else None
 
-    traits: list[dict[str, str]] = []
     actions_header = _SECTION_HEADERS.search(text)
     traits_text = text[cr_match.end() : actions_header.start() if actions_header else len(text)]
-    for paragraph in re.split(r"\n\s*\n", traits_text.strip()):
-        cleaned = " ".join(paragraph.split())
-        if not cleaned or cleaned.upper().startswith(("SENTIDOS", "IDIOMAS", "HABILIDADES")):
-            continue
-        if ". " in cleaned:
-            trait_name, trait_desc = cleaned.split(". ", 1)
-            traits.append({"name": trait_name.strip(), "desc": trait_desc.strip()})
-        else:
-            traits.append({"name": cleaned, "desc": cleaned})
+    for pattern in (_SAVING_THROWS, _SKILLS, _SENSES, _LANGUAGES, _CONDITION_IMMUNITIES, _PROFICIENCY_BONUS):
+        traits_text = pattern.sub("", traits_text)
+    traits = _split_traits(traits_text)
+    traits = _metadata_traits(text) + traits
 
     actions: list[dict[str, Any]] = []
     if actions_header:
         actions_text = text[actions_header.end() :]
         next_section = _SECTION_HEADERS.search(actions_text)
         if next_section:
-            actions_text = actions_text[: next_section.start()]
-        actions_text = re.sub(r"\s+", " ", actions_text)
-        for attack_match in _ATTACK.finditer(actions_text):
-            dice_raw = _normalize_dice(attack_match.group("dice"))
-            dice_match = re.match(r"(\d+)d(\d+)([+-]\d+)?", dice_raw)
-            if not dice_match:
-                continue
-            damage_bonus = int(dice_match.group(3) or 0)
-            actions.append(
-                {
-                    "name": attack_match.group("name").strip(),
-                    "desc": attack_match.group(0).strip(),
-                    "attacks": [
-                        {
-                            "to_hit_mod": int(attack_match.group("to_hit")),
-                            "damage_die_count": int(dice_match.group(1)),
-                            "damage_die_type": f"D{dice_match.group(2)}",
-                            "damage_bonus": damage_bonus,
-                            "damage_type": {"key": attack_match.group("damage_type")},
-                        }
-                    ],
-                }
-            )
+            primary_actions = actions_text[: next_section.start()]
+            bonus_actions = actions_text[next_section.end() :]
+            actions.extend(_parse_actions_from_section(primary_actions))
+            actions.extend(_parse_actions_from_section(bonus_actions))
+        else:
+            actions.extend(_parse_actions_from_section(actions_text))
 
     return ParsedSpanishStatBlock(
         name=name.title() if name.isupper() else name,
@@ -498,6 +729,8 @@ def parse_spanish_stat_block(block_text: str) -> ParsedSpanishStatBlock:
         speed_walk=_parse_speed(speed_match.group(1)),
         ability_scores=ability_scores,
         skill_bonuses=skill_bonuses,
+        saving_throw_bonuses=saving_throw_bonuses,
+        proficiency_bonus=proficiency_bonus,
         challenge_rating=_parse_cr(cr_match.group(1)),
         challenge_rating_raw=format_challenge_rating_display(
             _parse_cr(cr_match.group(1)),
@@ -526,6 +759,8 @@ def parsed_to_open5e_creature(parsed: ParsedSpanishStatBlock) -> dict[str, Any]:
         "challenge_rating_display": parsed.challenge_rating_raw,
         "ability_scores": parsed.ability_scores,
         "skill_bonuses": parsed.skill_bonuses,
+        "saving_throws": parsed.saving_throw_bonuses,
+        "proficiency_bonus": parsed.proficiency_bonus,
         "traits": parsed.traits,
         "actions": parsed.actions,
     }
