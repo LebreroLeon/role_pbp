@@ -272,7 +272,44 @@ def _damage_modifiers(creature: dict[str, Any]) -> dict[str, list[str]]:
     }
 
 
-def build_narrative_template(creature: dict[str, Any]) -> dict[str, Any]:
+def format_challenge_rating_display(
+    challenge_rating: float | int | str | None,
+    *,
+    raw: str | None = None,
+) -> str:
+    """Format CR for Spanish MM display (e.g. 0.25 → 1/4)."""
+    if raw and raw.strip():
+        return raw.strip().split("(", 1)[0].strip()
+    if challenge_rating is None:
+        return "?"
+    if isinstance(challenge_rating, str):
+        stripped = challenge_rating.strip()
+        if "/" in stripped:
+            return stripped.split("(", 1)[0].strip()
+        try:
+            challenge_rating = float(stripped)
+        except ValueError:
+            return stripped
+
+    cr = float(challenge_rating)
+    for num, den in ((1, 8), (1, 4), (1, 2), (3, 4), (5, 8)):
+        if abs(cr - num / den) < 1e-6:
+            return f"{num}/{den}"
+    if cr == int(cr):
+        return str(int(cr))
+    return str(cr)
+
+
+def build_creature_concept(creature: dict[str, Any]) -> str:
+    """Build a useful identity concept without redundant name/CR noise."""
+    explicit = str(creature.get("concept") or "").strip()
+    if explicit:
+        return explicit
+
+    type_line = str(creature.get("type_line") or "").strip()
+    if type_line:
+        return type_line
+
     name = str(creature.get("name", "Monstruo"))
     creature_type = ""
     size = ""
@@ -282,8 +319,17 @@ def build_narrative_template(creature: dict[str, Any]) -> dict[str, Any]:
     size_obj = creature.get("size")
     if isinstance(size_obj, dict):
         size = str(size_obj.get("name", ""))
-    cr = creature.get("challenge_rating")
-    cr_label = str(cr) if cr is not None else "?"
+
+    alignment = str(creature.get("alignment", "")).strip()
+    parts = [part for part in (creature_type, size) if part]
+    concept = " ".join(parts)
+    if alignment:
+        concept = f"{concept}, {alignment}" if concept else alignment
+    return concept or name
+
+
+def build_narrative_template(creature: dict[str, Any]) -> dict[str, Any]:
+    name = str(creature.get("name", "Monstruo"))
 
     traits: list[str] = []
     for trait in creature.get("traits") or []:
@@ -296,9 +342,13 @@ def build_narrative_template(creature: dict[str, Any]) -> dict[str, Any]:
     if alignment and alignment not in traits:
         traits.append(alignment)
 
+    public_description = str(creature.get("public_description") or "").strip()
+    if not public_description:
+        public_description = f"Un {name.lower()} del bestiario SRD."
+
     return {
-        "concept": f"{name} — {creature_type} {size} CR {cr_label}".strip(" —"),
-        "public_description": f"Un {name.lower()} del bestiario SRD.",
+        "concept": build_creature_concept(creature),
+        "public_description": public_description,
         "personality_traits": traits or ["hostil"],
         "voice_and_tone": "Amenazante y directo",
         "secret_lore_master": "",

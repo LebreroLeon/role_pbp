@@ -7,17 +7,34 @@ from app.rules.dnd5e.schema import Dnd5eSheet
 from app.rules.dnd5e.spanish_stat_block_parser import (
     build_catalog_row_from_parsed,
     extract_monster_block_from_page,
+    extract_monster_lore_from_pages,
     parse_spanish_stat_block,
     validate_parsed_sheet,
 )
 
 FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "goblin_mm_edge_page178.txt"
+LORE_FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "goblin_mm_edge_page177.txt"
 SOURCE_LABEL = "Manual de Monstruos (Edge)"
 
 
 @pytest.fixture
 def goblin_page_text() -> str:
     return FIXTURE_PATH.read_text(encoding="utf-8")
+
+
+@pytest.fixture
+def goblin_lore_page_text() -> str:
+    return LORE_FIXTURE_PATH.read_text(encoding="utf-8")
+
+
+@pytest.fixture
+def goblin_pages(goblin_lore_page_text: str, goblin_page_text: str) -> dict[int, str]:
+    svirfneblin_page = (
+        "SVIRFNEBLIN\n"
+        "Humanoide Pequeño (gnomo), neutral bueno\n"
+        "Los gnomos de las profundidades habitan el Underdark.\n"
+    )
+    return {176: svirfneblin_page, 177: goblin_lore_page_text, 178: goblin_page_text}
 
 
 @pytest.fixture
@@ -42,6 +59,8 @@ class TestSpanishStatBlockParser:
         assert parsed_goblin.hit_points == 7
         assert parsed_goblin.hit_dice == "2d6"
         assert parsed_goblin.challenge_rating == 0.25
+        assert parsed_goblin.challenge_rating_raw == "1/4"
+        assert parsed_goblin.type_line == "Humanoide Pequeño (trasgo), neutral malvado"
         assert parsed_goblin.ability_scores["dexterity"] == 14
         assert parsed_goblin.skill_bonuses["stealth"] == 6
 
@@ -63,15 +82,38 @@ class TestSpanishStatBlockParser:
         assert scimitar.damage_type == "cortante"
         assert f"Fuente: {SOURCE_LABEL}" in sheet.features_traits
 
-    def test_catalog_row_has_provenance_fields(self, parsed_goblin):
+    def test_catalog_row_has_provenance_fields(self, parsed_goblin, goblin_pages):
+        lore = extract_monster_lore_from_pages(
+            goblin_pages,
+            stat_page=178,
+            monster_name="Goblin",
+        )
         row = build_catalog_row_from_parsed(
             parsed_goblin,
             slug="goblin-mm-edge",
             source_document="mm-edge-es",
             source_label=SOURCE_LABEL,
+            lore_text=lore,
         )
         assert row["slug"] == "goblin-mm-edge"
         assert row["source_document"] == "mm-edge-es"
         assert row["source_label"] == SOURCE_LABEL
+        assert row["narrative_template"]["concept"] == "Humanoide Pequeño (trasgo), neutral malvado"
+        assert "CR 0.25" not in row["narrative_template"]["concept"]
+        assert "mirada maliciosa" in row["narrative_template"]["public_description"]
         assert f"Fuente: {SOURCE_LABEL}" in row["sheet_template"]["features_traits"]
+        assert row["sheet_template"]["hit_dice"] == "2d6"
         Dnd5eSheet.model_validate(row["sheet_template"])
+
+    def test_extracts_goblin_lore_from_previous_page(self, goblin_pages):
+        lore = extract_monster_lore_from_pages(
+            goblin_pages,
+            stat_page=178,
+            monster_name="Goblin",
+        )
+        assert "trasgos" in lore.lower()
+        assert "mirada maliciosa" in lore.lower()
+        assert "GOBLIN" not in lore
+        assert "Clase de Armadura" not in lore
+        assert "svirfneblin" not in lore.lower()
+        assert "underdark" not in lore.lower()

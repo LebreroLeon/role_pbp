@@ -10,7 +10,9 @@ from typing import Any
 from app.rules.dnd5e.damage_types import normalize_damage_type
 from app.rules.dnd5e.monster_sheet_mapper import (
     MonsterSheetMapper,
+    build_creature_concept,
     build_narrative_template,
+    format_challenge_rating_display,
     normalize_monster_name,
 )
 from app.rules.dnd5e.schema import Dnd5eSheet
@@ -57,6 +59,15 @@ _ATTACK = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _SECTION_HEADERS = re.compile(r"^(ACCIONES|REACCIONES|ACCIONES LEGENDARIAS)\s*$", re.MULTILINE | re.IGNORECASE)
+_OCR_GARBAGE_LINE = re.compile(
+    r"^[/\\|_'\"0-9\s]{0,8}(?:[A-Za-z]{1,4}[\-/\\|_'\"]{0,3})+[A-Za-z0-9\s\-_/\\|.'\"]{0,24}$"
+    r"|rendimos"
+    r"|en goblin",
+    re.IGNORECASE,
+)
+_OTHER_MONSTER_HEADER = re.compile(
+    r"^[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9 /\-'.]{2,}$",
+)
 
 
 def _normalize_text(value: str) -> str:
@@ -87,6 +98,7 @@ class ParsedSpanishStatBlock:
     creature_type: str
     size: str
     alignment: str
+    type_line: str
     armor_class: int
     armor_detail: str
     hit_points: int
@@ -95,9 +107,161 @@ class ParsedSpanishStatBlock:
     ability_scores: dict[str, int]
     skill_bonuses: dict[str, int] = field(default_factory=dict)
     challenge_rating: float = 0.0
+    challenge_rating_raw: str = ""
     traits: list[dict[str, str]] = field(default_factory=list)
     actions: list[dict[str, Any]] = field(default_factory=list)
     raw_text: str = ""
+
+
+def _stat_block_start_index(page_text: str, monster_name: str) -> int | None:
+    text = _normalize_text(page_text)
+    target = monster_name.strip().upper()
+    type_matches = list(_TYPE_LINE.finditer(text))
+    if not type_matches:
+        return None
+
+    name_pattern = re.compile(rf"(?:^|\n)\s*{re.escape(target)}\s*(?:\n|$)", re.IGNORECASE | re.MULTILINE)
+    start_index: int | None = None
+    for match in type_matches:
+        prefix = text[: match.start()]
+        name_matches = list(name_pattern.finditer(prefix))
+        if not name_matches:
+            continue
+        candidate_start = name_matches[-1].start()
+        if start_index is None or candidate_start > start_index:
+            start_index = candidate_start
+    return start_index
+
+
+def _is_lore_noise_line(line: str) -> bool:
+    stripped = line.strip()
+    if not stripped:
+        return True
+    if re.fullmatch(r"\d{1,4}", stripped):
+        return True
+    if _OCR_GARBAGE_LINE.search(stripped):
+        return True
+    if re.fullmatch(r"[\s/W\\|_\-\.'\"0-9]+", stripped):
+        return True
+    return False
+
+
+def _clean_lore_text(
+    raw_text: str,
+    *,
+    monster_name: str,
+    stop_at_monster_header: bool = False,
+) -> str:
+    target = monster_name.strip().upper()
+    paragraphs: list[str] = []
+    current: list[str] = []
+
+    for line in raw_text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            if current:
+                paragraphs.append(" ".join(current))
+                current = []
+            continue
+        if _is_lore_noise_line(stripped):
+            continue
+        if stop_at_monster_header and stripped.upper() == target:
+            break
+        if stop_at_monster_header and _TYPE_LINE.match(stripped):
+            break
+        if stop_at_monster_header and _OTHER_MONSTER_HEADER.match(stripped) and stripped.upper() != target:
+            break
+        current.append(stripped)
+
+    if current:
+        paragraphs.append(" ".join(current))
+
+    return "\n\n".join(paragraph for paragraph in paragraphs if paragraph.strip())
+
+
+def _first_stat_block_start(text: str, monster_name: str) -> int | None:
+    return _stat_block_start_index(text, monster_name)
+
+
+def _foreign_stat_block_starts(text: str, monster_name: str) -> list[int]:
+    target = monster_name.strip().upper()
+    starts: list[int] = []
+    type_matches = list(_TYPE_LINE.finditer(text))
+    name_header = re.compile(
+        r"(?:^|\n)\s*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9 /\-'.]+)\s*(?:\n|$)",
+        re.MULTILINE,
+    )
+    for match in type_matches:
+        prefix = text[: match.start()]
+        headers = list(name_header.finditer(prefix))
+        if not headers:
+            continue
+        header_name = headers[-1].group(1).strip().upper()
+        if header_name != target:
+            starts.append(headers[-1].start())
+    return starts
+
+
+def _extract_lore_from_page(page_text: str, *, monster_name: str) -> str:
+    text = _normalize_text(page_text)
+    foreign_starts = _foreign_stat_block_starts(text, monster_name)
+    if foreign_starts and foreign_starts[0] <= 40:
+        return ""
+    end_index = min(foreign_starts) if foreign_starts else len(text)
+    own_start = _first_stat_block_start(text, monster_name)
+    if own_start is not None:
+        end_index = min(end_index, own_start)
+    excerpt = text[:end_index]
+    return _clean_lore_text(
+        excerpt,
+        monster_name=monster_name,
+        stop_at_monster_header=own_start is not None,
+    )
+
+
+def extract_monster_lore_from_pages(
+    pages: dict[int, str],
+    *,
+    stat_page: int,
+    monster_name: str,
+    lookback_pages: int = 1,
+) -> str:
+    """Extract descriptive lore from pages preceding (and prefix of) the stat block page."""
+    chunks: list[str] = []
+
+    for page_num in range(stat_page - 1, max(0, stat_page - lookback_pages - 1), -1):
+        page_text = pages.get(page_num)
+        if not page_text:
+            continue
+        cleaned = _extract_lore_from_page(page_text, monster_name=monster_name)
+        if cleaned:
+            chunks.insert(0, cleaned)
+            break
+
+    stat_page_text = pages.get(stat_page)
+    if stat_page_text:
+        normalized = _normalize_text(stat_page_text)
+        start_index = _stat_block_start_index(normalized, monster_name)
+        if start_index and start_index > 0:
+            prefix = _clean_lore_text(
+                normalized[:start_index],
+                monster_name=monster_name,
+                stop_at_monster_header=True,
+            )
+            if prefix and len(prefix) >= 40:
+                chunks.append(prefix)
+
+    if not chunks:
+        return ""
+
+    deduped: list[str] = []
+    for chunk in chunks:
+        if chunk not in deduped:
+            deduped.append(chunk)
+
+    merged = "\n\n".join(deduped)
+    merged = re.sub(r"\n{3,}", "\n\n", merged).strip()
+    return merged
 
 
 def extract_monster_block_from_page(page_text: str, monster_name: str) -> str:
@@ -227,6 +391,7 @@ def parse_spanish_stat_block(block_text: str) -> ParsedSpanishStatBlock:
         creature_type=type_match.group("creature_type"),
         size=type_match.group("size"),
         alignment=type_match.group("alignment").strip(),
+        type_line=type_match.group(0).strip(),
         armor_class=int(ac_match.group(1)),
         armor_detail=(ac_match.group(2) or "").strip(),
         hit_points=int(hp_match.group(1)),
@@ -235,6 +400,10 @@ def parse_spanish_stat_block(block_text: str) -> ParsedSpanishStatBlock:
         ability_scores=ability_scores,
         skill_bonuses=skill_bonuses,
         challenge_rating=_parse_cr(cr_match.group(1)),
+        challenge_rating_raw=format_challenge_rating_display(
+            _parse_cr(cr_match.group(1)),
+            raw=cr_match.group(1),
+        ),
         traits=traits,
         actions=actions,
         raw_text=text,
@@ -249,11 +418,13 @@ def parsed_to_open5e_creature(parsed: ParsedSpanishStatBlock) -> dict[str, Any]:
         "type": {"name": parsed.creature_type},
         "size": {"name": parsed.size},
         "alignment": parsed.alignment,
+        "type_line": parsed.type_line,
         "armor_class": parsed.armor_class,
         "armor_detail": parsed.armor_detail,
         "hit_points": parsed.hit_points,
         "hit_dice": parsed.hit_dice,
         "challenge_rating": parsed.challenge_rating,
+        "challenge_rating_display": parsed.challenge_rating_raw,
         "ability_scores": parsed.ability_scores,
         "skill_bonuses": parsed.skill_bonuses,
         "traits": parsed.traits,
@@ -276,16 +447,25 @@ def build_catalog_row_from_parsed(
     source_document: str,
     source_label: str,
     system_id: str = "dnd5e",
+    lore_text: str = "",
 ) -> dict[str, Any]:
     """Build a system_monster_catalog row from a parsed Spanish stat block."""
     import uuid
 
     creature = parsed_to_open5e_creature(parsed)
+    if lore_text.strip():
+        creature["public_description"] = lore_text.strip()
     sheet = MonsterSheetMapper.map_creature(creature)
     sheet = append_source_provenance(sheet, source_label)
 
     narrative = build_narrative_template(creature)
-    narrative["public_description"] = f"Un {parsed.name.lower()} del {source_label}."
+    if lore_text.strip():
+        narrative["public_description"] = lore_text.strip()
+    else:
+        narrative["public_description"] = (
+            f"Un {parsed.name.lower()} ({build_creature_concept(creature).lower()}) "
+            f"del {source_label}."
+        )
 
     return {
         "id": uuid.uuid4(),
@@ -309,11 +489,15 @@ def build_catalog_row_from_parsed(
                 "creature_type": parsed.creature_type,
                 "size": parsed.size,
                 "alignment": parsed.alignment,
+                "type_line": parsed.type_line,
                 "armor_class": parsed.armor_class,
                 "hit_points": parsed.hit_points,
+                "hit_dice": parsed.hit_dice,
                 "challenge_rating": parsed.challenge_rating,
+                "challenge_rating_display": parsed.challenge_rating_raw,
             },
             "raw_text": parsed.raw_text,
+            "lore_text": lore_text.strip(),
         },
     }
 

@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.campaign import CampaignEntity
 from app.models.monster_catalog import SystemMonsterCatalog
 from app.schemas.entities import EntityType
+from app.services.dice import roll_dice
 from app.services.entities import (
     EntityValidationError,
     get_campaign_or_error,
@@ -23,6 +24,55 @@ from app.services.entities import (
 
 class MonsterCatalogError(ValueError):
     pass
+
+
+def roll_monster_hit_points(sheet: dict, *, rng=None) -> tuple[int, int]:
+    """Roll HP from sheet hit_dice; returns (current, max) with at least 1 HP."""
+    hit_dice = str(sheet.get("hit_dice") or "").strip().lower().replace(" ", "")
+    if not hit_dice:
+        defense = sheet.get("defense")
+        if isinstance(defense, dict):
+            hit_dice = str(defense.get("hit_dice") or "").strip().lower().replace(" ", "")
+
+    if hit_dice:
+        rolled = roll_dice(hit_dice)
+        total = max(1, int(rolled["final_result"]))
+        return total, total
+
+    hp = sheet.get("hp")
+    if isinstance(hp, dict):
+        fallback = int(hp.get("max") or hp.get("current") or 1)
+    else:
+        defense = sheet.get("defense")
+        if isinstance(defense, dict) and isinstance(defense.get("hp"), dict):
+            hp_block = defense["hp"]
+            fallback = int(hp_block.get("max") or hp_block.get("current") or 1)
+        else:
+            fallback = 1
+    fallback = max(1, fallback)
+    return fallback, fallback
+
+
+def apply_rolled_hit_points(sheet: dict) -> dict:
+    """Return a sheet copy with rolled hp.current and hp.max."""
+    rolled_sheet = deepcopy(sheet)
+    current, maximum = roll_monster_hit_points(rolled_sheet)
+
+    if isinstance(rolled_sheet.get("hp"), dict):
+        rolled_sheet["hp"]["current"] = current
+        rolled_sheet["hp"]["max"] = maximum
+        rolled_sheet["hp"].setdefault("temp", 0)
+        return rolled_sheet
+
+    defense = rolled_sheet.get("defense")
+    if isinstance(defense, dict) and isinstance(defense.get("hp"), dict):
+        defense["hp"]["current"] = current
+        defense["hp"]["max"] = maximum
+        defense["hp"].setdefault("temp", 0)
+        return rolled_sheet
+
+    rolled_sheet["hp"] = {"current": current, "max": maximum, "temp": 0}
+    return rolled_sheet
 
 
 def _next_monster_names(base_name: str, existing_names: list[str], count: int) -> list[str]:
@@ -98,7 +148,7 @@ def build_npc_document_from_catalog(
     attitude: str = "hostile",
 ) -> dict:
     narrative = deepcopy(catalog_entry.narrative_template or {})
-    sheet = deepcopy(catalog_entry.sheet_template or {})
+    sheet = apply_rolled_hit_points(deepcopy(catalog_entry.sheet_template or {}))
 
     return {
         "metadata": {

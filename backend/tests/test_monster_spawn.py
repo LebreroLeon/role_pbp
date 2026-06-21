@@ -8,7 +8,9 @@ from app.models.monster_catalog import SystemMonsterCatalog
 from app.schemas.entities import EntityType
 from app.services.monster_spawn import (
     _next_monster_names,
+    apply_rolled_hit_points,
     build_npc_document_from_catalog,
+    roll_monster_hit_points,
     spawn_monsters,
 )
 from app.services.entities import validate_entity_document
@@ -49,6 +51,35 @@ class TestBuildNpcDocument:
         assert validated.state_flags.attitude_towards_party == "hostile"
         assert validated.system_mechanics.system_id == "dnd5e"
         assert validated.system_mechanics.sheet["ac"] == 15
+
+    def test_spawn_rolls_hit_dice_for_hp(self, goblin_catalog_entry: SystemMonsterCatalog):
+        goblin_catalog_entry.sheet_template["hit_dice"] = "2d6"
+        goblin_catalog_entry.sheet_template["hp"] = {"max": 7, "current": 7, "temp": 0}
+
+        rolled_values: set[int] = set()
+        for _ in range(30):
+            document = build_npc_document_from_catalog(
+                goblin_catalog_entry,
+                name="Goblin 1",
+            )
+            hp = document["system_mechanics"]["sheet"]["hp"]
+            assert 2 <= hp["current"] <= 12
+            assert hp["current"] == hp["max"]
+            rolled_values.add(hp["current"])
+
+        assert len(rolled_values) > 1
+
+
+class TestRollMonsterHitPoints:
+    def test_roll_monster_hit_points_uses_hit_dice(self):
+        current, maximum = roll_monster_hit_points({"hit_dice": "2d6", "hp": {"max": 7, "current": 7}})
+        assert 2 <= current <= 12
+        assert current == maximum
+
+    def test_apply_rolled_hit_points_updates_sheet(self):
+        sheet = apply_rolled_hit_points({"hit_dice": "2d6", "hp": {"max": 7, "current": 7, "temp": 0}})
+        assert sheet["hp"]["current"] == sheet["hp"]["max"]
+        assert 2 <= sheet["hp"]["current"] <= 12
 
 
 @pytest.mark.asyncio
@@ -95,4 +126,6 @@ async def test_spawn_monsters_creates_numbered_goblins(goblin_catalog_entry: Sys
     for entity in added_entities:
         assert entity.document["state_flags"]["player_visibility"] == "hidden"
         assert entity.document["state_flags"]["hidden_from_players"] is True
-        assert entity.document["system_mechanics"]["sheet"]["hp"]["max"] == 7
+        hp = entity.document["system_mechanics"]["sheet"]["hp"]
+        assert 2 <= hp["max"] <= 12
+        assert hp["current"] == hp["max"]

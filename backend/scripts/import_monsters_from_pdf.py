@@ -33,6 +33,7 @@ from app.models.monster_catalog import SystemMonsterCatalog
 from app.rules.dnd5e.spanish_stat_block_parser import (
     build_catalog_row_from_parsed,
     extract_monster_block_from_page,
+    extract_monster_lore_from_pages,
     parse_spanish_stat_block,
 )
 from app.services.system_manuals import extract_pdf_pages
@@ -100,6 +101,11 @@ def extract_monster_from_pdf(
 
     block = extract_monster_block_from_page(page_map[page_number], str(preset["display_name"]))
     parsed = parse_spanish_stat_block(block)
+    lore_text = extract_monster_lore_from_pages(
+        page_map,
+        stat_page=page_number,
+        monster_name=str(preset["display_name"]),
+    )
     source = MANUAL_SOURCES[source_key]
     slug = f"{_normalize_monster_key(str(preset['display_name']))}-{preset['slug_suffix']}"
     return build_catalog_row_from_parsed(
@@ -108,6 +114,7 @@ def extract_monster_from_pdf(
         source_document=source["source_document"],
         source_label=source["source_label"],
         system_id=SYSTEM_ID,
+        lore_text=lore_text,
     )
 
 
@@ -161,7 +168,10 @@ async def run(args: argparse.Namespace) -> int:
     print(f"  slug: {row['slug']}")
     print(f"  source_document: {row['source_document']}")
     print(f"  source_label: {row['source_label']}")
-    print(f"  AC {row['sheet_template']['ac']} · HP {row['sheet_template']['hp']['max']} · CR {row['challenge_rating']}")
+    print(f"  AC {row['sheet_template']['ac']} · HP avg {row['sheet_template']['hp']['max']} · CR {row['raw_stat_block']['parsed'].get('challenge_rating_display', row['challenge_rating'])}")
+    lore_preview = row["raw_stat_block"].get("lore_text", "")
+    if lore_preview:
+        print(f"  lore: {lore_preview[:120]}{'…' if len(lore_preview) > 120 else ''}")
 
     if args.dry_run:
         print("Dry run — no database write.")

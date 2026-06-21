@@ -3,7 +3,11 @@ from pathlib import Path
 
 import pytest
 
-from app.rules.dnd5e.monster_sheet_mapper import MonsterSheetMapper, open5e_key_to_slug
+from app.rules.dnd5e.monster_sheet_mapper import (
+    MonsterSheetMapper,
+    format_challenge_rating_display,
+    open5e_key_to_slug,
+)
 from app.rules.dnd5e.schema import Dnd5eSheet
 
 SNAPSHOT_PATH = Path(__file__).resolve().parents[1] / "data" / "dnd5e" / "srd-monsters.json"
@@ -47,3 +51,8 @@ class TestMonsterSheetMapper:
     def test_open5e_key_to_slug(self):
         assert open5e_key_to_slug("srd_goblin") == "goblin"
         assert open5e_key_to_slug("custom-boss") == "custom-boss"
+
+    def test_format_challenge_rating_display(self):
+        assert format_challenge_rating_display(0.25) == "1/4"
+        assert format_challenge_rating_display(0.25, raw="1/4 (50 PX)") == "1/4"
+        assert format_challenge_rating_display(2) == "2"
