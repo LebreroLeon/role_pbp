@@ -1,0 +1,78 @@
+OBLEX ANCIANO 
+Cieno Enorme, por Jo general legal malvado 
+Clase de Armadura: 16 (armadura natural) 
+Puntos de golpe: 115 (10d12 + 50) 
+Velocidad: 6 m 
+FUE 
+15 (+2) 
+DES 
+16 (+3) 
+CON 
+21 (+5) 
+INT 
+22 (+6) 
+Tiradas de salvación: 1 nt + 1 O, Ca r +8 
+• 
+SAB 
+13 (+1) 
+CAR 
+18 (+4) 
+Habilidades: Conocimiento Arcano +10, Engaño +8, Historia + 1 O, 
+Naturaleza +10, Percepción +5, Religión +10 
+Inmunidad a estados: cansancio, cegado, derribado, ensordecido, 
+hechizado 
+Sentidos: visión ciega 1 8 m  (ciego más allá de este radio), 
+Percepción pasiva 15 
+Idiomas: común y otros seis idiomas 
+Desafío: 10 (5900 PX) 
+Bonificador por competencia: +4 
+Amorfo. El oblex puede moverse a través de un espacio de solo 2,5 cm 
+de ancho sin tener que apretarse. 
+Aversión al Fuego. Si el oblex recibe daño de fuego, tendrá desventaja 
+en las tiradas de ataque y en las pruebas de característica hasta el final 
+de su siguiente turno. 
+Naturaleza Inusual. El oblex no necesita dormir. 
+ACCIONES 
+Ataque múltiple. El oblex anciano realiza dos ataques con su pseu· 
+dópodo y utiliza su acción de engullir recuerdos. 
+Pseudóqodo. Ataque con arma cuerpo a cuerpo: +7 a impactar, 
+alcance 3 m, un objetivo. Impacto: 17 (4d6 + 3) de daño contun· 
+dente más 14 (4d6) de daño psíquico. 
+Engullir recuerdos. El oblex hace objetivo a una criatura que pueda 
+ver a 1,5 m o menos de él. El objetivo deberá superar una tirada de 
+salvación de Sabiduría con CD 18 o recibirá 44 (8d10) de daño psíquico 
+y se le drenarán recuerdos hasta que finalice un descanso corto o largo 
+o hasta que se beneficie de los conjuros curar o restablecimiento mayor. 
+Los autómatas, cienos, muertos vivientes y plantas superarán la tirada 
+de salvación automáticamente. 
+Mientras sufra drenaje de recuerdos, el objetivo deberá tirar 1d4 
+y restar el resultado a sus pruebas de característica y tiradas de ataque. 
+Cada vez posterior que se drenen recuerdos del objetivo, el dado 
+aumenta un tamaño: el d4 se convierte en d6; el d6, en d8, etc., hasta 
+que el dado se convierte en un d20, momento en el que el objetivo 
+queda inconsciente durante 1 hora. Entonces, el efecto termina. 
+El oblex aprende todos los idiomas que conoce el objetivo al que 
+drena recuerdos y obtiene todas sus competencias en habilidades. 
+2I2 
+CAPÍTULO 2 1 BESTIARIO 
+• 
+Lanzamiento de conjuros (psiónica). El oblex lanza uno de los siguien· 
+tes conjuros, que no requiere componentes y utiliza la Inteligencia 
+como aptitud mágica (CD de salvación de conjuros 18): 
+A voluntad: detectar pensamientos, hechizar persona (como conjuro 
+de nivel 5) 
+3fdía cada uno: dominar persona, patrón hipnótico, puerta dimensional, 
+telequinesis 
+ACCIONES ADICIONALES 
+Suplantación sulfurosa. El oblex expulsa una parte de sí mismo que 
+adopta el aspecto de una criatura Mediana o más pequeña cuyos 
+recuerdos haya robado. Este simulacro tiene la misma apariencia, 
+da la misma impresión y suena igual que la criatura por la que se 
+hace pasar, aunque huele ligeramente a azufre. El oblex puede 
+hacerse pasar por 2d6 + 1 criaturas diferentes que estarán atadas 
+a su cuerpo mediante un hilo de limo que puede extenderse hasta 
+36 m de distancia. El simulacro es una extensión del oblex, 
+es decir, el oblex ocupa su espacio y el espacio del simulacro al 
+mismo tiempo. La atadura es inmune al daño, pero se cortará si no 
+existe una abertura de al menos 2,5 cm de ancho entre el oblex y el 
+simulacro. El simulacro desaparece si se corta la atadura.

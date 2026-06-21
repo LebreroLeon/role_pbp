@@ -46,6 +46,16 @@ MANUAL_SOURCES: dict[str, dict[str, str]] = {
         "source_label": "Manual de Monstruos (Edge)",
         "default_pdf_glob": "*Manual de Monstruos*Edge*.pdf",
     },
+    "volo-edge-es": {
+        "source_document": "volo-edge-es",
+        "source_label": "Guía de Monstruos de Volo (Edge)",
+        "default_pdf_glob": "*Monstruos de Volo*.pdf",
+    },
+    "multiverse-edge-es": {
+        "source_document": "multiverse-edge-es",
+        "source_label": "Monstruos del Multiverso (Edge)",
+        "default_pdf_glob": "*Multiverso*.pdf",
+    },
 }
 
 MONSTER_PRESETS: dict[str, dict[str, object]] = {
@@ -53,6 +63,19 @@ MONSTER_PRESETS: dict[str, dict[str, object]] = {
         "display_name": "Goblin",
         "page": 178,
         "slug_suffix": "mm-edge",
+        "source_key": "mm-edge-es",
+    },
+    "neothelido": {
+        "display_name": "NEOTHELIDO",
+        "page": 177,
+        "slug_suffix": "volo-edge",
+        "source_key": "volo-edge-es",
+    },
+    "oblex-anciano": {
+        "display_name": "OBLEX ANCIANO",
+        "page": 213,
+        "slug_suffix": "multiverse-edge",
+        "source_key": "multiverse-edge-es",
     },
 }
 
@@ -86,12 +109,16 @@ def extract_monster_from_pdf(
     *,
     monster_key: str,
     page: int | None = None,
-    source_key: str = "mm-edge-es",
+    source_key: str | None = None,
 ) -> dict:
     preset = MONSTER_PRESETS.get(_normalize_monster_key(monster_key))
     if preset is None:
         known = ", ".join(sorted(MONSTER_PRESETS))
         raise ValueError(f"Unknown monster {monster_key!r}. Known presets: {known}")
+
+    resolved_source_key = source_key or str(preset.get("source_key", "mm-edge-es"))
+    if resolved_source_key not in MANUAL_SOURCES:
+        raise ValueError(f"Unknown source {resolved_source_key!r}")
 
     page_number = int(page or preset["page"])
     pages = extract_pdf_pages(pdf_path)
@@ -106,8 +133,8 @@ def extract_monster_from_pdf(
         stat_page=page_number,
         monster_name=str(preset["display_name"]),
     )
-    source = MANUAL_SOURCES[source_key]
-    slug = f"{_normalize_monster_key(str(preset['display_name']))}-{preset['slug_suffix']}"
+    source = MANUAL_SOURCES[resolved_source_key]
+    slug = f"{_normalize_monster_key(monster_key)}-{preset['slug_suffix']}"
     return build_catalog_row_from_parsed(
         parsed,
         slug=slug,
@@ -148,21 +175,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--page", type=int, default=None, help="Override PDF page number.")
     parser.add_argument(
         "--source",
-        default="mm-edge-es",
+        default=None,
         choices=sorted(MANUAL_SOURCES),
-        help="Manual source key for provenance metadata.",
+        help="Manual source key for provenance metadata (defaults per monster preset).",
     )
     parser.add_argument("--dry-run", action="store_true", help="Parse only; do not write to DB.")
     return parser.parse_args()
 
 
 async def run(args: argparse.Namespace) -> int:
-    pdf_path = resolve_pdf_path(args.pdf, source_key=args.source)
+    preset = MONSTER_PRESETS.get(_normalize_monster_key(args.monster))
+    default_source = str(preset.get("source_key", "mm-edge-es")) if preset else "mm-edge-es"
+    source_key = args.source or default_source
+    pdf_path = resolve_pdf_path(args.pdf, source_key=source_key)
     row = extract_monster_from_pdf(
         pdf_path,
         monster_key=args.monster,
         page=args.page,
-        source_key=args.source,
+        source_key=source_key,
     )
     print(f"Parsed {row['name']} from {pdf_path.name} (page {args.page or MONSTER_PRESETS[_normalize_monster_key(args.monster)]['page']})")
     print(f"  slug: {row['slug']}")

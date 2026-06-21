@@ -37,15 +37,39 @@ _SKILL_KEY_MAP = {
     "supervivencia": "survival",
 }
 
-_TYPE_LINE = re.compile(
-    r"^(?P<creature_type>\w+)\s+(?P<size>\w+)\s*\([^)]+\),\s*(?P<alignment>.+)$",
+_SIZE_WORDS = frozenset(
+    {
+        "pequeno",
+        "pequena",
+        "mediano",
+        "mediana",
+        "grande",
+        "enorme",
+        "gargantuesca",
+        "gargantuesco",
+        "gigante",
+        "diminuto",
+        "minusculo",
+        "minuculo",
+        "colosal",
+    }
+)
+_TYPE_LINE_WITH_SUBTYPE = re.compile(
+    r"^(?P<creature_type>\w+)[ \t]+(?P<size>\w+)[ \t]*\([^)]+\),[ \t]*(?P<alignment>.+)$",
     re.MULTILINE | re.IGNORECASE,
 )
-_AC = re.compile(r"Clase de Armadura:\s*(\d+)(?:\s*\(([^)]+)\))?", re.IGNORECASE)
-_HP = re.compile(r"Puntos de golpe:\s*(\d+)\s*\(([^)]+)\)", re.IGNORECASE)
-_SPEED = re.compile(r"Velocidad:\s*(\d+)", re.IGNORECASE)
-_CR = re.compile(r"Desaf[ií]o:\s*([\d/]+)", re.IGNORECASE)
-_SKILLS = re.compile(r"Habilidades:\s*(.+)", re.IGNORECASE)
+_TYPE_LINE_SIMPLE = re.compile(
+    r"^(?P<creature_type>\w+)[ \t]+(?P<size>\w+),?[ \t]*(?P<alignment>.+)$",
+    re.MULTILINE | re.IGNORECASE,
+)
+_AC = re.compile(
+    r"(?:Clase|Categor[ií]a) de Armadura:?\s*(\d+)(?:\s*\(([^)]+)\))?",
+    re.IGNORECASE,
+)
+_HP = re.compile(r"Puntos de [Gg]olpe:?\s*(\d+)\s*\(([^)]+)\)", re.IGNORECASE)
+_SPEED = re.compile(r"Velocidad:?\s*([O0\d]+)", re.IGNORECASE)
+_CR = re.compile(r"Desaf[ií]o:?\s*([\d/]+)", re.IGNORECASE)
+_SKILLS = re.compile(r"Habilidades:?\s*(.+)", re.IGNORECASE)
 _ABILITY_SCORES = re.compile(
     r"(\d+)\s*\(([+-]?\d+)\)\s+"
     r"(\d+)\s*\(([+-]?\d+)\)\s+"
@@ -55,9 +79,12 @@ _ABILITY_SCORES = re.compile(
     r"(\d+)\s*\(([+-]?\d+)\)",
 )
 _ATTACK = re.compile(
-    r"(?P<name>[^.\n]+)\.\s*Ataque.*?:\s*\+(?P<to_hit>\d+)\s+a\s+impactar.*?Impacto:\s*\d+\s*\((?P<dice>[^)]+)\)\s*de\s+da[ñn]o\s+(?P<damage_type>\w+)",
+    r"(?P<name>[^.\n]+)\.\s*Ataque.*?:\s*\+?\s*(?P<to_hit>\d+)\s+a\s+impactar.*?"
+    r"(?:Impacto|Al impactar):\s*\d+\s*\((?P<dice>[^)]+)\)\s*"
+    r"(?:de\s+da[ñn]o\s+)?(?P<damage_type>\w+)",
     re.IGNORECASE | re.DOTALL,
 )
+_ABILITY_SCORE_PAIR = re.compile(r"(\d+)\s*\([+-]?\d+\)")
 _SECTION_HEADERS = re.compile(r"^(ACCIONES|REACCIONES|ACCIONES LEGENDARIAS)\s*$", re.MULTILINE | re.IGNORECASE)
 _OCR_GARBAGE_LINE = re.compile(
     r"^[/\\|_'\"0-9\s]{0,8}(?:[A-Za-z]{1,4}[\-/\\|_'\"]{0,3})+[A-Za-z0-9\s\-_/\\|.'\"]{0,24}$"
@@ -71,7 +98,70 @@ _OTHER_MONSTER_HEADER = re.compile(
 
 
 def _normalize_text(value: str) -> str:
-    return unicodedata.normalize("NFKC", value)
+    text = unicodedata.normalize("NFKC", value)
+    text = text.replace("{", "(").replace("}", ")")
+    return text.replace("Ü", "O").replace("ü", "o")
+
+
+def _normalize_header_name(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value.strip().upper())
+    without_accents = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return without_accents.replace("Ü", "O")
+
+
+def _iter_type_line_matches(text: str):
+    seen_spans: set[int] = set()
+    for pattern in (_TYPE_LINE_WITH_SUBTYPE, _TYPE_LINE_SIMPLE):
+        for match in pattern.finditer(text):
+            if match.start() in seen_spans:
+                continue
+            if pattern is _TYPE_LINE_SIMPLE and _slugify(match.group("size")) not in _SIZE_WORDS:
+                continue
+            seen_spans.add(match.start())
+            yield match
+
+
+def _parse_speed(raw: str) -> int:
+    normalized = raw.strip().upper().replace("O", "0")
+    digit_match = re.search(r"\d+", normalized)
+    if not digit_match:
+        raise ValueError(f"Could not parse speed from {raw!r}")
+    return int(digit_match.group(0))
+
+
+def _parse_ability_scores_from_text(text: str) -> dict[str, int]:
+    compact_text = re.sub(r"\s+", " ", text)
+    ability_match = _ABILITY_SCORES.search(compact_text)
+    if ability_match:
+        return {
+            full: int(ability_match.group(index * 2 + 1))
+            for index, full in enumerate(_ABILITY_FULL)
+        }
+
+    scores: dict[str, int] = {}
+    for abbr, full in zip(_ABILITY_ES, _ABILITY_FULL):
+        label_match = re.search(
+            rf"{abbr}\s+(\d+)\s*\([+-]?\d+\)",
+            text,
+            re.IGNORECASE | re.MULTILINE,
+        )
+        if label_match:
+            scores[full] = int(label_match.group(1))
+
+    if len(scores) == 6:
+        return scores
+
+    block_match = re.search(
+        r"FUE\s+DES\s+CON\s+INT\s+SAB\s+CAR\s+((?:\d+\s*\([+-]?\d+\)\s*){6})",
+        compact_text,
+        re.IGNORECASE,
+    )
+    if block_match:
+        values = _ABILITY_SCORE_PAIR.findall(block_match.group(1))
+        if len(values) == 6:
+            return {full: int(values[index]) for index, full in enumerate(_ABILITY_FULL)}
+
+    raise ValueError("Could not parse ability scores from stat block")
 
 
 def _slugify(value: str) -> str:
@@ -115,12 +205,15 @@ class ParsedSpanishStatBlock:
 
 def _stat_block_start_index(page_text: str, monster_name: str) -> int | None:
     text = _normalize_text(page_text)
-    target = monster_name.strip().upper()
-    type_matches = list(_TYPE_LINE.finditer(text))
+    target = _normalize_header_name(monster_name)
+    type_matches = list(_iter_type_line_matches(text))
     if not type_matches:
         return None
 
-    name_pattern = re.compile(rf"(?:^|\n)\s*{re.escape(target)}\s*(?:\n|$)", re.IGNORECASE | re.MULTILINE)
+    name_pattern = re.compile(
+        rf"(?:^|\n)\s*{re.escape(target)}\s*(?:\n|$)",
+        re.IGNORECASE | re.MULTILINE,
+    )
     start_index: int | None = None
     for match in type_matches:
         prefix = text[: match.start()]
@@ -140,6 +233,8 @@ def _is_lore_noise_line(line: str) -> bool:
     if re.fullmatch(r"\d{1,4}", stripped):
         return True
     if _OCR_GARBAGE_LINE.search(stripped):
+        return True
+    if re.search(r"cap[ií]tulo|bestiario", stripped, re.IGNORECASE):
         return True
     if re.fullmatch(r"[\s/W\\|_\-\.'\"0-9]+", stripped):
         return True
@@ -167,8 +262,12 @@ def _clean_lore_text(
             continue
         if stop_at_monster_header and stripped.upper() == target:
             break
-        if stop_at_monster_header and _TYPE_LINE.match(stripped):
+        if stop_at_monster_header and _TYPE_LINE_WITH_SUBTYPE.match(stripped):
             break
+        if stop_at_monster_header and _TYPE_LINE_SIMPLE.match(stripped):
+            size_slug = _slugify(stripped.split(",", 1)[0].split()[-1] if "," in stripped else "")
+            if size_slug in _SIZE_WORDS:
+                break
         if stop_at_monster_header and _OTHER_MONSTER_HEADER.match(stripped) and stripped.upper() != target:
             break
         current.append(stripped)
@@ -184,9 +283,9 @@ def _first_stat_block_start(text: str, monster_name: str) -> int | None:
 
 
 def _foreign_stat_block_starts(text: str, monster_name: str) -> list[int]:
-    target = monster_name.strip().upper()
+    target = _normalize_header_name(monster_name)
     starts: list[int] = []
-    type_matches = list(_TYPE_LINE.finditer(text))
+    type_matches = list(_iter_type_line_matches(text))
     name_header = re.compile(
         r"(?:^|\n)\s*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9 /\-'.]+)\s*(?:\n|$)",
         re.MULTILINE,
@@ -224,19 +323,10 @@ def extract_monster_lore_from_pages(
     *,
     stat_page: int,
     monster_name: str,
-    lookback_pages: int = 1,
+    lookback_pages: int = 2,
 ) -> str:
     """Extract descriptive lore from pages preceding (and prefix of) the stat block page."""
     chunks: list[str] = []
-
-    for page_num in range(stat_page - 1, max(0, stat_page - lookback_pages - 1), -1):
-        page_text = pages.get(page_num)
-        if not page_text:
-            continue
-        cleaned = _extract_lore_from_page(page_text, monster_name=monster_name)
-        if cleaned:
-            chunks.insert(0, cleaned)
-            break
 
     stat_page_text = pages.get(stat_page)
     if stat_page_text:
@@ -250,6 +340,16 @@ def extract_monster_lore_from_pages(
             )
             if prefix and len(prefix) >= 40:
                 chunks.append(prefix)
+
+    if not chunks:
+        for page_num in range(stat_page - 1, max(0, stat_page - lookback_pages - 1), -1):
+            page_text = pages.get(page_num)
+            if not page_text:
+                continue
+            cleaned = _extract_lore_from_page(page_text, monster_name=monster_name)
+            if cleaned and len(cleaned) >= 40:
+                chunks.insert(0, cleaned)
+                break
 
     if not chunks:
         return ""
@@ -267,14 +367,18 @@ def extract_monster_lore_from_pages(
 def extract_monster_block_from_page(page_text: str, monster_name: str) -> str:
     """Isolate one stat block from a PDF page that may contain lore and multiple monsters."""
     text = _normalize_text(page_text)
-    target = monster_name.strip().upper()
+    target = _normalize_header_name(monster_name)
 
-    type_matches = list(_TYPE_LINE.finditer(text))
+    type_matches = list(_iter_type_line_matches(text))
     if not type_matches:
         raise ValueError(f"No stat block type lines found on page for {monster_name!r}")
 
     start_index: int | None = None
-    name_pattern = re.compile(rf"(?:^|\n)\s*{re.escape(target)}\s*(?:\n|$)", re.IGNORECASE | re.MULTILINE)
+    name_pattern = re.compile(
+        rf"(?:^|\n)\s*{re.escape(target)}\s*(?:\n|$)",
+        re.IGNORECASE | re.MULTILINE,
+    )
+    chosen_type_start = 0
     for match in type_matches:
         prefix = text[: match.start()]
         name_matches = list(name_pattern.finditer(prefix))
@@ -314,7 +418,7 @@ def _header_line_before_type(text: str, type_line_start: int) -> int:
 def parse_spanish_stat_block(block_text: str) -> ParsedSpanishStatBlock:
     """Parse a single Spanish stat block into structured fields."""
     text = _normalize_text(block_text)
-    type_match = _TYPE_LINE.search(text)
+    type_match = next(iter(_iter_type_line_matches(text)), None)
     if not type_match:
         raise ValueError("Missing creature type line")
 
@@ -326,15 +430,10 @@ def parse_spanish_stat_block(block_text: str) -> ParsedSpanishStatBlock:
     hp_match = _HP.search(text)
     speed_match = _SPEED.search(text)
     cr_match = _CR.search(text)
-    compact_text = re.sub(r"\s+", " ", text)
-    ability_match = _ABILITY_SCORES.search(compact_text)
-    if not all([ac_match, hp_match, speed_match, cr_match, ability_match]):
-        raise ValueError("Incomplete stat block: missing AC, HP, speed, CR, or abilities")
+    if not all([ac_match, hp_match, speed_match, cr_match]):
+        raise ValueError("Incomplete stat block: missing AC, HP, speed, or CR")
 
-    ability_scores = {
-        full: int(ability_match.group(index * 2 + 1))
-        for index, full in enumerate(_ABILITY_FULL)
-    }
+    ability_scores = _parse_ability_scores_from_text(text)
 
     skill_bonuses: dict[str, int] = {}
     skills_match = _SKILLS.search(text)
@@ -396,7 +495,7 @@ def parse_spanish_stat_block(block_text: str) -> ParsedSpanishStatBlock:
         armor_detail=(ac_match.group(2) or "").strip(),
         hit_points=int(hp_match.group(1)),
         hit_dice=hp_match.group(2).strip(),
-        speed_walk=int(speed_match.group(1)),
+        speed_walk=_parse_speed(speed_match.group(1)),
         ability_scores=ability_scores,
         skill_bonuses=skill_bonuses,
         challenge_rating=_parse_cr(cr_match.group(1)),

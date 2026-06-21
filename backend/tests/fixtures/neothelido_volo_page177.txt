@@ -1,0 +1,62 @@
+NEOTHELIDO 
+Aberración Gargantuesca, caótico malvado 
+ 
+Categoría de Armadura 16 (armadura natural) 
+Puntos de Golpe 325 (21d20 + 105) 
+Velocidad 30 pies 
+ 
+FUE 
+DES 
+CON 
+INT 
+SAB 
+CAR 
+27 (+8) 
+7 (-2) 
+21 (+5) 
+3 (-4) 
+16 (+3) 
+12 (+1) 
+ 
+Tiradas de Salvación Int +1, Sab +8, Car +6 
+Sentidos Vista a Ciegas 120 pies, percepción pasiva 13 
+Idiomas- 
+Desafio 13 (10,000 XP) 
+ 
+Sentido de Criaturas. El neothélido es consciente de la presencia de 
+criaturas a menos de 1 milla de él si estas tienen una puntuación de 
+Inteligencia de 4 o mas. Conoce la distancia y dirección de cada criatur, 
+así como la puntuación de Inteligencia, peor no puede sentir nada más 
+acerca de ellas. Una criatura protegida por un conjuro de mente en 
+blanco, un conjuro de indetectabilidad o magias imilares no puede ser 
+percibida de esta forma. 
+ 
+Lanzamiento Innato de Conjuros (Psiónica). La característica de 
+lanzamiento innato de conjuros del Neotélido es la Sabiduría (salvación 
+de conjuros CD 16). Puede lanzar de forma innata los siguientes 
+conjuros, sin necesidad de componente: 
+A voluntad: levitar 
+1/día cada uno: confusión, debilidad mental, telekinesis 
+ 
+Resistencia Mágica. El neothélido tiene ventaja en todas las tiradas de 
+salvación contra conjuros y otros efectos mágicos. 
+ACCIONES 
+Tentáculos. Ataque de Arma C/C: + 13 a impactar, alcance 15 pies, un 
+blanco. Al impactar: 21 (3d8 + 8) daño contundente mas 13 (3d8) daño 
+psíquico. Si el blanco es una criatura Grande o más pequeña, debe 
+superar una tirada de salvación de Fuerza CD 18 o ser tragada por el 
+neothélido. Una criatura tragada queda cegada e inmovilizada, tiene 
+cobertura total contra ataques y otros efectos provenientes de fuera del 
+neothélido y sufre 35 (10d6) puntos de daño por ácido al comienzo de 
+cada uno de los turnos del neothélido. Si el neothélido sufre 30 p mas 
+puntos de dañor en un único turno de manos de una criatura en su 
+interior, el neothélido debe superar una tirada de salvación de 
+Constitución CD 18 o regurgitar a todas las criaturas tragada, las cuales 
+salen y quedan tumbadas a menos de 10 pies del neothélido. Si el neo 
+thelido muere, una criatura tragada deja de estar inmovilizada y puede 
+escapar del cadáver usando 20 pies de movimiento y saliendo de este 
+tumbada.. 
+Aliento ácido (Recarga 5-6). El neothélido exala ácido en un cono de 
+60 pies. Cada criatura en el área debe realizar una tirada de salvación de 
+Destreza CD18, sufriendo 35 (10d6) daño por ácido si falla la tirada, y 
+la mitad de ese daño si tiene éxito en ella.

@@ -117,3 +117,83 @@ class TestSpanishStatBlockParser:
         assert "Clase de Armadura" not in lore
         assert "svirfneblin" not in lore.lower()
         assert "underdark" not in lore.lower()
+
+
+NEOTHELIDO_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "neothelido_volo_page177.txt"
+OBLEX_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "oblex_anciano_multiverse_page213.txt"
+VOLO_SOURCE = "Guía de Monstruos de Volo (Edge)"
+MULTIVERSE_SOURCE = "Monstruos del Multiverso (Edge)"
+
+
+class TestVoloNeothelidoParser:
+    def test_parses_neothelido_core_stats(self):
+        block = NEOTHELIDO_FIXTURE.read_text(encoding="utf-8")
+        parsed = parse_spanish_stat_block(block)
+        assert parsed.name == "Neothelido"
+        assert parsed.armor_class == 16
+        assert parsed.hit_points == 325
+        assert parsed.hit_dice == "21d20 + 105"
+        assert parsed.challenge_rating == 13
+        assert parsed.type_line == "Aberración Gargantuesca, caótico malvado"
+        assert parsed.ability_scores["strength"] == 27
+
+    def test_parses_neothelido_tentacle_attack(self):
+        parsed = parse_spanish_stat_block(NEOTHELIDO_FIXTURE.read_text(encoding="utf-8"))
+        tentacles = next(action for action in parsed.actions if "Tentáculos" in action["name"])
+        attack = tentacles["attacks"][0]
+        assert attack["to_hit_mod"] == 13
+        assert attack["damage_die_count"] == 3
+        assert attack["damage_die_type"] == "D8"
+
+    def test_neothelido_catalog_row(self):
+        block = NEOTHELIDO_FIXTURE.read_text(encoding="utf-8")
+        parsed = parse_spanish_stat_block(block)
+        row = build_catalog_row_from_parsed(
+            parsed,
+            slug="neothelido-volo-edge",
+            source_document="volo-edge-es",
+            source_label=VOLO_SOURCE,
+            lore_text="Un neothélido emerge de una colonia illithid colapsada.",
+        )
+        assert row["slug"] == "neothelido-volo-edge"
+        assert row["narrative_template"]["concept"] == parsed.type_line
+        assert row["sheet_template"]["hit_dice"] == "21d20 + 105"
+        assert f"Fuente: {VOLO_SOURCE}" in row["sheet_template"]["features_traits"]
+        Dnd5eSheet.model_validate(row["sheet_template"])
+
+
+class TestMultiverseOblexParser:
+    def test_parses_oblex_anciano_core_stats(self):
+        block = OBLEX_FIXTURE.read_text(encoding="utf-8")
+        parsed = parse_spanish_stat_block(block)
+        assert parsed.name == "Oblex Anciano"
+        assert parsed.armor_class == 16
+        assert parsed.hit_points == 115
+        assert parsed.hit_dice == "10d12 + 50"
+        assert parsed.challenge_rating == 10
+        assert parsed.creature_type == "Cieno"
+        assert parsed.size == "Enorme"
+
+    def test_parses_oblex_pseudopod_attack(self):
+        parsed = parse_spanish_stat_block(OBLEX_FIXTURE.read_text(encoding="utf-8"))
+        pseudopod = next(action for action in parsed.actions if "Pseud" in action["name"])
+        attack = pseudopod["attacks"][0]
+        assert attack["to_hit_mod"] == 7
+        assert attack["damage_die_count"] == 4
+        assert attack["damage_die_type"] == "D6"
+
+    def test_oblex_catalog_row(self):
+        block = OBLEX_FIXTURE.read_text(encoding="utf-8")
+        parsed = parse_spanish_stat_block(block)
+        row = build_catalog_row_from_parsed(
+            parsed,
+            slug="oblex-anciano-multiverse-edge",
+            source_document="multiverse-edge-es",
+            source_label=MULTIVERSE_SOURCE,
+            lore_text="Los oblexes se alimentan de pensamientos y recuerdos.",
+        )
+        assert row["slug"] == "oblex-anciano-multiverse-edge"
+        assert row["sheet_template"]["hit_dice"] == "10d12 + 50"
+        assert len(row["sheet_template"]["attacks"]) >= 1
+        assert f"Fuente: {MULTIVERSE_SOURCE}" in row["sheet_template"]["features_traits"]
+        Dnd5eSheet.model_validate(row["sheet_template"])
