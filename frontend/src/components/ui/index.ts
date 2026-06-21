@@ -13,3 +13,4 @@ export { StatusBadge } from "./StatusBadge";
 export { UnreadBadge, adjustCountsForActiveTab } from "./UnreadBadge";
 export { Switch } from "./Switch";
 export { Toast } from "./Toast";
+export { Tooltip } from "./Tooltip";

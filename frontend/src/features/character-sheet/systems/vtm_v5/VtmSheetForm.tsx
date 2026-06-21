@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Dices } from "lucide-react";
 
 import type { SheetRollRequest } from "../../../../api/types";
-import { Button, Input } from "../../../../components/ui";
+import { Button, Input, Tooltip } from "../../../../components/ui";
 import {
   VTM_ATTRIBUTE_LABELS,
   VTM_MENTAL_ATTRS,
@@ -33,17 +33,18 @@ type RollButtonProps = {
 
 function RollButton({ label, disabled, onClick }: RollButtonProps) {
   return (
-    <Button
-      type="button"
-      variant="secondary"
-      className="sheet-roll-btn"
-      disabled={disabled}
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-    >
-      <Dices size={14} strokeWidth={2} />
-    </Button>
+    <Tooltip content={label}>
+      <Button
+        type="button"
+        variant="secondary"
+        className="sheet-roll-btn"
+        disabled={disabled}
+        onClick={onClick}
+        aria-label={label}
+      >
+        <Dices size={14} strokeWidth={2} />
+      </Button>
+    </Tooltip>
   );
 }
 

@@ -1,5 +1,6 @@
 import { ThumbsUp } from "lucide-react";
 import type { MouseEvent } from "react";
+import { Tooltip } from "../../components/ui";
 import type { MemberLookup } from "./ChatEntry";
 
 type MessageLikeBadgeProps = {
@@ -40,23 +41,24 @@ export function MessageLikeBadge({
   }
 
   return (
-    <button
-      type="button"
-      className={`chat-card__like ${showBadge ? "chat-card__like--visible" : "chat-card__like--hint"} ${userHasLiked ? "chat-card__like--active" : ""}`}
-      onClick={handleClick}
-      disabled={toggling}
-      title={buildLikeTooltip(likedByUserIds, members)}
-      aria-label={userHasLiked ? "Quitar me gusta" : "Dar me gusta"}
-      aria-pressed={userHasLiked}
-    >
-      <ThumbsUp
-        size={13}
-        strokeWidth={2}
-        className="chat-card__like-icon"
-        fill={userHasLiked ? "currentColor" : "none"}
-        aria-hidden
-      />
-      {likeCount > 0 && <span className="chat-card__like-count">{likeCount}</span>}
-    </button>
+    <Tooltip content={buildLikeTooltip(likedByUserIds, members)}>
+      <button
+        type="button"
+        className={`chat-card__like ${showBadge ? "chat-card__like--visible" : "chat-card__like--hint"} ${userHasLiked ? "chat-card__like--active" : ""}`}
+        onClick={handleClick}
+        disabled={toggling}
+        aria-label={userHasLiked ? "Quitar me gusta" : "Dar me gusta"}
+        aria-pressed={userHasLiked}
+      >
+        <ThumbsUp
+          size={13}
+          strokeWidth={2}
+          className="chat-card__like-icon"
+          fill={userHasLiked ? "currentColor" : "none"}
+          aria-hidden
+        />
+        {likeCount > 0 && <span className="chat-card__like-count">{likeCount}</span>}
+      </button>
+    </Tooltip>
   );
 }

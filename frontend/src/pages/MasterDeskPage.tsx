@@ -8,7 +8,7 @@ import type { MasterAssistMode, MasterAssistResponse } from "../api/types";
 import { queryKeys } from "../api/queryKeys";
 import { RoleGate } from "../components/auth/RoleGate";
 import { DESK_TAB_ICONS, SECTION_ICONS, UserPlus, Users } from "../components/icons";
-import { Button, ButtonLink, ConfirmDialog, ErrorBanner, Panel, PanelHeader, StatusBadge, Toast } from "../components/ui";
+import { Button, ButtonLink, ConfirmDialog, ErrorBanner, Panel, PanelHeader, StatusBadge, Toast, Tooltip } from "../components/ui";
 import { CampaignMemberList, CampaignSettingsForm, formatSceneLabel, InviteMemberForm, campaignDefaultPath } from "../features/campaign";
 import { getChatBuffer, getSceneObjective } from "../features/scene/sceneState";
 import {
@@ -236,16 +236,17 @@ export function MasterDeskPage() {
             {TABS.map((item) => {
               const TabIcon = DESK_TAB_ICONS[item.id];
               return (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`master-tabs__btn ${tab === item.id ? "is-active" : ""}`}
-                  onClick={() => setTab(item.id)}
-                  title={item.hint}
-                >
-                  <TabIcon size={15} aria-hidden />
-                  {item.label}
-                </button>
+                <Tooltip key={item.id} content={item.hint}>
+                  <button
+                    type="button"
+                    className={`master-tabs__btn ${tab === item.id ? "is-active" : ""}`}
+                    onClick={() => setTab(item.id)}
+                    aria-label={item.hint}
+                  >
+                    <TabIcon size={15} aria-hidden />
+                    {item.label}
+                  </button>
+                </Tooltip>
               );
             })}
           </nav>
@@ -352,20 +353,21 @@ export function MasterDeskPage() {
               )}
               <div className="shadow-master-modes" role="group" aria-label="Modo del Shadow Master">
                 {SHADOW_MASTER_MODES.map((mode) => (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    className={`shadow-master-modes__btn ${assistMode === mode.id ? "is-active" : ""}`}
-                    onClick={() => {
-                      setAssistMode(mode.id);
-                      setQuery(mode.defaultQuery);
-                      setResponse(null);
-                    }}
-                    title={mode.hint}
-                    disabled={loading}
-                  >
-                    {mode.label}
-                  </button>
+                  <Tooltip key={mode.id} content={mode.hint}>
+                    <button
+                      type="button"
+                      className={`shadow-master-modes__btn ${assistMode === mode.id ? "is-active" : ""}`}
+                      onClick={() => {
+                        setAssistMode(mode.id);
+                        setQuery(mode.defaultQuery);
+                        setResponse(null);
+                      }}
+                      aria-label={mode.hint}
+                      disabled={loading}
+                    >
+                      {mode.label}
+                    </button>
+                  </Tooltip>
                 ))}
               </div>
               <form className="master-form" onSubmit={handleAssist}>

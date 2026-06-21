@@ -1,4 +1,5 @@
 import type { AdvantageMode } from "../registry";
+import { Tooltip } from "../../../components/ui";
 
 type AdvantageToggleProps = {
   value: AdvantageMode;
@@ -21,17 +22,18 @@ export function AdvantageToggle({ value, onChange, disabled, compact }: Advantag
       aria-label="Ventaja o desventaja"
     >
       {OPTIONS.map((option) => (
-        <button
-          key={option.mode}
-          type="button"
-          className={`advantage-toggle__btn${value === option.mode ? " is-active" : ""}`}
-          disabled={disabled}
-          title={option.title}
-          aria-pressed={value === option.mode}
-          onClick={() => onChange(option.mode)}
-        >
-          {option.label}
-        </button>
+        <Tooltip key={option.mode} content={option.title}>
+          <button
+            type="button"
+            className={`advantage-toggle__btn${value === option.mode ? " is-active" : ""}`}
+            disabled={disabled}
+            aria-pressed={value === option.mode}
+            aria-label={option.title}
+            onClick={() => onChange(option.mode)}
+          >
+            {option.label}
+          </button>
+        </Tooltip>
       ))}
     </div>
   );

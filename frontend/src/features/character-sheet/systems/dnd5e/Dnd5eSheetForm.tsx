@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ChevronDown, Dices } from "lucide-react";
 
 import type { SheetRollRequest, SheetRollResponse } from "../../../../api/types";
-import { Button, Input, Switch } from "../../../../components/ui";
+import { Button, Input, Switch, Tooltip } from "../../../../components/ui";
 import { mergeAdvantageIntoContext, type AdvantageMode } from "../../../systems";
 import { AdvantageToggle } from "../../../systems/dnd5e/AdvantageToggle";
 import { dnd5eSkillModifier } from "../../../systems/dnd5e/rolls";
@@ -40,17 +40,18 @@ type RollButtonProps = {
 
 function RollButton({ label, disabled, onClick }: RollButtonProps) {
   return (
-    <Button
-      type="button"
-      variant="secondary"
-      className="sheet-roll-btn"
-      disabled={disabled}
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-    >
-      <Dices size={14} strokeWidth={2} />
-    </Button>
+    <Tooltip content={label}>
+      <Button
+        type="button"
+        variant="secondary"
+        className="sheet-roll-btn"
+        disabled={disabled}
+        onClick={onClick}
+        aria-label={label}
+      >
+        <Dices size={14} strokeWidth={2} />
+      </Button>
+    </Tooltip>
   );
 }
 

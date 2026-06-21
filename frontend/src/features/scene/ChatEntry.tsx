@@ -3,6 +3,7 @@ import { CombatEntry } from "../combat/CombatEntry";
 import { resolveCombatEntityName, shouldRenderCombatEntry } from "../combat/combatMessage";
 import type { SceneStateInput } from "./sceneState";
 import { Eye } from "../../components/icons";
+import { Tooltip } from "../../components/ui";
 import { ChatMessageDeleteButton } from "./ChatMessageDeleteButton";
 import { resolveMessageAvatarUrl } from "../entities/entityAvatar";
 import { ChatAvatar } from "./ChatAvatar";
@@ -166,11 +167,13 @@ export function ChatEntry({
       </header>
       <p className="chat-card__body">{message.text}</p>
       <footer className="chat-card__footer">
-        <span className="chat-card__read" title={buildReadTooltip(readBy, members)}>
-          <Eye size={13} aria-hidden />
-          {readersExcludingSender.length}/{Math.max(memberCount - 1, 0)} leído
-          {unreadCount > 0 && ` · ${unreadCount} pendiente`}
-        </span>
+        <Tooltip content={buildReadTooltip(readBy, members)}>
+          <span className="chat-card__read" aria-label={buildReadTooltip(readBy, members)}>
+            <Eye size={13} aria-hidden />
+            {readersExcludingSender.length}/{Math.max(memberCount - 1, 0)} leído
+            {unreadCount > 0 && ` · ${unreadCount} pendiente`}
+          </span>
+        </Tooltip>
       </footer>
       <MessageLikeBadge
         messageId={message.id}

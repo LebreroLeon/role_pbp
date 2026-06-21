@@ -2,7 +2,7 @@ import { useMemo, useState, type MouseEvent } from "react";
 import { Eye, EyeOff, Plus, Swords, UserMinus } from "lucide-react";
 
 import type { CampaignEntity, Scene } from "../../api/types";
-import { Button, Modal } from "../../components/ui";
+import { Button, Modal, Tooltip } from "../../components/ui";
 import { getGameSystemProfile } from "../campaign/gameSystems";
 import type { SceneStateInput } from "../scene/sceneState";
 import { useAddPlayerToSceneMutation, useScenePresenceMutation } from "../../hooks/mutations/useSceneMutations";
@@ -213,21 +213,22 @@ export function SceneRosterPanel({
 
               return (
                 <li key={entry.id}>
-                  <button
-                    type="button"
-                    className={`scene-roster__entry ${isSelectedAttacker ? "is-attacker" : ""} ${canClick ? "is-actionable" : ""}`}
-                    onClick={() => handleEntryClick(entry)}
-                    onContextMenu={(event) => handleContextMenu(event, entry)}
-                    disabled={!canClick && !isMaster}
-                    aria-pressed={isSelectedAttacker}
-                    title={
-                      canClick
-                        ? isMaster
-                          ? "Seleccionar o atacar"
-                          : "Atacar"
-                        : undefined
+                  <Tooltip
+                    content={
+                      canClick ? (isMaster ? "Seleccionar o atacar" : "Atacar") : undefined
                     }
                   >
+                    <button
+                      type="button"
+                      className={`scene-roster__entry ${isSelectedAttacker ? "is-attacker" : ""} ${canClick ? "is-actionable" : ""}`}
+                      onClick={() => handleEntryClick(entry)}
+                      onContextMenu={(event) => handleContextMenu(event, entry)}
+                      disabled={!canClick && !isMaster}
+                      aria-pressed={isSelectedAttacker}
+                      aria-label={
+                        canClick ? (isMaster ? "Seleccionar o atacar" : "Atacar") : undefined
+                      }
+                    >
                     <span className={`scene-roster__badge scene-roster__badge--${entry.entityType.toLowerCase()}`}>
                       {entry.entityType}
                     </span>
@@ -248,41 +249,44 @@ export function SceneRosterPanel({
                       <Swords size={14} className="scene-roster__attack-icon" aria-hidden />
                     )}
                   </button>
+                  </Tooltip>
 
                   {isMaster && entry.entityType === "NPC" && (
                     <div className="scene-roster__master-actions">
-                      <button
-                        type="button"
-                        className="scene-roster__icon-btn"
-                        aria-label={
-                          entry.isHiddenFromPlayers
-                            ? "Revelar a jugadores"
-                            : "Ocultar (Desconocido)"
+                      <Tooltip
+                        content={
+                          entry.isHiddenFromPlayers ? "Revelar a jugadores" : "Ocultar (Desconocido)"
                         }
-                        title={
-                          entry.isHiddenFromPlayers
-                            ? "Revelar a jugadores"
-                            : "Ocultar (Desconocido)"
-                        }
-                        disabled={disabled || presencePending}
-                        onClick={(event) => {
-                          void handleToggleHidden(entry, event);
-                        }}
                       >
-                        {entry.isHiddenFromPlayers ? <Eye size={14} aria-hidden /> : <EyeOff size={14} aria-hidden />}
-                      </button>
-                      <button
-                        type="button"
-                        className="scene-roster__icon-btn scene-roster__icon-btn--danger"
-                        aria-label="Quitar de escena"
-                        title="Quitar de escena"
-                        disabled={disabled || presencePending}
-                        onClick={() => {
-                          void handleRemoveNpc(entry.id);
-                        }}
-                      >
-                        <UserMinus size={14} />
-                      </button>
+                        <button
+                          type="button"
+                          className="scene-roster__icon-btn"
+                          aria-label={
+                            entry.isHiddenFromPlayers
+                              ? "Revelar a jugadores"
+                              : "Ocultar (Desconocido)"
+                          }
+                          disabled={disabled || presencePending}
+                          onClick={(event) => {
+                            void handleToggleHidden(entry, event);
+                          }}
+                        >
+                          {entry.isHiddenFromPlayers ? <Eye size={14} aria-hidden /> : <EyeOff size={14} aria-hidden />}
+                        </button>
+                      </Tooltip>
+                      <Tooltip content="Quitar de escena">
+                        <button
+                          type="button"
+                          className="scene-roster__icon-btn scene-roster__icon-btn--danger"
+                          aria-label="Quitar de escena"
+                          disabled={disabled || presencePending}
+                          onClick={() => {
+                            void handleRemoveNpc(entry.id);
+                          }}
+                        >
+                          <UserMinus size={14} />
+                        </button>
+                      </Tooltip>
                     </div>
                   )}
                 </li>

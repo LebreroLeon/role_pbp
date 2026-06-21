@@ -2,7 +2,7 @@ import { Link, NavLink, Outlet } from "react-router-dom";
 import { useState } from "react";
 import { LayoutDashboard, LogOut, Scroll, User } from "lucide-react";
 
-import { SectionToneProvider } from "../ui";
+import { SectionToneProvider, Tooltip } from "../ui";
 import { PlayerNameModal } from "../../features/auth/PlayerNameModal";
 import { useLogout } from "../../hooks/mutations/useAuthMutations";
 import { useAuthStore } from "../../stores/authStore";
@@ -30,15 +30,17 @@ export function Layout() {
         <nav>
           {isAuthenticated ? (
             <>
-              <button
-                type="button"
-                className="nav-user nav-user--button"
-                onClick={() => setNameModalOpen(true)}
-                title="Cambiar nombre visible"
-              >
-                <User size={15} aria-hidden />
-                {user?.display_name}
-              </button>
+              <Tooltip content="Cambiar nombre visible">
+                <button
+                  type="button"
+                  className="nav-user nav-user--button"
+                  onClick={() => setNameModalOpen(true)}
+                  aria-label="Cambiar nombre visible"
+                >
+                  <User size={15} aria-hidden />
+                  {user?.display_name}
+                </button>
+              </Tooltip>
               <NavLink to="/campaigns" className="nav-link">
                 <LayoutDashboard size={15} aria-hidden />
                 Campañas

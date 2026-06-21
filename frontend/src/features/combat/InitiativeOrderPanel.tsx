@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import type { CampaignEntity, CombatInitiativeEntry, Scene, TurnOrderSource } from "../../api/types";
-import { Button, Modal, Switch } from "../../components/ui";
+import { Button, Modal, Switch, Tooltip } from "../../components/ui";
 import {
   useAdvancePbpTurnMutation,
   useRollCombatInitiativeMutation,
@@ -314,15 +314,16 @@ function EntityTurnList({
             className={`initiative-entry ${showCombatDetails ? "initiative-entry--combat" : ""} ${isCurrent ? "is-current" : ""} ${entry.is_active === false ? "is-inactive" : ""} ${canAssign ? "is-assignable" : ""}`}
           >
             {canAssign ? (
-              <button
-                type="button"
-                className="initiative-entry__assign"
-                disabled={isTurnBusy}
-                title={`Dar turno a ${displayName}`}
-                onClick={() => {
-                  void onAssignTurn(entry.entity_id).catch(() => undefined);
-                }}
-              >
+              <Tooltip content={`Dar turno a ${displayName}`}>
+                <button
+                  type="button"
+                  className="initiative-entry__assign"
+                  disabled={isTurnBusy}
+                  aria-label={`Dar turno a ${displayName}`}
+                  onClick={() => {
+                    void onAssignTurn(entry.entity_id).catch(() => undefined);
+                  }}
+                >
                 <span className="initiative-entry__marker" aria-hidden>
                   ·
                 </span>
@@ -336,6 +337,7 @@ function EntityTurnList({
                 {entityType && <span className="initiative-entry__tag">{entityType}</span>}
                 {hpLabel && <span className="initiative-entry__hp">{hpLabel} PV</span>}
               </button>
+              </Tooltip>
             ) : (
               <>
                 <span className="initiative-entry__marker" aria-hidden>

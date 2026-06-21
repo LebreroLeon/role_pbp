@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Dices, Scroll } from "lucide-react";
 
 import type { SheetRollRequest } from "../../../api/types";
-import { Button } from "../../../components/ui";
+import { Button, Tooltip } from "../../../components/ui";
 import { extractSheetFromEntity } from "../../character-sheet/pcDocument";
 import {
   abilityModifier,
@@ -87,9 +87,11 @@ export function ChatMiniSheet({ campaignId, disabled, onSceneRefresh }: ChatMini
         <span className="chat-mini-sheet__toggle-label">
           {name} — CA {sheet.defense.ac}, PV {sheet.defense.hp.current}/{sheet.defense.hp.max}
           {hasInspiration ? (
-            <span className="chat-mini-sheet__inspiration-badge" title="Inspiración disponible" aria-label="Inspiración disponible">
-              ✦
-            </span>
+            <Tooltip content="Inspiración disponible">
+              <span className="chat-mini-sheet__inspiration-badge" aria-label="Inspiración disponible">
+                ✦
+              </span>
+            </Tooltip>
           ) : null}
         </span>
         <span className="chat-mini-sheet__chevron" aria-hidden>
@@ -121,20 +123,21 @@ export function ChatMiniSheet({ campaignId, disabled, onSceneRefresh }: ChatMini
               {DND5E_ABILITIES.map((ability) => {
                 const mod = abilityModifier(sheet.abilities[ability]);
                 return (
-                  <button
-                    key={ability}
-                    type="button"
-                    className="chat-mini-sheet__roll-chip"
-                    disabled={disabled || isRolling}
-                    title={`Tirar ${DND5E_ABILITY_LABELS[ability]}`}
-                    onClick={() =>
-                      void roll({ roll_type: "ability_check", context: { ability } })
-                    }
-                  >
-                    <span className="chat-mini-sheet__chip-label">{DND5E_ABILITY_LABELS[ability]}</span>
-                    <span className="chat-mini-sheet__chip-mod">{mod >= 0 ? `+${mod}` : mod}</span>
-                    <Dices size={12} aria-hidden />
-                  </button>
+                  <Tooltip key={ability} content={`Tirar ${DND5E_ABILITY_LABELS[ability]}`}>
+                    <button
+                      type="button"
+                      className="chat-mini-sheet__roll-chip"
+                      disabled={disabled || isRolling}
+                      aria-label={`Tirar ${DND5E_ABILITY_LABELS[ability]}`}
+                      onClick={() =>
+                        void roll({ roll_type: "ability_check", context: { ability } })
+                      }
+                    >
+                      <span className="chat-mini-sheet__chip-label">{DND5E_ABILITY_LABELS[ability]}</span>
+                      <span className="chat-mini-sheet__chip-mod">{mod >= 0 ? `+${mod}` : mod}</span>
+                      <Dices size={12} aria-hidden />
+                    </button>
+                  </Tooltip>
                 );
               })}
             </div>
@@ -147,20 +150,21 @@ export function ChatMiniSheet({ campaignId, disabled, onSceneRefresh }: ChatMini
                 {proficientSkills.map((skill) => {
                   const mod = dnd5eSkillModifier(sheet, skill.name, abilityModifier);
                   return (
-                    <button
-                      key={skill.name}
-                      type="button"
-                      className="chat-mini-sheet__roll-chip"
-                      disabled={disabled || isRolling}
-                      title={`Tirar ${skill.name}`}
-                      onClick={() =>
-                        void roll({ roll_type: "skill_check", context: { skill: skill.name } })
-                      }
-                    >
-                      <span className="chat-mini-sheet__chip-label">{skill.name}</span>
-                      <span className="chat-mini-sheet__chip-mod">{mod >= 0 ? `+${mod}` : mod}</span>
-                      <Dices size={12} aria-hidden />
-                    </button>
+                    <Tooltip key={skill.name} content={`Tirar ${skill.name}`}>
+                      <button
+                        type="button"
+                        className="chat-mini-sheet__roll-chip"
+                        disabled={disabled || isRolling}
+                        aria-label={`Tirar ${skill.name}`}
+                        onClick={() =>
+                          void roll({ roll_type: "skill_check", context: { skill: skill.name } })
+                        }
+                      >
+                        <span className="chat-mini-sheet__chip-label">{skill.name}</span>
+                        <span className="chat-mini-sheet__chip-mod">{mod >= 0 ? `+${mod}` : mod}</span>
+                        <Dices size={12} aria-hidden />
+                      </button>
+                    </Tooltip>
                   );
                 })}
               </div>

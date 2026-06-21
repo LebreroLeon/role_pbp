@@ -4,7 +4,7 @@ import { Crown, User } from "lucide-react";
 
 import { Breadcrumbs } from "./Breadcrumbs";
 import { CAMPAIGN_NAV_ICONS } from "../icons";
-import { ErrorBanner, SectionToneProvider, UnreadBadge, adjustCountsForActiveTab, getToneFromPath } from "../ui";
+import { ErrorBanner, SectionToneProvider, Tooltip, UnreadBadge, adjustCountsForActiveTab, getToneFromPath } from "../ui";
 import { CampaignStatusBadges } from "../../features/campaign/CampaignStatusBadges";
 import { useCampaignQuery } from "../../hooks/queries/useCampaignQueries";
 import { useOpenSceneQuery } from "../../hooks/queries/useSceneQueries";
@@ -94,12 +94,11 @@ export function CampaignLayout() {
           const unreadCount = unreadKey ? displayCounts[unreadKey] : 0;
           if (chatBlocked) {
             return (
-              <span
-                key={link.to}
-                className="campaign-nav__link campaign-nav__link--disabled"
-                title="Esperando al Máster"
-                aria-disabled="true"
-              >
+              <Tooltip key={link.to} content="Esperando al Máster">
+                <span
+                  className="campaign-nav__link campaign-nav__link--disabled"
+                  aria-disabled="true"
+                >
                 <span className="campaign-nav__icon" aria-hidden>
                   <Icon size={18} strokeWidth={1.75} />
                 </span>
@@ -107,16 +106,16 @@ export function CampaignLayout() {
                   <span className="campaign-nav__label">{link.label}</span>
                   <span className="campaign-nav__hint">Esperando al Máster</span>
                 </span>
-              </span>
+                </span>
+              </Tooltip>
             );
           }
           return (
-            <NavLink
-              key={link.to}
-              to={`${base}/${link.to}`}
-              className={({ isActive }) => `campaign-nav__link ${isActive ? "active" : ""}`}
-              title={link.hint}
-            >
+            <Tooltip key={link.to} content={link.hint}>
+              <NavLink
+                to={`${base}/${link.to}`}
+                className={({ isActive }) => `campaign-nav__link ${isActive ? "active" : ""}`}
+              >
               <span className="campaign-nav__icon" aria-hidden>
                 <Icon size={18} strokeWidth={1.75} />
               </span>
@@ -128,6 +127,7 @@ export function CampaignLayout() {
                 <span className="campaign-nav__hint">{link.hint}</span>
               </span>
             </NavLink>
+            </Tooltip>
           );
         })}
       </nav>

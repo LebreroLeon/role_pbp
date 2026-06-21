@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Crown, User } from "lucide-react";
 
 import type { CampaignMember } from "../../api/types";
-import { Button, ConfirmDialog, StatusBadge } from "../../components/ui";
+import { Button, ConfirmDialog, StatusBadge, Tooltip } from "../../components/ui";
 
 type CampaignMemberListProps = {
   members: CampaignMember[];
@@ -59,10 +59,12 @@ export function CampaignMemberList({
               >
                 {initials || "?"}
                 {showPresence && (
-                  <span
-                    className={`member-card__presence ${isOnline ? "is-online" : "is-offline"}`}
-                    title={isOnline ? "En línea" : "Desconectado"}
-                  />
+                  <Tooltip content={isOnline ? "En línea" : "Desconectado"}>
+                    <span
+                      className={`member-card__presence ${isOnline ? "is-online" : "is-offline"}`}
+                      aria-label={isOnline ? "En línea" : "Desconectado"}
+                    />
+                  </Tooltip>
                 )}
               </span>
               <div className="member-card__info">

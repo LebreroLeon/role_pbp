@@ -1,4 +1,5 @@
 import { Trash2 } from "../../components/icons";
+import { Tooltip } from "../../components/ui";
 
 type ChatMessageDeleteButtonProps = {
   onClick: () => void;
@@ -6,14 +7,15 @@ type ChatMessageDeleteButtonProps = {
 
 export function ChatMessageDeleteButton({ onClick }: ChatMessageDeleteButtonProps) {
   return (
-    <button
-      type="button"
-      className="chat-card__delete"
-      onClick={onClick}
-      aria-label="Borrar mensaje"
-      title="Borrar mensaje"
-    >
-      <Trash2 size={14} aria-hidden />
-    </button>
+    <Tooltip content="Borrar mensaje">
+      <button
+        type="button"
+        className="chat-card__delete"
+        onClick={onClick}
+        aria-label="Borrar mensaje"
+      >
+        <Trash2 size={14} aria-hidden />
+      </button>
+    </Tooltip>
   );
 }
