@@ -72,6 +72,17 @@ export function EntityList({
                       <span className="entity-card__name">{getEntityDisplayName(entity, entities)}</span>
                       {isMaster && (
                         <div className="entity-card__actions">
+                          {entity.entity_type === "NPC" && (
+                            <Switch
+                              checked={npcHidden}
+                              onCheckedChange={(checked) => handleToggleNpcHidden(entity, checked)}
+                              label="Ocultar"
+                              description="No visible en Mundo para jugadores"
+                              tone="rose"
+                              disabled={updateMutation.isPending}
+                              className="entity-card__hide-switch"
+                            />
+                          )}
                           {onEdit && (entity.entity_type === "NPC" || isWorldEntity(entity.entity_type)) && (
                             <Button className="secondary" onClick={() => onEdit(entity)}>
                               {editingId === entity.id ? "Editando" : editLabel(entity.entity_type)}
@@ -90,19 +101,6 @@ export function EntityList({
                       )}
                     </div>
                     {summary && <p className="muted entity-summary">{summary}</p>}
-                    {isMaster && entity.entity_type === "NPC" && (
-                      <div className="entity-card__visibility">
-                        <Switch
-                          checked={npcHidden}
-                          onCheckedChange={(checked) => handleToggleNpcHidden(entity, checked)}
-                          label="Ocultar"
-                          description="No visible en Mundo para jugadores"
-                          tone="rose"
-                          disabled={updateMutation.isPending}
-                          className="entity-card__hide-switch"
-                        />
-                      </div>
-                    )}
                   </div>
                 </li>
               );
