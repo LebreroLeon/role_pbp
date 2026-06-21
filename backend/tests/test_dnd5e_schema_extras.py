@@ -47,6 +47,14 @@ class TestNormalizeDamageType:
 
 
 class TestDnd5eSheetIdentityAndAttacks:
+    def test_roleplay_inspiration_defaults_false(self):
+        sheet = Dnd5eSheet.model_validate({})
+        assert sheet.roleplay.inspiration is False
+
+    def test_roleplay_inspiration_persists(self):
+        sheet = Dnd5eSheet.model_validate({"roleplay": {"inspiration": True}})
+        assert sheet.roleplay.inspiration is True
+
     def test_validate_legacy_class_level_and_english_damage(self):
         sheet = Dnd5eSheet.model_validate(
             {

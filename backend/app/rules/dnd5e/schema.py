@@ -125,6 +125,7 @@ class RoleplayBlock(BaseModel):
     ideals: str = ""
     bonds: str = ""
     flaws: str = ""
+    inspiration: bool = False
 
 
 def _ability_modifier(score: int) -> int:

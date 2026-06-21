@@ -3223,8 +3223,121 @@
 
 .sheet-form__roll-toolbar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
   margin-bottom: 0.75rem;
+}
+
+.sheet-header-stats {
+  display: grid;
+  grid-template-columns: minmax(7rem, 9rem) 1fr;
+  gap: 0.65rem;
+  margin-bottom: 0.5rem;
+}
+
+.sheet-inspiration {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  min-height: 5.5rem;
+  padding: 0.65rem 0.5rem;
+  border-radius: var(--radius-md);
+  border: 2px solid rgba(251, 191, 36, 0.35);
+  background: linear-gradient(145deg, rgba(251, 191, 36, 0.06), rgba(245, 158, 11, 0.04));
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s, color 0.15s;
+}
+
+.sheet-inspiration.is-active {
+  border-color: rgba(251, 191, 36, 0.85);
+  background: linear-gradient(145deg, rgba(251, 191, 36, 0.22), rgba(245, 158, 11, 0.14));
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.25), 0 0 18px rgba(251, 191, 36, 0.18);
+}
+
+.sheet-inspiration__symbol {
+  font-size: 2rem;
+  line-height: 1;
+  color: rgba(251, 191, 36, 0.45);
+  transition: color 0.15s, transform 0.15s, text-shadow 0.15s;
+}
+
+.sheet-inspiration.is-active .sheet-inspiration__symbol {
+  color: #fbbf24;
+  text-shadow: 0 0 12px rgba(251, 191, 36, 0.55);
+  transform: scale(1.05);
+}
+
+.sheet-inspiration__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sheet-inspiration__hint {
+  font-size: 0.68rem;
+  opacity: 0.85;
+}
+
+.sheet-inspiration:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sheet-inspiration-spend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.sheet-inspiration-spend.is-active {
+  border-color: rgba(251, 191, 36, 0.85);
+  background: rgba(251, 191, 36, 0.2);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.sheet-inspiration-spend__symbol {
+  font-size: 0.95rem;
+  line-height: 1;
+  color: #fbbf24;
+}
+
+.sheet-inspiration-spend:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sheet-header-stats .sheet-passive-perception {
+  margin-bottom: 0;
+}
+
+@media (max-width: 480px) {
+  .sheet-header-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sheet-inspiration {
+    min-height: 4.75rem;
+  }
+
+  .sheet-inspiration__symbol {
+    font-size: 1.65rem;
+  }
 }
 
 .chat-mini-sheet {
@@ -3251,6 +3364,24 @@
 .chat-mini-sheet__toggle-label {
   flex: 1;
   font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.chat-mini-sheet__inspiration-badge {
+  color: #fbbf24;
+  font-size: 0.95rem;
+  line-height: 1;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.45);
+}
+
+.chat-mini-sheet__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
 }
 
 .chat-mini-sheet__body {

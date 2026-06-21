@@ -97,6 +97,7 @@ export const dnd5eSheetSchema = z.object({
     ideals: z.string(),
     bonds: z.string(),
     flaws: z.string(),
+    inspiration: z.boolean(),
   }),
   features_traits: z.string(),
   equipment: z.string(),
@@ -177,6 +178,7 @@ export function defaultDnd5eSheet(): Dnd5eSheet {
       ideals: "",
       bonds: "",
       flaws: "",
+      inspiration: false,
     },
     features_traits: "",
     equipment: "",
@@ -245,6 +247,7 @@ function readRoleplay(raw: unknown): Dnd5eSheet["roleplay"] {
     ideals: readString(entry.ideals, defaults.ideals),
     bonds: readString(entry.bonds, defaults.bonds),
     flaws: readString(entry.flaws, defaults.flaws),
+    inspiration: typeof entry.inspiration === "boolean" ? entry.inspiration : defaults.inspiration,
   };
 }
 

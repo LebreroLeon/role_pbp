@@ -9,12 +9,15 @@ import {
   DND5E_ABILITIES,
   DND5E_ABILITY_LABELS,
   parseDnd5eSheet,
+  type Dnd5eSheet,
 } from "../../character-sheet/systems/dnd5e/schema";
-import { useRollFromSheetMutation } from "../../../hooks/mutations/useMySheetMutations";
+import { InspirationSpendToggle } from "../../character-sheet/systems/dnd5e/InspirationBox";
+import { useRollFromSheetMutation, useUpsertMySheetMutation } from "../../../hooks/mutations/useMySheetMutations";
 import { useMySheetQuery } from "../../../hooks/queries/useMySheetQueries";
 import { mergeAdvantageIntoContext, type AdvantageMode } from "../../systems/registry";
 import { dnd5eSkillModifier } from "../../systems/dnd5e/rolls";
 import { AdvantageToggle } from "../../systems/dnd5e/AdvantageToggle";
+import { documentToCharacterSheetUpsert, mergeSheetIntoDocument } from "../../character-sheet/pcDocument";
 
 type ChatMiniSheetProps = {
   campaignId: string;
@@ -25,8 +28,10 @@ type ChatMiniSheetProps = {
 export function ChatMiniSheet({ campaignId, disabled, onSceneRefresh }: ChatMiniSheetProps) {
   const [expanded, setExpanded] = useState(false);
   const [advantageMode, setAdvantageMode] = useState<AdvantageMode>("normal");
+  const [spendInspiration, setSpendInspiration] = useState(false);
   const { data: myPc } = useMySheetQuery(campaignId);
   const rollMutation = useRollFromSheetMutation(campaignId);
+  const upsertMutation = useUpsertMySheetMutation(campaignId);
 
   const parsed = useMemo(() => {
     if (!myPc) return null;
@@ -41,13 +46,33 @@ export function ChatMiniSheet({ campaignId, disabled, onSceneRefresh }: ChatMini
   if (!parsed) return null;
 
   const { name, sheet } = parsed;
+  const hasInspiration = sheet.roleplay.inspiration;
   const proficientSkills = sheet.proficiency.skills.filter((skill) => skill.proficient).slice(0, 8);
   const isRolling = rollMutation.isPending;
 
+  async function persistInspiration(nextSheet: Dnd5eSheet) {
+    if (!myPc) return;
+    const document = mergeSheetIntoDocument(myPc.document, "dnd5e", nextSheet as Record<string, unknown>);
+    await upsertMutation.mutateAsync(documentToCharacterSheetUpsert(document));
+  }
+
   async function roll(payload: SheetRollRequest) {
-    const context = mergeAdvantageIntoContext(payload.context, advantageMode);
+    const mode = spendInspiration ? "advantage" : advantageMode;
+    const context = mergeAdvantageIntoContext(payload.context, mode);
     await rollMutation.mutateAsync({ ...payload, context });
+    if (spendInspiration) {
+      const nextSheet = { ...sheet, roleplay: { ...sheet.roleplay, inspiration: false } };
+      await persistInspiration(nextSheet);
+      setSpendInspiration(false);
+    }
     onSceneRefresh?.();
+  }
+
+  function toggleSpendInspiration(active: boolean) {
+    setSpendInspiration(active);
+    if (active) {
+      setAdvantageMode("advantage");
+    }
   }
 
   return (
@@ -61,6 +86,11 @@ export function ChatMiniSheet({ campaignId, disabled, onSceneRefresh }: ChatMini
         <Scroll size={16} aria-hidden />
         <span className="chat-mini-sheet__toggle-label">
           {name} — CA {sheet.defense.ac}, PV {sheet.defense.hp.current}/{sheet.defense.hp.max}
+          {hasInspiration ? (
+            <span className="chat-mini-sheet__inspiration-badge" title="Inspiración disponible" aria-label="Inspiración disponible">
+              ✦
+            </span>
+          ) : null}
         </span>
         <span className="chat-mini-sheet__chevron" aria-hidden>
           {expanded ? "▾" : "▸"}
@@ -76,6 +106,13 @@ export function ChatMiniSheet({ campaignId, disabled, onSceneRefresh }: ChatMini
               disabled={disabled || isRolling}
               compact
             />
+            {hasInspiration && (
+              <InspirationSpendToggle
+                active={spendInspiration}
+                disabled={disabled || isRolling}
+                onToggle={toggleSpendInspiration}
+              />
+            )}
           </div>
 
           <div className="chat-mini-sheet__section">

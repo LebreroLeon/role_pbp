@@ -21,6 +21,7 @@ import {
 } from "./schema";
 import { DND5E_DAMAGE_TYPE_GROUPS, DND5E_DAMAGE_TYPE_VALUES, damageTypeLabel } from "./damageTypes";
 import type { Dnd5eDamageType } from "./damageTypes";
+import { InspirationBox, InspirationSpendToggle } from "./InspirationBox";
 
 type Dnd5eSheetFormProps = {
   defaultValues: Dnd5eSheet;
@@ -116,12 +117,22 @@ export function Dnd5eSheetForm({
 }: Dnd5eSheetFormProps) {
   const rollDisabled = disabled || isRolling || !onRoll;
   const [advantageMode, setAdvantageMode] = useState<AdvantageMode>("normal");
+  const [spendInspiration, setSpendInspiration] = useState(false);
 
-  function rollWithAdvantage(payload: SheetRollRequest) {
-    return onRoll?.({
+  async function rollWithAdvantage(payload: SheetRollRequest) {
+    const mode = spendInspiration ? "advantage" : advantageMode;
+    const result = await onRoll?.({
       ...payload,
-      context: mergeAdvantageIntoContext(payload.context, advantageMode),
+      context: mergeAdvantageIntoContext(payload.context, mode),
     });
+
+    if (spendInspiration && result) {
+      setValue("roleplay.inspiration", false, { shouldDirty: true });
+      setSpendInspiration(false);
+      onSubmit(getValues());
+    }
+
+    return result;
   }
 
   const {
@@ -148,6 +159,7 @@ export function Dnd5eSheetForm({
   const resistances = watch("defense.damage_modifiers.resistances") ?? [];
   const vulnerabilities = watch("defense.damage_modifiers.vulnerabilities") ?? [];
   const immunities = watch("defense.damage_modifiers.immunities") ?? [];
+  const hasInspiration = watch("roleplay.inspiration") ?? false;
 
   const perceptionSkill = skills?.find(
     (skill) => skill.name.trim().toLowerCase().replace(/\s+/g, "_") === "perception",
@@ -235,6 +247,20 @@ export function Dnd5eSheetForm({
     );
   }
 
+  function toggleSpendInspiration(active: boolean) {
+    setSpendInspiration(active);
+    if (active) {
+      setAdvantageMode("advantage");
+    }
+  }
+
+  function toggleInspiration(active: boolean) {
+    setValue("roleplay.inspiration", active, { shouldDirty: true });
+    if (!active) {
+      setSpendInspiration(false);
+    }
+  }
+
   function rollAttack(index: number) {
     const attack = attacks?.[index];
     rollWithAdvantage({
@@ -269,11 +295,25 @@ export function Dnd5eSheetForm({
     <form className="sheet-form" onSubmit={handleSubmit(onSubmit)}>
       <div className="sheet-form__roll-toolbar">
         <AdvantageToggle value={advantageMode} onChange={setAdvantageMode} disabled={rollDisabled} />
+        {hasInspiration && (
+          <InspirationSpendToggle
+            active={spendInspiration}
+            disabled={rollDisabled}
+            onToggle={toggleSpendInspiration}
+          />
+        )}
       </div>
 
-      <div className="sheet-passive-perception" aria-label="Percepción pasiva">
-        <span className="sheet-passive-perception__label">Percepción pasiva (Sab)</span>
-        <strong className="sheet-passive-perception__value">{passiveWisdom}</strong>
+      <div className="sheet-header-stats">
+        <InspirationBox
+          active={hasInspiration}
+          disabled={disabled}
+          onToggle={toggleInspiration}
+        />
+        <div className="sheet-passive-perception" aria-label="Percepción pasiva">
+          <span className="sheet-passive-perception__label">Percepción pasiva (Sab)</span>
+          <strong className="sheet-passive-perception__value">{passiveWisdom}</strong>
+        </div>
       </div>
 
       <section className="sheet-section">
