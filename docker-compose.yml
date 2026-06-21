@@ -30,6 +30,7 @@ services:
       UPLOAD_DIR: /app/campaign_uploads
       SYSTEM_MANUALS_DIR: /app/data/manuals
       SEED_MANUALS: "true"
+      SEED_MONSTERS: "true"
     volumes:
       - ./backend/app:/app/app
       - ./backend/alembic:/app/alembic

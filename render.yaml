@@ -32,3 +32,5 @@ services:
         value: "1536"
       - key: LLM_MODEL
         value: gpt-4o-mini
+      - key: SEED_MONSTERS
+        value: "true"

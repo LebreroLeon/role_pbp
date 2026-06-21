@@ -14,8 +14,10 @@ RUN apt-get update \
 COPY alembic.ini .
 COPY alembic ./alembic
 COPY app ./app
+COPY data ./data
 
 EXPOSE 8000
 
 # Render sets PORT; default 8000 for local Docker.
 CMD ["sh", "-c", "python -m app.core.migrate && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+

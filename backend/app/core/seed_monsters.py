@@ -12,7 +12,6 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.core.config import PROJECT_ROOT
 from app.core.database import create_db_engine
 from app.models.monster_catalog import SystemMonsterCatalog
 from app.rules.dnd5e.monster_sheet_mapper import (
@@ -22,7 +21,8 @@ from app.rules.dnd5e.monster_sheet_mapper import (
     open5e_key_to_slug,
 )
 
-DEFAULT_SNAPSHOT = PROJECT_ROOT / "backend" / "data" / "dnd5e" / "srd-monsters.json"
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_SNAPSHOT = _BACKEND_ROOT / "data" / "dnd5e" / "srd-monsters.json"
 SYSTEM_ID = "dnd5e"
 
 

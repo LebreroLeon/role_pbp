@@ -86,6 +86,7 @@ Con Docker (recomendado) el `CMD` del Dockerfile ya hace migrate + uvicorn en `$
 | `UPLOAD_DIR` | `/tmp/campaign_uploads` | sí |
 | `SYSTEM_MANUALS_DIR` | `/tmp/manuals` | sí |
 | `SEED_MANUALS` | `false` (por defecto; no indexa en Render sin PDFs en la imagen) | opcional |
+| `SEED_MONSTERS` | `true` en Render (catálogo SRD ~325 criaturas en la imagen; upsert idempotente tras migraciones) | recomendado en producción |
 | `SEED_MANUALS_SYSTEMS` | `dnd5e` o `dnd5e,vtm_v5` (vacío = todos los sistemas conocidos) | opcional |
 | `EMBEDDING_MODEL` | `text-embedding-3-small` | opcional |
 | `EMBEDDING_DIMENSIONS` | `1536` | opcional |
