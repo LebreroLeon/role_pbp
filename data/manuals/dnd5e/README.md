@@ -1,6 +1,6 @@
-# D&D 5ª edición — manuales locales
+﻿# D&D 5ª edición — manuales locales
 
-Coloca aquí tus PDFs de reglas. **No se commitean** al repositorio.
+Coloca aquí tus PDFs de reglas. Por defecto **no se commitean** (repo público + copyright). Para tenerlos al programar desde el móvil y que Cursor AI los vea en el workspace, sigue **`docs/MANUALS_MOBILE.md`**.
 
 ## Core recomendado (MVP)
 
@@ -9,6 +9,22 @@ Coloca aquí tus PDFs de reglas. **No se commitean** al repositorio.
 | `manual-del-jugador.pdf` | Player's Handbook / Manual del Jugador |
 | `guia-dungeon-master.pdf` | Dungeon Master's Guide / Guía del DM |
 | `manual-de-monstruos.pdf` | Monster Manual (opcional para combate/NPCs) |
+
+Los nombres con prefijo `01D&D 5E - ...` también valen; el script de verificación los reconoce.
+
+## Comprobar que los PDF están presentes
+
+```powershell
+cd C:\Users\lebre\Projects\role_pbp   # o la ruta de tu clone
+.\scripts\verify-manuals.ps1
+```
+
+## Desarrollo desde el móvil
+
+1. **Repo privado + Git LFS** (un solo clone): ver pasos en `docs/MANUALS_MOBILE.md` → Opción A. Tras clonar: `git lfs install` y `git lfs pull`.
+2. **Repo público**: clona el código con git y sincroniza esta carpeta con OneDrive (u otro) desde el PC — Opción B en `docs/MANUALS_MOBILE.md`.
+
+Abre la raíz del proyecto en Cursor en el móvil; los PDF deben estar en `data/manuals/dnd5e/` para que el agente pueda usarlos al importar o indexar.
 
 ## Copiar desde Descargas (Windows)
 
