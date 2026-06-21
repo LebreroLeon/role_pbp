@@ -1814,6 +1814,7 @@
   padding: 0.45rem 0.5rem;
   border-radius: var(--radius-sm);
   background: var(--bg-base);
+  touch-action: manipulation;
 }
 
 .initiative-manage-item__name {
@@ -1823,20 +1824,30 @@
 
 .initiative-manage-item__actions {
   display: flex;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
-.initiative-manage-item__actions button {
-  min-width: 1.75rem;
-  padding: 0.2rem 0.35rem;
+.initiative-manage-item__move {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.35rem 0.5rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
-  background: transparent;
+  background: var(--bg-elevated, var(--bg-base));
   color: inherit;
   cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.initiative-manage-item__actions button:disabled {
+.initiative-manage-item__move:active:not(:disabled) {
+  background: var(--accent-violet-soft, rgba(139, 92, 246, 0.15));
+}
+
+.initiative-manage-item__actions button:disabled,
+.initiative-manage-item__move:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
