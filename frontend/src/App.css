@@ -4,11 +4,53 @@
   margin: 1rem 0;
 }
 
-.dice-row {
+.dice-panel {
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-elevated, rgba(255, 255, 255, 0.02));
+}
+
+.dice-panel__header {
   display: flex;
-  gap: 0.75rem;
   align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+  color: var(--text-muted);
+}
+
+.dice-panel__header h4 {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dice-panel__body {
+  display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.dice-panel__expression {
+  flex: 0 1 5.5rem;
+  min-width: 4.5rem;
+  max-width: 7rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: inherit;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dice-panel__expression:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .master-result h3 {
@@ -2349,8 +2391,7 @@
 }
 
 .chat-form,
-.master-form,
-.dice-row {
+.master-form {
   display: grid;
   gap: 0.75rem;
 }
@@ -2936,6 +2977,15 @@
   .chat-form,
   .chat-composer__row {
     grid-template-columns: 1fr;
+  }
+
+  .dice-panel__expression {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .dice-panel__body .button {
+    width: 100%;
   }
 
   .member-list li,
