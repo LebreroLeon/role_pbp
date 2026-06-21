@@ -23,9 +23,10 @@ from app.services.entities import (
     EntityReferenceError,
     EntityValidationError,
     ensure_single_arc_manifest,
-    get_effective_hidden_npc_ids,
+    get_effective_unknown_npc_ids,
     get_campaign_or_error,
     mask_hidden_npc_document,
+    npc_player_visibility,
     npc_world_hidden_from_players,
     normalize_entity_document_for_campaign,
     roll_entity_contextual,
@@ -48,15 +49,14 @@ def _entity_to_response(
     entity: CampaignEntity,
     *,
     include_secrets: bool,
-    hidden_npc_ids: set[str] | None = None,
+    unknown_npc_ids: set[str] | None = None,
 ) -> EntityResponse:
     document = entity.document
     if not include_secrets:
         document = strip_master_secrets(document, EntityType(entity.entity_type))
-        if (
-            hidden_npc_ids
-            and entity.entity_type == EntityType.NPC.value
-            and str(entity.id) in hidden_npc_ids
+        if entity.entity_type == EntityType.NPC.value and (
+            (unknown_npc_ids and str(entity.id) in unknown_npc_ids)
+            or npc_player_visibility(document) == "unknown"
         ):
             document = mask_hidden_npc_document(document)
 
@@ -120,9 +120,9 @@ async def list_entities(
     campaign_uuid = parse_uuid(campaign_id, "campaign_id")
     role = await require_campaign_member(db, current_user, campaign_uuid)
     include_secrets = role == "MASTER"
-    hidden_npc_ids: set[str] = set()
+    unknown_npc_ids: set[str] = set()
     if not include_secrets:
-        hidden_npc_ids = await get_effective_hidden_npc_ids(db, campaign_uuid)
+        unknown_npc_ids = await get_effective_unknown_npc_ids(db, campaign_uuid)
 
     query = select(CampaignEntity).where(CampaignEntity.campaign_id == campaign_uuid)
     if entity_type is not None:
@@ -136,7 +136,7 @@ async def list_entities(
             if not (entity.entity_type == EntityType.NPC.value and npc_world_hidden_from_players(entity.document))
         ]
     return [
-        _entity_to_response(entity, include_secrets=include_secrets, hidden_npc_ids=hidden_npc_ids)
+        _entity_to_response(entity, include_secrets=include_secrets, unknown_npc_ids=unknown_npc_ids)
         for entity in entities
     ]
 
@@ -217,15 +217,15 @@ async def get_entity(
     entity = await _get_entity_or_404(entity_id, db)
     role = await require_campaign_member(db, current_user, entity.campaign_id)
     include_secrets = role == "MASTER"
-    hidden_npc_ids: set[str] = set()
+    unknown_npc_ids: set[str] = set()
     if not include_secrets:
-        hidden_npc_ids = await get_effective_hidden_npc_ids(db, entity.campaign_id)
+        unknown_npc_ids = await get_effective_unknown_npc_ids(db, entity.campaign_id)
         if entity.entity_type == EntityType.NPC.value and npc_world_hidden_from_players(entity.document):
             raise HTTPException(status_code=404, detail="Entity not found")
     return _entity_to_response(
         entity,
         include_secrets=include_secrets,
-        hidden_npc_ids=hidden_npc_ids,
+        unknown_npc_ids=unknown_npc_ids,
     )
 
 

@@ -94,7 +94,7 @@ def build_npc_document_from_catalog(
     catalog_entry: SystemMonsterCatalog,
     *,
     name: str,
-    hidden: bool = True,
+    player_visibility: str = "hidden",
     attitude: str = "hostile",
 ) -> dict:
     narrative = deepcopy(catalog_entry.narrative_template or {})
@@ -129,7 +129,8 @@ def build_npc_document_from_catalog(
             "is_present_in_scene": False,
             "attitude_towards_party": attitude,
             "has_met_party": False,
-            "hidden_from_players": hidden,
+            "player_visibility": player_visibility,
+            "hidden_from_players": player_visibility == "hidden",
         },
     }
 
@@ -140,12 +141,14 @@ async def spawn_monsters(
     campaign_id: uuid.UUID,
     slug: str,
     count: int,
-    hidden: bool = True,
+    player_visibility: str = "hidden",
     attitude: str = "hostile",
     system_id: str = "dnd5e",
 ) -> list[CampaignEntity]:
     if count < 1 or count > 50:
         raise MonsterCatalogError("count must be between 1 and 50")
+    if player_visibility not in ("hidden", "unknown", "visible"):
+        raise MonsterCatalogError("player_visibility must be hidden, unknown, or visible")
 
     campaign = await get_campaign_or_error(db, campaign_id)
     if campaign.game_system != system_id:
@@ -163,7 +166,7 @@ async def spawn_monsters(
         document = build_npc_document_from_catalog(
             catalog_entry,
             name=name,
-            hidden=hidden,
+            player_visibility=player_visibility,
             attitude=attitude,
         )
         try:

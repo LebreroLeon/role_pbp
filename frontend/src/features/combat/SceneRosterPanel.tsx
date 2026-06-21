@@ -1,10 +1,16 @@
 import { useMemo, useState, type MouseEvent } from "react";
-import { Eye, EyeOff, Plus, Swords, UserMinus } from "lucide-react";
+import { Plus, Swords, UserMinus } from "lucide-react";
 
 import type { CampaignEntity, Scene } from "../../api/types";
 import { Button, Modal, Tooltip } from "../../components/ui";
 import { getGameSystemProfile } from "../campaign/gameSystems";
+import {
+  withNpcPlayerVisibility,
+  type NpcPlayerVisibility,
+} from "../entities/entityDefaults";
+import { NpcVisibilityControl } from "../entities/NpcVisibilityControl";
 import type { SceneStateInput } from "../scene/sceneState";
+import { useUpdateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 import { useAddPlayerToSceneMutation, useScenePresenceMutation } from "../../hooks/mutations/useSceneMutations";
 import { SceneAttackSheet } from "./SceneAttackSheet";
 import {
@@ -67,8 +73,10 @@ export function SceneRosterPanel({
 
   const presenceMutation = useScenePresenceMutation({ campaignId, onSceneUpdate });
   const addPlayerMutation = useAddPlayerToSceneMutation({ campaignId, onSceneUpdate });
+  const updateEntityMutation = useUpdateEntityMutation(campaignId);
 
-  const presencePending = presenceMutation.isPending || addPlayerMutation.isPending;
+  const presencePending =
+    presenceMutation.isPending || addPlayerMutation.isPending || updateEntityMutation.isPending;
 
   const selectedAttacker = roster.find((entry) => entry.id === selectedAttackerId) ?? null;
 
@@ -76,16 +84,32 @@ export function SceneRosterPanel({
     return null;
   }
 
-  async function handleAddNpc(entityId: string, hidden = false) {
+  async function handleAddNpc(entityId: string) {
     setPresenceError(null);
     try {
       await presenceMutation.mutateAsync({
         sceneId,
-        add: [{ entity_id: entityId, is_hidden_from_players: hidden }],
+        add: [{ entity_id: entityId, is_hidden_from_players: false }],
       });
       setAddToSceneOpen(false);
     } catch (err) {
       setPresenceError(err instanceof Error ? err.message : "No se pudo añadir el NPC");
+    }
+  }
+
+  async function handleNpcVisibilityChange(entry: SceneRosterEntry, visibility: NpcPlayerVisibility) {
+    if (entry.entityType !== "NPC") return;
+    const entity = entities.find((item) => item.id === entry.id);
+    if (!entity) return;
+
+    setPresenceError(null);
+    try {
+      await updateEntityMutation.mutateAsync({
+        entityId: entry.id,
+        document: withNpcPlayerVisibility(entity.document, visibility),
+      });
+    } catch (err) {
+      setPresenceError(err instanceof Error ? err.message : "No se pudo cambiar la visibilidad");
     }
   }
 
@@ -105,22 +129,6 @@ export function SceneRosterPanel({
       await presenceMutation.mutateAsync({ sceneId, remove: [entityId] });
     } catch (err) {
       setPresenceError(err instanceof Error ? err.message : "No se pudo quitar el NPC");
-    }
-  }
-
-  async function handleToggleHidden(entry: SceneRosterEntry, event: MouseEvent<HTMLButtonElement>) {
-    event.stopPropagation();
-    if (entry.entityType !== "NPC") return;
-
-    setPresenceError(null);
-    const nextHidden = !entry.isHiddenFromPlayers;
-    try {
-      await presenceMutation.mutateAsync({
-        sceneId,
-        add: [{ entity_id: entry.id, is_hidden_from_players: nextHidden }],
-      });
-    } catch (err) {
-      setPresenceError(err instanceof Error ? err.message : "No se pudo cambiar la visibilidad");
     }
   }
 
@@ -235,11 +243,11 @@ export function SceneRosterPanel({
                     <span className="scene-roster__name">
                       <span className="scene-roster__name-row">
                         <span>{entry.label}</span>
-                        {isMaster && entry.playerVisibility && (
+                        {isMaster && entry.playerVisibilityLabel && entry.playerVisibility && (
                           <span
-                            className={`scene-roster__visibility scene-roster__visibility--${entry.playerVisibility.toLowerCase()}`}
+                            className={`scene-roster__visibility scene-roster__visibility--${entry.playerVisibility}`}
                           >
-                            {entry.playerVisibility}
+                            {entry.playerVisibilityLabel}
                           </span>
                         )}
                       </span>
@@ -251,29 +259,17 @@ export function SceneRosterPanel({
                   </button>
                   </Tooltip>
 
-                  {isMaster && entry.entityType === "NPC" && (
+                  {isMaster && entry.entityType === "NPC" && entry.playerVisibility && (
                     <div className="scene-roster__master-actions">
-                      <Tooltip
-                        content={
-                          entry.isHiddenFromPlayers ? "Revelar a jugadores" : "Ocultar (Desconocido)"
-                        }
-                      >
-                        <button
-                          type="button"
-                          className="scene-roster__icon-btn"
-                          aria-label={
-                            entry.isHiddenFromPlayers
-                              ? "Revelar a jugadores"
-                              : "Ocultar (Desconocido)"
-                          }
-                          disabled={disabled || presencePending}
-                          onClick={(event) => {
-                            void handleToggleHidden(entry, event);
-                          }}
-                        >
-                          {entry.isHiddenFromPlayers ? <Eye size={14} aria-hidden /> : <EyeOff size={14} aria-hidden />}
-                        </button>
-                      </Tooltip>
+                      <NpcVisibilityControl
+                        value={entry.playerVisibility}
+                        onChange={(visibility) => {
+                          void handleNpcVisibilityChange(entry, visibility);
+                        }}
+                        disabled={disabled || presencePending}
+                        compact
+                        className="scene-roster__visibility-control"
+                      />
                       <Tooltip content="Quitar de escena">
                         <button
                           type="button"
@@ -382,28 +378,16 @@ export function SceneRosterPanel({
                   return (
                     <li key={npc.id} className="scene-roster-modal__item">
                       <span>{name}</span>
-                      <div className="scene-roster-modal__item-actions">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          disabled={presencePending}
-                          onClick={() => {
-                            void handleAddNpc(npc.id, false);
-                          }}
-                        >
-                          Visible
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          disabled={presencePending}
-                          onClick={() => {
-                            void handleAddNpc(npc.id, true);
-                          }}
-                        >
-                          Oculto
-                        </Button>
-                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={presencePending}
+                        onClick={() => {
+                          void handleAddNpc(npc.id);
+                        }}
+                      >
+                        Añadir
+                      </Button>
                     </li>
                   );
                 })}

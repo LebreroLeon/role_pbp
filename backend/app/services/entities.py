@@ -354,11 +354,24 @@ def mask_hidden_npc_document(document: dict) -> dict:
     return sanitized
 
 
-def npc_world_hidden_from_players(document: dict) -> bool:
+def npc_player_visibility(document: dict) -> str:
     flags = document.get("state_flags")
     if not isinstance(flags, dict):
-        return False
-    return bool(flags.get("hidden_from_players"))
+        return "visible"
+    visibility = flags.get("player_visibility")
+    if visibility in ("hidden", "unknown", "visible"):
+        return visibility
+    if bool(flags.get("hidden_from_players")):
+        return "hidden"
+    return "visible"
+
+
+def npc_world_hidden_from_players(document: dict) -> bool:
+    return npc_player_visibility(document) == "hidden"
+
+
+def npc_unknown_to_players(document: dict) -> bool:
+    return npc_player_visibility(document) == "unknown"
 
 
 async def get_world_hidden_npc_ids(db: AsyncSession, campaign_id: uuid.UUID) -> set[str]:
@@ -373,13 +386,30 @@ async def get_world_hidden_npc_ids(db: AsyncSession, campaign_id: uuid.UUID) -> 
     return {str(npc.id) for npc in npcs if npc_world_hidden_from_players(npc.document)}
 
 
+async def get_world_unknown_npc_ids(db: AsyncSession, campaign_id: uuid.UUID) -> set[str]:
+    npcs = (
+        await db.scalars(
+            select(CampaignEntity).where(
+                CampaignEntity.campaign_id == campaign_id,
+                CampaignEntity.entity_type == EntityType.NPC.value,
+            )
+        )
+    ).all()
+    return {str(npc.id) for npc in npcs if npc_unknown_to_players(npc.document)}
+
+
 async def get_effective_hidden_npc_ids(
     db: AsyncSession,
     campaign_id: uuid.UUID,
 ) -> set[str]:
-    hidden = await get_world_hidden_npc_ids(db, campaign_id)
-    hidden.update(await get_active_scene_hidden_npc_ids(db, campaign_id))
-    return hidden
+    return await get_world_hidden_npc_ids(db, campaign_id)
+
+
+async def get_effective_unknown_npc_ids(
+    db: AsyncSession,
+    campaign_id: uuid.UUID,
+) -> set[str]:
+    return await get_world_unknown_npc_ids(db, campaign_id)
 
 
 async def resolve_roll_visibility(

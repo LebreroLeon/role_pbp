@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class EntityType(StrEnum):
@@ -63,12 +63,31 @@ class AINarrativeProfile(BaseModel):
     avatar_url: str | None = None
 
 
+PlayerVisibility = Literal["hidden", "unknown", "visible"]
+
+
 class NPCStateFlags(BaseModel):
     is_dead: bool
     is_present_in_scene: bool
     attitude_towards_party: str
     has_met_party: bool
+    player_visibility: PlayerVisibility = "visible"
     hidden_from_players: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_player_visibility(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        visibility = data.get("player_visibility")
+        hidden_legacy = bool(data.get("hidden_from_players"))
+        if visibility not in ("hidden", "unknown", "visible"):
+            data["player_visibility"] = "hidden" if hidden_legacy else "visible"
+        elif visibility == "hidden":
+            data["hidden_from_players"] = True
+        else:
+            data["hidden_from_players"] = False
+        return data
 
 
 class EntityNPCDocument(BaseModel):

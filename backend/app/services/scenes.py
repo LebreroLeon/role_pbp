@@ -932,6 +932,24 @@ async def update_scene_npc_presence(
         if missing:
             raise SceneServiceError(f"NPC not found in campaign: {', '.join(sorted(missing))}")
 
+        from app.services.entities import npc_player_visibility
+
+        for entry in payload.add:
+            entity_id = str(entry.entity_id).strip()
+            npc = next((item for item in npcs if str(item.id) == entity_id), None)
+            if npc is None:
+                continue
+            current = npc_player_visibility(npc.document)
+            if current == "hidden":
+                continue
+            next_visibility = "unknown" if entry.is_hidden_from_players else "visible"
+            if current == next_visibility:
+                continue
+            flags = dict(npc.document.get("state_flags") or {})
+            flags["player_visibility"] = next_visibility
+            flags["hidden_from_players"] = False
+            npc.document = {**npc.document, "state_flags": flags}
+
     save_scene_state(scene, state)
     await db.commit()
     await db.refresh(scene)

@@ -81,12 +81,13 @@ async def spawn_campaign_monsters(
     await require_campaign_master(db, current_user, campaign_uuid)
 
     try:
+        visibility = payload.player_visibility or ("hidden" if payload.hidden else "visible")
         created = await spawn_monsters(
             db,
             campaign_id=campaign_uuid,
             slug=payload.slug,
             count=payload.count,
-            hidden=payload.hidden,
+            player_visibility=visibility,
             attitude=payload.attitude,
         )
     except MonsterCatalogError as exc:

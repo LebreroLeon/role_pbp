@@ -5,7 +5,8 @@ import {
   formatAttackRollLine as formatAttackRollLineShared,
   formatDamageType as formatDamageTypeShared,
 } from "../scene/rollFormat";
-import { HIDDEN_NPC_LABEL, isNpcHiddenFromPlayer } from "./sceneRoster";
+import { isNpcMaskedForPlayer } from "../entities/entityDefaults";
+import { HIDDEN_NPC_LABEL } from "./sceneRoster";
 export function isCombatMessage(message: ChatMessage): boolean {
   return message.type === "COMBAT" || Boolean(message.combat_event);
 }
@@ -101,7 +102,7 @@ export function resolveCombatEntityName(
   entityId: string | undefined,
   storedName: string | undefined,
   entities: CampaignEntity[] | undefined,
-  sceneState: SceneStateInput | null | undefined,
+  _sceneState: SceneStateInput | null | undefined,
   isMaster: boolean,
 ): string {
   if (!entityId) {
@@ -109,7 +110,7 @@ export function resolveCombatEntityName(
   }
 
   const entity = entities?.find((entry) => entry.id === entityId);
-  if (entity && !isMaster && isNpcHiddenFromPlayer(entityId, entity, sceneState ?? {})) {
+  if (entity && !isMaster && isNpcMaskedForPlayer(entity)) {
     return HIDDEN_NPC_LABEL;
   }
 

@@ -16,7 +16,12 @@ export function useSpawnMonstersMutation(campaignId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: { slug: string; count: number; hidden?: boolean }) =>
+    mutationFn: (payload: {
+      slug: string;
+      count: number;
+      player_visibility?: "hidden" | "unknown" | "visible";
+      hidden?: boolean;
+    }) =>
       api.spawnMonsters(campaignId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.entities.all(campaignId) });

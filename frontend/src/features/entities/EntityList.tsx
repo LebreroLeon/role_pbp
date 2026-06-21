@@ -1,6 +1,14 @@
 import type { CampaignEntity, EntityType } from "./entityDefaults";
-import { ENTITY_TYPE_LABELS, getEntityDisplayName, isNpcWorldHidden } from "./entityDefaults";
-import { Button, Switch } from "../../components/ui";
+import {
+  ENTITY_TYPE_LABELS,
+  getEntityDisplayName,
+  getNpcPlayerVisibility,
+  isNpcWorldHidden,
+  withNpcPlayerVisibility,
+  type NpcPlayerVisibility,
+} from "./entityDefaults";
+import { NpcVisibilityControl } from "./NpcVisibilityControl";
+import { Button } from "../../components/ui";
 import { useUpdateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 
 type EntityListProps = {
@@ -32,14 +40,10 @@ export function EntityList({
     return <p className="muted">El mundo está vacío. Crea o importa NPCs y ubicaciones.</p>;
   }
 
-  async function handleToggleNpcHidden(entity: CampaignEntity, hidden: boolean) {
-    const flags = {
-      ...(entity.document.state_flags as Record<string, unknown>),
-      hidden_from_players: hidden,
-    };
+  async function handleNpcVisibilityChange(entity: CampaignEntity, visibility: NpcPlayerVisibility) {
     await updateMutation.mutateAsync({
       entityId: entity.id,
-      document: { ...entity.document, state_flags: flags },
+      document: withNpcPlayerVisibility(entity.document, visibility),
     });
   }
 
@@ -59,9 +63,8 @@ export function EntityList({
           <h3>{ENTITY_TYPE_LABELS[type as EntityType]}</h3>
           <ul className="entity-list">
             {items.map((entity) => {
-              const npcHidden =
-                entity.entity_type === "NPC" &&
-                Boolean((entity.document.state_flags as { hidden_from_players?: boolean } | undefined)?.hidden_from_players);
+              const npcVisibility =
+                entity.entity_type === "NPC" ? getNpcPlayerVisibility(entity) : null;
 
               const summary = summarizeEntity(entity);
 
@@ -72,15 +75,15 @@ export function EntityList({
                       <span className="entity-card__name">{getEntityDisplayName(entity, entities)}</span>
                       {isMaster && (
                         <div className="entity-card__actions">
-                          {entity.entity_type === "NPC" && (
-                            <Switch
-                              checked={npcHidden}
-                              onCheckedChange={(checked) => handleToggleNpcHidden(entity, checked)}
-                              label="Ocultar"
-                              description="No visible en Mundo para jugadores"
-                              tone="rose"
+                          {entity.entity_type === "NPC" && npcVisibility && (
+                            <NpcVisibilityControl
+                              value={npcVisibility}
+                              onChange={(visibility) => {
+                                void handleNpcVisibilityChange(entity, visibility);
+                              }}
                               disabled={updateMutation.isPending}
-                              className="entity-card__hide-switch"
+                              compact
+                              className="entity-card__visibility"
                             />
                           )}
                           {onEdit && (entity.entity_type === "NPC" || isWorldEntity(entity.entity_type)) && (

@@ -1,5 +1,14 @@
 import { buildPcDocumentWithSheet, defaultSheetForGameSystem } from "../character-sheet/pcDocument";
 
+export type { NpcPlayerVisibility } from "./playerVisibility";
+export {
+  getNpcPlayerVisibility,
+  isNpcMaskedForPlayer,
+  isNpcWorldHidden,
+  NPC_VISIBILITY_LABELS,
+  withNpcPlayerVisibility,
+} from "./playerVisibility";
+
 export type EntityType = "NPC" | "PC" | "FACTION" | "LOCATION" | "RELATIONSHIP" | "ARC_MANIFEST";
 
 export type CampaignEntity = {
@@ -26,12 +35,6 @@ export const PLACEHOLDER_UUID = "00000000-0000-0000-0000-000000000001";
 export function normalizeEntityRefId(value: string | null | undefined): string {
   if (!value || value === PLACEHOLDER_UUID) return "";
   return value;
-}
-
-export function isNpcWorldHidden(entity: CampaignEntity): boolean {
-  if (entity.entity_type !== "NPC") return false;
-  const flags = entity.document.state_flags as { hidden_from_players?: boolean } | undefined;
-  return Boolean(flags?.hidden_from_players);
 }
 
 export function getEntityDisplayName(entity: CampaignEntity, allEntities?: CampaignEntity[]): string {
@@ -98,6 +101,7 @@ export function buildNpcDocument(input: {
       is_present_in_scene: false,
       attitude_towards_party: "neutral",
       has_met_party: false,
+      player_visibility: "visible",
       hidden_from_players: false,
     },
   };

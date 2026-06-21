@@ -156,7 +156,7 @@ export function SceneAttackSheet({
 function EntityChip({ entry }: { entry: SceneRosterEntry }) {
   return (
     <span
-      className={`scene-attack-sheet__chip scene-attack-sheet__chip--${entry.entityType.toLowerCase()}${entry.isHiddenFromPlayers ? " scene-attack-sheet__chip--hidden" : ""}`}
+      className={`scene-attack-sheet__chip scene-attack-sheet__chip--${entry.entityType.toLowerCase()}${entry.playerVisibility === "hidden" || entry.playerVisibility === "unknown" ? " scene-attack-sheet__chip--hidden" : ""}`}
     >
       <span className="scene-attack-sheet__chip-badge">{entry.entityType}</span>
       <span className="scene-attack-sheet__chip-name">{entry.label}</span>

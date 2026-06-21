@@ -290,7 +290,13 @@ export const api = {
     ),
   spawnMonsters: (
     campaignId: string,
-    payload: { slug: string; count: number; hidden?: boolean; attitude?: string },
+    payload: {
+      slug: string;
+      count: number;
+      player_visibility?: "hidden" | "unknown" | "visible";
+      hidden?: boolean;
+      attitude?: string;
+    },
   ) =>
     http<import("./types").MonsterSpawnResponse>(`/api/v1/campaigns/${campaignId}/monsters/spawn`, {
       method: "POST",

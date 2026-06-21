@@ -1,33 +1,36 @@
 import type { CampaignEntity, CombatInitiativeEntry } from "../../api/types";
-import { getEntityDisplayName, isNpcWorldHidden } from "../entities/entityDefaults";
+import {
+  getEntityDisplayName,
+  getNpcPlayerVisibility,
+  isNpcMaskedForPlayer,
+  isNpcWorldHidden,
+  NPC_VISIBILITY_LABELS,
+  type NpcPlayerVisibility,
+} from "../entities/entityDefaults";
 import { getCombatState, normalizeSceneState, type SceneStateInput } from "../scene/sceneState";
 
-export type NpcPlayerVisibility = "Visible" | "Oculto";
+export type { NpcPlayerVisibility };
 
 export type SceneRosterEntry = {
   id: string;
   label: string;
   entityType: "PC" | "NPC";
   userId?: string;
-  isHiddenFromPlayers: boolean;
-  /** Master-only badge for NPC player visibility. */
   playerVisibility: NpcPlayerVisibility | null;
+  /** Master badge label in Spanish. */
+  playerVisibilityLabel: string | null;
   hpLabel: string | null;
 };
 
 export const HIDDEN_NPC_LABEL = "Desconocido";
 
-/** Scene display name: master always sees real name; players see Desconocido when hidden. */
+/** Scene display name: master always sees real name; players see Desconocido when unknown. */
 export function resolveSceneEntityDisplayName(
   entity: CampaignEntity,
-  sceneState: SceneStateInput,
+  _sceneState: SceneStateInput,
   isMaster: boolean,
 ): string {
-  if (
-    !isMaster &&
-    entity.entity_type === "NPC" &&
-    isNpcHiddenFromPlayer(entity.id, entity, sceneState)
-  ) {
+  if (!isMaster && entity.entity_type === "NPC" && isNpcMaskedForPlayer(entity)) {
     return HIDDEN_NPC_LABEL;
   }
   return getEntityDisplayName(entity);
@@ -38,14 +41,8 @@ function getPcUserId(entity: CampaignEntity): string | undefined {
   return binding?.user_id;
 }
 
-export function isNpcHiddenFromPlayer(
-  entityId: string,
-  _entity: CampaignEntity | undefined,
-  sceneState: SceneStateInput,
-): boolean {
-  if (_entity && isNpcWorldHidden(_entity)) return true;
-  const normalized = normalizeSceneState(sceneState);
-  return normalized.context.hidden_npc_ids?.includes(entityId) ?? false;
+export function isNpcHiddenFromPlayer(entity: CampaignEntity): boolean {
+  return isNpcWorldHidden(entity);
 }
 
 function isPcInScene(
@@ -162,6 +159,7 @@ export function buildSceneRoster(
 
   for (const entity of entities) {
     if (entity.entity_type !== "PC" && entity.entity_type !== "NPC") continue;
+    if (!isMaster && entity.entity_type === "NPC" && isNpcHiddenFromPlayer(entity)) continue;
 
     const inScene =
       entity.entity_type === "PC"
@@ -174,21 +172,15 @@ export function buildSceneRoster(
     if (seen.has(dedupeKey)) continue;
     seen.add(dedupeKey);
 
-    const hiddenFromPlayers =
-      entity.entity_type === "NPC" && isNpcHiddenFromPlayer(entity.id, entity, sceneState);
+    const visibility = entity.entity_type === "NPC" ? getNpcPlayerVisibility(entity) : null;
 
     entries.push({
       id: entity.id,
       label: resolveSceneEntityDisplayName(entity, sceneState, isMaster),
       entityType: entity.entity_type,
       userId: entity.entity_type === "PC" ? getPcUserId(entity) : undefined,
-      isHiddenFromPlayers: hiddenFromPlayers,
-      playerVisibility:
-        entity.entity_type === "NPC"
-          ? hiddenFromPlayers
-            ? "Oculto"
-            : "Visible"
-          : null,
+      playerVisibility: visibility,
+      playerVisibilityLabel: visibility ? NPC_VISIBILITY_LABELS[visibility] : null,
       hpLabel: readHpLabel(entity, initiativeIds, combatHpById.get(entity.id)),
     });
   }

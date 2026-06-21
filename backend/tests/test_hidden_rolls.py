@@ -27,7 +27,8 @@ from app.services.scenes import (
 )
 
 
-def _make_npc(*, hidden_world: bool = False, name: str = "Goblin") -> CampaignEntity:
+def _make_npc(*, visibility: str = "visible", name: str = "Goblin") -> CampaignEntity:
+    hidden = visibility == "hidden"
     return CampaignEntity(
         id=uuid.uuid4(),
         campaign_id=uuid.uuid4(),
@@ -40,7 +41,8 @@ def _make_npc(*, hidden_world: bool = False, name: str = "Goblin") -> CampaignEn
                 "is_present_in_scene": False,
                 "attitude_towards_party": "hostile",
                 "has_met_party": False,
-                "hidden_from_players": hidden_world,
+                "player_visibility": visibility,
+                "hidden_from_players": hidden,
             },
         },
     )
@@ -48,11 +50,12 @@ def _make_npc(*, hidden_world: bool = False, name: str = "Goblin") -> CampaignEn
 
 class TestNpcWorldHidden:
     def test_npc_world_hidden_from_players_flag(self):
-        npc = _make_npc(hidden_world=True)
+        npc = _make_npc(visibility="hidden")
         assert npc_world_hidden_from_players(npc.document) is True
 
     def test_npc_not_hidden_by_default(self):
         document = _make_npc().document
+        document["state_flags"].pop("player_visibility", None)
         document["state_flags"].pop("hidden_from_players", None)
         assert npc_world_hidden_from_players(document) is False
 
@@ -87,7 +90,7 @@ class TestResolveRollVisibility:
     def test_hidden_npc_roll_is_master_only(self):
         async def run():
             campaign_id = uuid.uuid4()
-            npc = _make_npc(hidden_world=True)
+            npc = _make_npc(visibility="hidden")
             npc.campaign_id = campaign_id
 
             scene = Scene(

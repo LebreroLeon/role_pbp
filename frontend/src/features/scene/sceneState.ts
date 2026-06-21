@@ -214,13 +214,13 @@ function formatTurnHolderLabel(characterName: string, playerDisplayName?: string
 
 function readEntityName(
   entity: { id: string; entity_type: string; document: Record<string, unknown> },
-  state: SceneStateInput,
+  _state: SceneStateInput,
   isMaster: boolean,
 ): string {
-  if (entity.entity_type === "NPC") {
-    const normalized = normalizeSceneState(state);
-    const hidden = normalized.context.hidden_npc_ids?.includes(entity.id) ?? false;
-    if (!isMaster && hidden) return HIDDEN_NPC_LABEL;
+  if (entity.entity_type === "NPC" && !isMaster) {
+    const flags = entity.document.state_flags as { player_visibility?: string; hidden_from_players?: boolean } | undefined;
+    const visibility = flags?.player_visibility ?? (flags?.hidden_from_players ? "hidden" : "visible");
+    if (visibility === "unknown") return HIDDEN_NPC_LABEL;
   }
   const identity = entity.document.identity as { name?: string } | undefined;
   if (identity?.name?.trim()) return identity.name.trim();

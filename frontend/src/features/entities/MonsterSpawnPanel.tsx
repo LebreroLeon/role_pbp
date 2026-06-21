@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 
 import { ApiError } from "../../api/http";
 import { Swords } from "../../components/icons";
-import { Button, CollapsibleSection, ErrorBanner, Input, Switch } from "../../components/ui";
+import { Button, CollapsibleSection, ErrorBanner, Input } from "../../components/ui";
 import { useMonsterCatalogSearchQuery, useSpawnMonstersMutation } from "../../hooks/mutations/useMonsterMutations";
 import type { MonsterCatalogSummary } from "../../api/types";
+import { NpcVisibilityControl } from "./NpcVisibilityControl";
+import type { NpcPlayerVisibility } from "./playerVisibility";
 
 type MonsterSpawnPanelProps = {
   campaignId: string;
@@ -17,7 +19,7 @@ export function MonsterSpawnPanel({ campaignId, gameSystem, onSpawned }: Monster
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selected, setSelected] = useState<MonsterCatalogSummary | null>(null);
   const [count, setCount] = useState(1);
-  const [hidden, setHidden] = useState(true);
+  const [playerVisibility, setPlayerVisibility] = useState<NpcPlayerVisibility>("hidden");
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -37,7 +39,7 @@ export function MonsterSpawnPanel({ campaignId, gameSystem, onSpawned }: Monster
       const response = await spawnMutation.mutateAsync({
         slug: selected.slug,
         count,
-        hidden,
+        player_visibility: playerVisibility,
       });
       onSpawned(`${response.count} ${selected.name}${response.count === 1 ? "" : "s"} añadido(s) al mundo.`);
       setSelected(null);
@@ -113,13 +115,10 @@ export function MonsterSpawnPanel({ campaignId, gameSystem, onSpawned }: Monster
                 value={String(count)}
                 onChange={(event) => setCount(Math.max(1, Math.min(50, Number(event.target.value) || 1)))}
               />
-              <Switch
-                checked={hidden}
-                onCheckedChange={setHidden}
-                label="Ocultar"
-                description="No visible en Mundo para jugadores"
-                tone="rose"
-              />
+              <div className="monster-spawn-panel__visibility">
+                <span className="monster-spawn-panel__visibility-label">Visibilidad inicial</span>
+                <NpcVisibilityControl value={playerVisibility} onChange={setPlayerVisibility} compact />
+              </div>
             </div>
             <Button onClick={handleSpawn} disabled={spawnMutation.isPending}>
               {spawnMutation.isPending ? "Añadiendo..." : `Añadir ${count} ${selected.name}${count === 1 ? "" : "s"}`}

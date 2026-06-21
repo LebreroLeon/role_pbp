@@ -38,12 +38,13 @@ class TestBuildNpcDocument:
         document = build_npc_document_from_catalog(
             goblin_catalog_entry,
             name="Goblin 1",
-            hidden=True,
+            player_visibility="hidden",
             attitude="hostile",
         )
         validated = validate_entity_document(EntityType.NPC, document)
 
         assert validated.identity.name == "Goblin 1"
+        assert validated.state_flags.player_visibility == "hidden"
         assert validated.state_flags.hidden_from_players is True
         assert validated.state_flags.attitude_towards_party == "hostile"
         assert validated.system_mechanics.system_id == "dnd5e"
@@ -80,7 +81,7 @@ async def test_spawn_monsters_creates_numbered_goblins(goblin_catalog_entry: Sys
         campaign_id=campaign_id,
         slug="goblin",
         count=5,
-        hidden=True,
+        player_visibility="hidden",
         attitude="hostile",
     )
 
@@ -92,5 +93,6 @@ async def test_spawn_monsters_creates_numbered_goblins(goblin_catalog_entry: Sys
     names = [entity.document["identity"]["name"] for entity in added_entities]
     assert names == ["Goblin 1", "Goblin 2", "Goblin 3", "Goblin 4", "Goblin 5"]
     for entity in added_entities:
+        assert entity.document["state_flags"]["player_visibility"] == "hidden"
         assert entity.document["state_flags"]["hidden_from_players"] is True
         assert entity.document["system_mechanics"]["sheet"]["hp"]["max"] == 7
