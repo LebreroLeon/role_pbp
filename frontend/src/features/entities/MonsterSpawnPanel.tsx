@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { ApiError } from "../../api/http";
 import { Swords } from "../../components/icons";
-import { Button, CollapsibleSection, ErrorBanner, Input } from "../../components/ui";
+import { Button, CollapsibleSection, ErrorBanner, Input, Switch } from "../../components/ui";
 import { useMonsterCatalogSearchQuery, useSpawnMonstersMutation } from "../../hooks/mutations/useMonsterMutations";
 import type { MonsterCatalogSummary } from "../../api/types";
 
@@ -113,14 +113,13 @@ export function MonsterSpawnPanel({ campaignId, gameSystem, onSpawned }: Monster
                 value={String(count)}
                 onChange={(event) => setCount(Math.max(1, Math.min(50, Number(event.target.value) || 1)))}
               />
-              <label className="monster-spawn-panel__hidden">
-                <input
-                  type="checkbox"
-                  checked={hidden}
-                  onChange={(event) => setHidden(event.target.checked)}
-                />
-                Oculto para jugadores
-              </label>
+              <Switch
+                checked={hidden}
+                onCheckedChange={setHidden}
+                label="Ocultar"
+                description="No visible en Mundo para jugadores"
+                tone="rose"
+              />
             </div>
             <Button onClick={handleSpawn} disabled={spawnMutation.isPending}>
               {spawnMutation.isPending ? "Añadiendo..." : `Añadir ${count} ${selected.name}${count === 1 ? "" : "s"}`}
