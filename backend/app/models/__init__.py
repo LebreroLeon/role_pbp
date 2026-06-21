@@ -11,6 +11,7 @@ from app.models.campaign import (
     Scene,
     SceneMessageLike,
 )
+from app.models.monster_catalog import SystemMonsterCatalog
 from app.models.system_manual import SystemManualMemory, SystemManualSource
 from app.models.user import CampaignMember, User
 
@@ -27,5 +28,6 @@ __all__ = [
     "SceneMessageLike",
     "SystemManualMemory",
     "SystemManualSource",
+    "SystemMonsterCatalog",
     "User",
 ]

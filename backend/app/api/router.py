@@ -1,6 +1,19 @@
 from fastapi import APIRouter
 
-from app.api.routes import auth, campaigns_mgmt, character_sheets, documents, entities, health, master, ooc, scenes, system_manuals, ws
+from app.api.routes import (
+    auth,
+    campaigns_mgmt,
+    character_sheets,
+    documents,
+    entities,
+    health,
+    master,
+    monster_catalog,
+    ooc,
+    scenes,
+    system_manuals,
+    ws,
+)
 
 api_router = APIRouter()
 api_router.include_router(health.router)
@@ -13,4 +26,5 @@ api_router.include_router(master.router)
 api_router.include_router(entities.router)
 api_router.include_router(documents.router)
 api_router.include_router(system_manuals.router)
+api_router.include_router(monster_catalog.router)
 api_router.include_router(ws.router)

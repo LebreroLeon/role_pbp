@@ -744,3 +744,41 @@ export type SheetRollResponse = {
 
 };
 
+
+
+export type MonsterCatalogSummary = {
+
+  slug: string;
+
+  name: string;
+
+  challenge_rating: number;
+
+  creature_type: string;
+
+  size: string;
+
+  source_document: string;
+
+};
+
+
+
+export type MonsterCatalogDetail = MonsterCatalogSummary & {
+
+  narrative_template: Record<string, unknown>;
+
+  sheet_template: Record<string, unknown>;
+
+};
+
+
+
+export type MonsterSpawnResponse = {
+
+  created: string[];
+
+  count: number;
+
+};
+

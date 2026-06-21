@@ -5,7 +5,7 @@ import { Activity, CheckCircle2, Circle, Crown, SECTION_ICONS } from "../compone
 import { SlideOver, Toast, Button, ErrorBanner, CollapsibleSection } from "../components/ui";
 import { EntitySheetEditor } from "../features/character-sheet/EntitySheetEditor";
 import { CampaignSceneLog, formatSceneLabel } from "../features/campaign";
-import { CreateEntityForm, EntityList, ImportExportPanel, WorldEntityEditor, ArcManifestEditor } from "../features/entities";
+import { CreateEntityForm, EntityList, ImportExportPanel, MonsterSpawnPanel, WorldEntityEditor, ArcManifestEditor } from "../features/entities";
 import { ENTITY_TYPE_LABELS, buildArcManifestDocument, getEntityDisplayName } from "../features/entities/entityDefaults";
 import { useCreateEntityMutation, useDeleteEntityMutation } from "../hooks/mutations/useEntityMutations";
 import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
@@ -230,6 +230,13 @@ export function WorldPage() {
           onDelete={isMaster ? handleDelete : undefined}
           deletingId={deletingId}
         />
+        {isMaster && (
+          <MonsterSpawnPanel
+            campaignId={campaignId}
+            gameSystem={gameSystem}
+            onSpawned={setToastMessage}
+          />
+        )}
       </CollapsibleSection>
 
       {isMaster && editingEntity?.entity_type === "NPC" && (

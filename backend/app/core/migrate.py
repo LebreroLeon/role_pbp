@@ -31,8 +31,10 @@ def run_migrations() -> None:
         sys.exit(result.returncode)
 
     from app.core.seed_manuals import seed_system_manuals_if_enabled
+    from app.core.seed_monsters import seed_monster_catalog_if_enabled
 
     seed_system_manuals_if_enabled()
+    seed_monster_catalog_if_enabled()
 
 
 if __name__ == "__main__":

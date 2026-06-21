@@ -27,4 +27,7 @@ export const queryKeys = {
   systemManuals: {
     status: (systemId: string) => ["system-manuals", systemId, "status"] as const,
   },
+  monsterCatalog: {
+    search: (systemId: string, query: string) => ["monster-catalog", systemId, query] as const,
+  },
 } as const;

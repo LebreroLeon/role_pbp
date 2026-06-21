@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24 * 7
     seed_manuals: str = "false"
     seed_manuals_systems: str = ""
+    seed_monsters: str = "false"
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -45,6 +46,16 @@ class Settings(BaseSettings):
             return "true"
         if normalized == "force":
             return "force"
+        return None
+
+    @property
+    def seed_monsters_mode(self) -> str | None:
+        """Return 'true' or None when monster catalog seeding is disabled."""
+        normalized = self.seed_monsters.strip().lower()
+        if normalized in ("", "0", "false", "no", "off"):
+            return None
+        if normalized in ("true", "1", "yes", "on", "force"):
+            return "true"
         return None
 
 

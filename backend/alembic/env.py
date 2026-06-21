@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.core.config import settings
 from app.core.database import Base
 from app.core.db_url import prepare_asyncpg_url
-from app.models import campaign, semantic_cache, system_manual  # noqa: F401 — register ORM models with metadata
+from app.models import campaign, monster_catalog, semantic_cache, system_manual  # noqa: F401 — register ORM models with metadata
 
 config = context.config
 _alembic_url, _alembic_connect_args = prepare_asyncpg_url(settings.database_url)

@@ -280,6 +280,22 @@ export const api = {
     }),
   getSystemManualStatus: (systemId: string) =>
     http<import("./types").SystemManualStatusResponse>(`/api/v1/system-manuals/${systemId}/status`),
+  searchMonsterCatalog: (systemId: string, query: string, limit = 20) => {
+    const params = new URLSearchParams({ system_id: systemId, q: query, limit: String(limit) });
+    return http<import("./types").MonsterCatalogSummary[]>(`/api/v1/catalog/monsters?${params.toString()}`);
+  },
+  getMonsterCatalogEntry: (slug: string, systemId = "dnd5e") =>
+    http<import("./types").MonsterCatalogDetail>(
+      `/api/v1/catalog/monsters/${encodeURIComponent(slug)}?system_id=${encodeURIComponent(systemId)}`,
+    ),
+  spawnMonsters: (
+    campaignId: string,
+    payload: { slug: string; count: number; hidden?: boolean; attitude?: string },
+  ) =>
+    http<import("./types").MonsterSpawnResponse>(`/api/v1/campaigns/${campaignId}/monsters/spawn`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
 
 export type { AuthResponse, Campaign, CampaignDocument, CampaignEntity, CampaignMember, CharacterSheetUpsert, ChatMessage, Dnd5eRollType, DocumentType, EntityExportBundle, EntityType, MasterAssistMode, MasterAssistResponse, MessageType, OocMessage, OocMessageType, PcIdentity, PublicProfile, PcStateFlags, Scene, SceneState, SheetRollContext, SheetRollRequest, SheetRollResponse, TypedSystemMechanics } from "./types";
