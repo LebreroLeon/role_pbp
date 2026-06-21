@@ -19,6 +19,7 @@ class SystemMonsterCatalog(Base):
     creature_type: Mapped[str] = mapped_column(String(64), nullable=False)
     size: Mapped[str] = mapped_column(String(32), nullable=False)
     source_document: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_label: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     narrative_template: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     sheet_template: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     raw_stat_block: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

@@ -10,6 +10,7 @@ class MonsterCatalogSummary(BaseModel):
     creature_type: str
     size: str
     source_document: str
+    source_label: str = ""
 
 
 class MonsterCatalogDetail(MonsterCatalogSummary):

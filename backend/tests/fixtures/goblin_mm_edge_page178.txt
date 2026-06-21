@@ -1,0 +1,36 @@
+ra 
+luRI-YARKI4 
+/Nos RENDIMOS.'" EN GOBLIN 
+(O ESO DICEN), 
+GOBLIN 
+Humanoide Pequeño (trasgo), neutral malvado 
+Clase de Armadura: 15 (armadura de cuero, escudo) 
+Puntos de golpe: 7 (2d6) 
+Velocidad: 30 pies 
+FUE 
+DES 
+CON 
+INT 
+SAB 
+CAR 
+8 (-1) 
+14 (+2) 
+10 (+0) 
+10 (+0) 
+8 (-1) 
+8 (-1) 
+Habilidades: Sigilo +6 
+Sentidos:  visión en la oscuridad 60 pies, Percepción pasiva 9 
+Idiomas: común, goblin 
+Desafío: 1/4 (50 PX) 
+Huida veloz. El goblin puede, en cada uno de sus turnos, usar 
+una acción adicional para Destrabarse o Esconderse. 
+ACCIONES 
+Cimitarra. Ataque con arma cuerpo a cuerpo: +4 a impactar, 
+alcance 5 pies, un objetivo. Impacto: 5 (1d6 + 2) de daño 
+cortante. 
+Arco corto. Ataque con arma a distancia: +4 a impactar, 
+alcance 80/320 pies, un objetivo. Impacto: 5 (1d6 + 2) de daño 
+perforante. 
+JEFE GOBLIN 
+Humanoide Pequeño (trasgo), neutral malvado 

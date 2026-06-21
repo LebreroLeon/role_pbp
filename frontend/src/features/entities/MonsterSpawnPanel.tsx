@@ -14,6 +14,16 @@ type MonsterSpawnPanelProps = {
   onSpawned: (message: string) => void;
 };
 
+function formatMonsterSource(monster: MonsterCatalogSummary): string | null {
+  if (monster.source_label?.trim()) {
+    return monster.source_label;
+  }
+  if (monster.source_document === "srd-2014") {
+    return "SRD 5.1";
+  }
+  return monster.source_document || null;
+}
+
 export function MonsterSpawnPanel({ campaignId, gameSystem, onSpawned }: MonsterSpawnPanelProps) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -32,6 +42,7 @@ export function MonsterSpawnPanel({ campaignId, gameSystem, onSpawned }: Monster
     gameSystem === "dnd5e" && debouncedSearch.length > 0,
   );
   const spawnMutation = useSpawnMonstersMutation(campaignId);
+  const selectedSource = selected ? formatMonsterSource(selected) : null;
 
   async function handleSpawn() {
     if (!selected) return;
@@ -83,7 +94,9 @@ export function MonsterSpawnPanel({ campaignId, gameSystem, onSpawned }: Monster
               <p className="muted">Sin resultados para «{debouncedSearch}».</p>
             )}
             {!isFetching &&
-              results.map((monster) => (
+              results.map((monster) => {
+                const source = formatMonsterSource(monster);
+                return (
                 <button
                   key={monster.slug}
                   type="button"
@@ -95,16 +108,19 @@ export function MonsterSpawnPanel({ campaignId, gameSystem, onSpawned }: Monster
                   <span className="monster-spawn-panel__result-name">{monster.name}</span>
                   <span className="monster-spawn-panel__result-meta">
                     CR {monster.challenge_rating} · {monster.creature_type} · {monster.size}
+                    {source ? ` · ${source}` : ""}
                   </span>
                 </button>
-              ))}
+              );
+              })}
           </div>
         )}
 
         {selected && (
           <div className="monster-spawn-panel__spawn">
             <p className="muted">
-              Seleccionado: <strong>{selected.name}</strong> (CR {selected.challenge_rating})
+              Seleccionado: <strong>{selected.name}</strong> (CR {selected.challenge_rating}
+              {selectedSource ? ` · ${selectedSource}` : ""})
             </p>
             <div className="monster-spawn-panel__controls">
               <Input

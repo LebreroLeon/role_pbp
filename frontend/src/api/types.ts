@@ -760,6 +760,8 @@ export type MonsterCatalogSummary = {
 
   source_document: string;
 
+  source_label?: string;
+
 };
 
 

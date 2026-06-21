@@ -32,6 +32,7 @@ def _to_summary(entry: SystemMonsterCatalog) -> MonsterCatalogSummary:
         creature_type=entry.creature_type,
         size=entry.size,
         source_document=entry.source_document,
+        source_label=entry.source_label,
     )
 
 
