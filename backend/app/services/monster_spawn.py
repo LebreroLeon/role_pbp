@@ -181,6 +181,7 @@ def build_npc_document_from_catalog(
             "has_met_party": False,
             "player_visibility": player_visibility,
             "hidden_from_players": player_visibility == "hidden",
+            "compendium_tier": "combat",
         },
     }
 

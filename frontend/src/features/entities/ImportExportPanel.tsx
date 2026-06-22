@@ -10,9 +10,11 @@ import { EXPORT_FORMAT_HINT, LOCATION_TEMPLATE, NPC_TEMPLATE, downloadJson } fro
 
 type ImportExportPanelProps = {
   campaignId: string;
+  /** When true, renders without Panel wrapper (for CollapsibleSection). */
+  embedded?: boolean;
 };
 
-export function ImportExportPanel({ campaignId }: ImportExportPanelProps) {
+export function ImportExportPanel({ campaignId, embedded = false }: ImportExportPanelProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [jsonText, setJsonText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -67,15 +69,8 @@ export function ImportExportPanel({ campaignId }: ImportExportPanelProps) {
     event.target.value = "";
   }
 
-  return (
-    <Panel>
-      <PanelHeader
-        icon={Download}
-        iconTone="teal"
-        title="Importar y exportar mundo"
-        description="Copia de seguridad en JSON o carga NPCs y lugares desde otro archivo RolePBP."
-      />
-
+  const panelBody = (
+    <>
       <div className="import-export__actions">
         <Button onClick={handleExport} disabled={exporting}>
           {exporting ? "Exportando..." : "Exportar mundo (JSON)"}
@@ -115,6 +110,22 @@ export function ImportExportPanel({ campaignId }: ImportExportPanelProps) {
 
       {error && <ErrorBanner message={error} />}
       {success && <p className="ok">{success}</p>}
+    </>
+  );
+
+  if (embedded) {
+    return panelBody;
+  }
+
+  return (
+    <Panel>
+      <PanelHeader
+        icon={Download}
+        iconTone="teal"
+        title="Importar y exportar mundo"
+        description="Copia de seguridad en JSON o carga NPCs y lugares desde otro archivo RolePBP."
+      />
+      {panelBody}
     </Panel>
   );
 }

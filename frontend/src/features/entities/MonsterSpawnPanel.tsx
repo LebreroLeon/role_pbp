@@ -12,6 +12,8 @@ type MonsterSpawnPanelProps = {
   campaignId: string;
   gameSystem: string;
   onSpawned: (message: string) => void;
+  /** When true, renders content only (parent provides CollapsibleSection). */
+  embedded?: boolean;
 };
 
 function formatMonsterSource(monster: MonsterCatalogSummary): string | null {
@@ -24,7 +26,7 @@ function formatMonsterSource(monster: MonsterCatalogSummary): string | null {
   return monster.source_document || null;
 }
 
-export function MonsterSpawnPanel({ campaignId, gameSystem, onSpawned }: MonsterSpawnPanelProps) {
+export function MonsterSpawnPanel({ campaignId, gameSystem, onSpawned, embedded = false }: MonsterSpawnPanelProps) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selected, setSelected] = useState<MonsterCatalogSummary | null>(null);
@@ -66,15 +68,8 @@ export function MonsterSpawnPanel({ campaignId, gameSystem, onSpawned }: Monster
     return null;
   }
 
-  return (
-    <CollapsibleSection
-      icon={Swords}
-      iconTone="rose"
-      title="Catálogo de monstruos SRD"
-      description="Busca en el bestiario SRD (CC BY 4.0) y añade NPCs con ficha D&D 5e sin abrir el editor."
-      defaultOpen={false}
-    >
-      <div className="monster-spawn-panel">
+  const panelBody = (
+    <div className="monster-spawn-panel">
         <div className="monster-spawn-panel__search">
           <Input
             label="Buscar monstruo"
@@ -159,6 +154,21 @@ export function MonsterSpawnPanel({ campaignId, gameSystem, onSpawned }: Monster
           (CC BY 4.0). Atribución: Wizards of the Coast SRD 5.1.
         </p>
       </div>
+  );
+
+  if (embedded) {
+    return panelBody;
+  }
+
+  return (
+    <CollapsibleSection
+      icon={Swords}
+      iconTone="rose"
+      title="Catálogo de monstruos SRD"
+      description="Busca en el bestiario SRD (CC BY 4.0) y añade NPCs con ficha D&D 5e sin abrir el editor."
+      defaultOpen={false}
+    >
+      {panelBody}
     </CollapsibleSection>
   );
 }

@@ -28,6 +28,10 @@ type CreateEntityFormProps = {
   entities?: CampaignEntity[];
   gameSystem?: string;
   onNpcCreated?: (entity: CampaignEntity) => void;
+  /** When true, renders without Panel wrapper (for slide-over). */
+  embedded?: boolean;
+  onCancel?: () => void;
+  onCreated?: (entity: CampaignEntity) => void;
 };
 
 export function CreateEntityForm({
@@ -36,6 +40,9 @@ export function CreateEntityForm({
   entities = [],
   gameSystem = "generic",
   onNpcCreated,
+  embedded = false,
+  onCancel,
+  onCreated,
 }: CreateEntityFormProps) {
   const [entityType, setEntityType] = useState<EntityType>("NPC");
   const [name, setName] = useState("");
@@ -147,6 +154,8 @@ export function CreateEntityForm({
           resetForm();
           if (entityType === "NPC") {
             onNpcCreated?.(created);
+          } else {
+            onCreated?.(created);
           }
         },
       },
@@ -159,15 +168,8 @@ export function CreateEntityForm({
     ["NPC", "PC", "FACTION", "LOCATION"].includes(entity.entity_type),
   );
 
-  return (
-    <Panel>
-      <PanelHeader
-        icon={MapPin}
-        iconTone="teal"
-        title="Nueva entidad del mundo"
-        description="Añade NPCs, ubicaciones, facciones, relaciones o el PJ de un jugador."
-      />
-      <form className="auth-form" onSubmit={handleSubmit}>
+  const formContent = (
+    <form className="auth-form" onSubmit={handleSubmit}>
         <label className="form-field">
           <span>Tipo</span>
           <select value={entityType} onChange={(event) => setEntityType(event.target.value as EntityType)}>
@@ -343,18 +345,40 @@ export function CreateEntityForm({
         )}
 
         {apiError && <ErrorBanner message={apiError} />}
-        <Button
-          type="submit"
-          disabled={
-            mutation.isPending ||
-            (entityType !== "RELATIONSHIP" && !name.trim()) ||
-            (entityType === "PC" && !playerUserId) ||
-            (entityType === "RELATIONSHIP" && (!sourceId || !targetId))
-          }
-        >
-          {mutation.isPending ? "Creando..." : "Crear entidad"}
-        </Button>
+        <div className="form-actions">
+          {embedded && onCancel && (
+            <Button type="button" className="secondary" onClick={onCancel}>
+              Cancelar
+            </Button>
+          )}
+          <Button
+            type="submit"
+            disabled={
+              mutation.isPending ||
+              (entityType !== "RELATIONSHIP" && !name.trim()) ||
+              (entityType === "PC" && !playerUserId) ||
+              (entityType === "RELATIONSHIP" && (!sourceId || !targetId))
+            }
+          >
+            {mutation.isPending ? "Creando..." : "Crear entidad"}
+          </Button>
+        </div>
       </form>
+  );
+
+  if (embedded) {
+    return formContent;
+  }
+
+  return (
+    <Panel>
+      <PanelHeader
+        icon={MapPin}
+        iconTone="teal"
+        title="Nueva entidad del mundo"
+        description="Añade NPCs, ubicaciones, facciones, relaciones o el PJ de un jugador."
+      />
+      {formContent}
     </Panel>
   );
 }

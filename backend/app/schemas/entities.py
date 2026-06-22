@@ -66,6 +66,9 @@ class AINarrativeProfile(BaseModel):
 PlayerVisibility = Literal["hidden", "unknown", "visible"]
 
 
+CompendiumTier = Literal["story", "combat", "archive"]
+
+
 class NPCStateFlags(BaseModel):
     is_dead: bool
     is_present_in_scene: bool
@@ -73,6 +76,7 @@ class NPCStateFlags(BaseModel):
     has_met_party: bool
     player_visibility: PlayerVisibility = "visible"
     hidden_from_players: bool = False
+    compendium_tier: CompendiumTier | None = None
 
     @model_validator(mode="before")
     @classmethod

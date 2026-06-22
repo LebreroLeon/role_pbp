@@ -1,17 +1,24 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { Activity, CheckCircle2, Circle, Crown, SECTION_ICONS } from "../components/icons";
+import { Activity, CheckCircle2, Circle, Crown, Plus, SECTION_ICONS, Swords } from "../components/icons";
 import { SlideOver, Toast, Button, ErrorBanner, CollapsibleSection } from "../components/ui";
 import { EntitySheetEditor } from "../features/character-sheet/EntitySheetEditor";
 import { CampaignSceneLog, formatSceneLabel } from "../features/campaign";
 import { CreateEntityForm, EntityList, ImportExportPanel, MonsterSpawnPanel, WorldEntityEditor, ArcManifestEditor } from "../features/entities";
 import { ENTITY_TYPE_LABELS, buildArcManifestDocument, getEntityDisplayName } from "../features/entities/entityDefaults";
+import type { WorldViewFilter } from "../features/entities/compendiumTier";
 import { useCreateEntityMutation, useDeleteEntityMutation } from "../hooks/mutations/useEntityMutations";
 import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
 import { useEntitiesQuery } from "../hooks/queries/useEntityQueries";
 import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
 import { useAuthStore } from "../stores/authStore";
+
+const WORLD_VIEW_TABS: { id: WorldViewFilter; label: string }[] = [
+  { id: "story", label: "Historia" },
+  { id: "combat", label: "Bestiario" },
+  { id: "all", label: "Todo" },
+];
 
 export function WorldPage() {
   const { campaignId = "" } = useParams();
@@ -27,6 +34,8 @@ export function WorldPage() {
   const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
   const [editorMode, setEditorMode] = useState<"create" | "edit">("edit");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [worldView, setWorldView] = useState<WorldViewFilter>("story");
+  const [createEntityOpen, setCreateEntityOpen] = useState(false);
 
   const isMaster = campaign?.role === "MASTER";
   const gameSystem = campaign?.game_system ?? "generic";
@@ -191,7 +200,7 @@ export function WorldPage() {
         title="Mundo"
         description={
           isMaster
-            ? "NPCs, ubicaciones, facciones y relaciones. Edita lore y fichas aquí; los jugadores solo ven lo público."
+            ? "Compendio narrativo: NPCs relevantes, ubicaciones, facciones y relaciones. El bestiario de combate vive en su propia pestaña."
             : "Personajes y lugares que tu PJ conoce. Los secretos del Máster no se muestran aquí."
         }
         defaultOpen={isMaster}
@@ -221,23 +230,96 @@ export function WorldPage() {
             )}
           </div>
         )}
+
+        {isMaster && (
+          <div className="world-toolbar">
+            <div className="world-view-tabs" role="tablist" aria-label="Vista del compendio">
+              {WORLD_VIEW_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={worldView === tab.id}
+                  className={`world-view-tabs__tab${worldView === tab.id ? " is-active" : ""}`}
+                  onClick={() => setWorldView(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <Button className="world-toolbar__add" onClick={() => setCreateEntityOpen(true)}>
+              <Plus size={16} aria-hidden />
+              Añadir entidad
+            </Button>
+          </div>
+        )}
+
+        {isMaster && worldView === "combat" && (
+          <CollapsibleSection
+            icon={Swords}
+            iconTone="rose"
+            title="Invocar del catálogo SRD"
+            description="Busca en el bestiario y añade monstruos con ficha D&D 5e."
+            defaultOpen={false}
+            className="world-bestiario-spawn"
+          >
+            <MonsterSpawnPanel
+              campaignId={campaignId}
+              gameSystem={gameSystem}
+              onSpawned={setToastMessage}
+              embedded
+            />
+          </CollapsibleSection>
+        )}
+
         <EntityList
           campaignId={campaignId}
           entities={entities}
           isMaster={Boolean(isMaster)}
+          viewFilter={isMaster ? worldView : "story"}
           onEdit={isMaster ? (entity) => openEditor(entity.id, "edit") : undefined}
           editingId={editingEntityId}
           onDelete={isMaster ? handleDelete : undefined}
           deletingId={deletingId}
         />
+
         {isMaster && (
-          <MonsterSpawnPanel
-            campaignId={campaignId}
-            gameSystem={gameSystem}
-            onSpawned={setToastMessage}
-          />
+          <CollapsibleSection
+            title="Importar / exportar"
+            description="Copia de seguridad del compendio en JSON."
+            defaultOpen={false}
+            className="world-import-export"
+          >
+            <ImportExportPanel campaignId={campaignId} embedded />
+          </CollapsibleSection>
         )}
       </CollapsibleSection>
+
+      {isMaster && createEntityOpen && (
+        <SlideOver
+          open
+          title="Nueva entidad del mundo"
+          description="Añade NPCs, ubicaciones, facciones, relaciones o el PJ de un jugador."
+          onClose={() => setCreateEntityOpen(false)}
+        >
+          <CreateEntityForm
+            campaignId={campaignId}
+            members={members}
+            entities={entities}
+            gameSystem={gameSystem}
+            embedded
+            onCancel={() => setCreateEntityOpen(false)}
+            onNpcCreated={(entity) => {
+              setCreateEntityOpen(false);
+              openEditor(entity.id, "create");
+            }}
+            onCreated={() => {
+              setCreateEntityOpen(false);
+              setToastMessage("Entidad creada correctamente.");
+            }}
+          />
+        </SlideOver>
+      )}
 
       {isMaster && editingEntity?.entity_type === "NPC" && (
         <SlideOver
@@ -296,19 +378,6 @@ export function WorldPage() {
             onCancel={closeEditor}
           />
         </SlideOver>
-      )}
-
-      {isMaster && (
-        <>
-          <CreateEntityForm
-            campaignId={campaignId}
-            members={members}
-            entities={entities}
-            gameSystem={gameSystem}
-            onNpcCreated={(entity) => openEditor(entity.id, "create")}
-          />
-          <ImportExportPanel campaignId={campaignId} />
-        </>
       )}
     </div>
   );

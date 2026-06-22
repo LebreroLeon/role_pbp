@@ -49,6 +49,7 @@ class TestBuildNpcDocument:
         assert validated.state_flags.player_visibility == "hidden"
         assert validated.state_flags.hidden_from_players is True
         assert validated.state_flags.attitude_towards_party == "hostile"
+        assert validated.state_flags.compendium_tier == "combat"
         assert validated.system_mechanics.system_id == "dnd5e"
         assert validated.system_mechanics.sheet["ac"] == 15
 
