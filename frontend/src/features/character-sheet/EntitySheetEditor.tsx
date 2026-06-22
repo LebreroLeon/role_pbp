@@ -20,7 +20,9 @@ import type { CampaignEntity } from "../entities/entityDefaults";
 import { getEntityDisplayName, normalizeEntityRefId } from "../entities/entityDefaults";
 import { ensureNpcTypedMechanics } from "../entities/npcDocument";
 import { extractAvatarUrl } from "../entities/entityAvatar";
+import { extractIllustrationUrl } from "../entities/entityIllustration";
 import { EntityAvatarField } from "./EntityAvatarField";
+import { EntityIllustrationField } from "../entities/EntityIllustrationField";
 
 type EntitySheetEditorProps = {
   campaignId: string;
@@ -89,6 +91,7 @@ export function EntitySheetEditor({
   const [voiceAndTone, setVoiceAndTone] = useState("");
   const [personalityTraits, setPersonalityTraits] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [illustrationUrl, setIllustrationUrl] = useState("");
   const [factionId, setFactionId] = useState("");
   const [locationId, setLocationId] = useState("");
 
@@ -124,6 +127,7 @@ export function EntitySheetEditor({
     setVoiceAndTone(narrativeProfile?.voice_and_tone ?? "");
     setPersonalityTraits((narrativeProfile?.personality_traits ?? []).join(", "));
     setAvatarUrl(extractAvatarUrl(entity) ?? "");
+    setIllustrationUrl(extractIllustrationUrl(entity) ?? "");
     const identityRefs = workingDocument.identity as
       | { faction_id?: string | null; current_location_id?: string }
       | undefined;
@@ -152,6 +156,7 @@ export function EntitySheetEditor({
       voiceAndTone,
       personalityTraits: traits.length > 0 ? traits : ["misterioso"],
       avatarUrl,
+      illustrationUrl,
       factionId: factionId || null,
       locationId: locationId || "",
     };
@@ -264,6 +269,17 @@ export function EntitySheetEditor({
             entityName={name}
             avatarUrl={avatarUrl}
             onAvatarUrlChange={setAvatarUrl}
+            disabled={updateMutation.isPending}
+          />
+        )}
+
+        {(entity.entity_type === "PC" || entity.entity_type === "NPC") && (
+          <EntityIllustrationField
+            campaignId={campaignId}
+            entity={entity}
+            entityName={name}
+            illustrationUrl={illustrationUrl}
+            onIllustrationUrlChange={setIllustrationUrl}
             disabled={updateMutation.isPending}
           />
         )}

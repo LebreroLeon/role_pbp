@@ -16,6 +16,8 @@ import {
   type WorldViewFilter,
 } from "./compendiumTier";
 import { NpcVisibilityControl } from "./NpcVisibilityControl";
+import { EntityIllustrationPreviewButton } from "./EntityIllustrationPreviewButton";
+import { canShowIllustrationPreview } from "./entityIllustration";
 import { Button } from "../../components/ui";
 import { useUpdateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 
@@ -99,15 +101,17 @@ export function EntityList({
                 const npcVisibility = entity.entity_type === "NPC" ? getNpcPlayerVisibility(entity) : null;
                 const compendiumTier = entity.entity_type === "NPC" ? getNpcCompendiumTier(entity) : null;
                 const summary = summarizeEntity(entity);
+                const showIllustrationPreview = canShowIllustrationPreview(entity, isMaster);
+                const showActions = isMaster || showIllustrationPreview;
 
                 return (
                   <li key={entity.id} className={`entity-card ${editingId === entity.id ? "is-editing" : ""}`}>
                     <div className="entity-card__main">
                       <div className="entity-card__header">
                         <span className="entity-card__name">{getEntityDisplayName(entity, entities)}</span>
-                        {isMaster && (
+                        {showActions && (
                           <div className="entity-card__actions">
-                            {entity.entity_type === "NPC" && compendiumTier && (
+                            {isMaster && entity.entity_type === "NPC" && compendiumTier && (
                               <label className="entity-card__tier">
                                 <span className="sr-only">Clasificación compendio</span>
                                 <select
@@ -126,7 +130,10 @@ export function EntityList({
                                 </select>
                               </label>
                             )}
-                            {entity.entity_type === "NPC" && npcVisibility && (
+                            {showIllustrationPreview && (
+                              <EntityIllustrationPreviewButton entity={entity} entities={entities} compact />
+                            )}
+                            {isMaster && entity.entity_type === "NPC" && npcVisibility && (
                               <NpcVisibilityControl
                                 value={npcVisibility}
                                 onChange={(visibility) => {
@@ -137,12 +144,12 @@ export function EntityList({
                                 className="entity-card__visibility"
                               />
                             )}
-                            {onEdit && (entity.entity_type === "NPC" || isWorldEntity(entity.entity_type)) && (
+                            {isMaster && onEdit && (entity.entity_type === "NPC" || isWorldEntity(entity.entity_type)) && (
                               <Button className="secondary" onClick={() => onEdit(entity)}>
                                 {editingId === entity.id ? "Editando" : editLabel(entity.entity_type)}
                               </Button>
                             )}
-                            {onDelete && (
+                            {isMaster && onDelete && (
                               <Button
                                 className="secondary"
                                 disabled={deletingId === entity.id}

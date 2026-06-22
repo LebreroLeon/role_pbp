@@ -8,6 +8,8 @@ import {
   type CampaignEntity,
   getEntityDisplayName,
 } from "./entityDefaults";
+import { extractIllustrationUrl } from "./entityIllustration";
+import { EntityIllustrationField } from "./EntityIllustrationField";
 
 type WorldEntityEditorProps = {
   campaignId: string;
@@ -35,6 +37,7 @@ export function WorldEntityEditor({
   );
 
   const [form, setForm] = useState(() => buildFormState(entity));
+  const [illustrationUrl, setIllustrationUrl] = useState(() => extractIllustrationUrl(entity) ?? "");
 
   function updateField<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -42,9 +45,8 @@ export function WorldEntityEditor({
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    const document = buildDocumentFromForm(entity, form);
     mutation.mutate(
-      { entityId: entity.id, document },
+      { entityId: entity.id, document: buildDocumentFromForm(entity, form, illustrationUrl) },
       { onSuccess: () => onSaved() },
     );
   }
@@ -258,6 +260,19 @@ export function WorldEntityEditor({
         </>
       )}
 
+      {(entity.entity_type === "LOCATION" ||
+        entity.entity_type === "FACTION" ||
+        entity.entity_type === "RELATIONSHIP") && (
+        <EntityIllustrationField
+          campaignId={campaignId}
+          entity={entity}
+          entityName={form.name || getEntityDisplayName(entity, entities)}
+          illustrationUrl={illustrationUrl}
+          onIllustrationUrlChange={setIllustrationUrl}
+          disabled={mutation.isPending}
+        />
+      )}
+
       {apiError && <ErrorBanner message={apiError} />}
       <div className="form-actions">
         <Button type="button" className="secondary" onClick={onCancel}>
@@ -336,8 +351,21 @@ function canSubmit(entityType: CampaignEntity["entity_type"], form: FormState): 
   return Boolean(form.name.trim() && form.publicDescription.trim());
 }
 
-function buildDocumentFromForm(entity: CampaignEntity, form: FormState): Record<string, unknown> {
+function buildDocumentFromForm(
+  entity: CampaignEntity,
+  form: FormState,
+  illustrationUrl: string,
+): Record<string, unknown> {
   const document = structuredClone(entity.document);
+
+  function applyIllustrationUrl(profile: Record<string, unknown>) {
+    const trimmed = illustrationUrl.trim();
+    if (trimmed) {
+      profile.illustration_url = trimmed;
+    } else {
+      delete profile.illustration_url;
+    }
+  }
 
   if (entity.entity_type === "LOCATION") {
     const identity = document.identity as Record<string, unknown>;
@@ -353,6 +381,7 @@ function buildDocumentFromForm(entity: CampaignEntity, form: FormState): Record<
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
+    applyIllustrationUrl(profile);
     flags.is_accessible_to_party = form.isAccessible;
     flags.danger_level = Math.min(10, Math.max(0, form.dangerLevel));
   }
@@ -370,6 +399,7 @@ function buildDocumentFromForm(entity: CampaignEntity, form: FormState): Record<
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
+    applyIllustrationUrl(profile);
     flags.attitude_towards_party = form.attitude.trim() || "neutral";
     flags.influence_level = Math.min(10, Math.max(0, form.influenceLevel));
   }
@@ -385,6 +415,7 @@ function buildDocumentFromForm(entity: CampaignEntity, form: FormState): Record<
     bond.public_status = form.publicStatus.trim();
     bond.secret_nuance = form.secretNuance.trim();
     bond.tension_level = Math.min(10, Math.max(0, form.tensionLevel));
+    applyIllustrationUrl(bond);
     metadata.last_updated = new Date().toISOString();
   }
 

@@ -41,6 +41,13 @@ from app.services.entity_avatars import (
     resolve_entity_avatar_path,
     save_entity_avatar_file,
 )
+from app.services.entity_illustrations import (
+    EntityIllustrationError,
+    clear_entity_illustration_file,
+    player_can_view_entity_illustration,
+    resolve_entity_illustration_path,
+    save_entity_illustration_file,
+)
 
 router = APIRouter(prefix="/entities", tags=["entities"])
 
@@ -397,6 +404,70 @@ async def remove_entity_avatar(
     entity = await _get_entity_or_404(entity_id, db)
     await require_campaign_master(db, current_user, entity.campaign_id)
     await clear_entity_avatar_file(db, entity)
+
+
+@router.post("/{entity_id}/illustration", response_model=EntityResponse)
+async def upload_entity_illustration(
+    entity_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+    file: UploadFile = File(...),
+) -> EntityResponse:
+    entity = await _get_entity_or_404(entity_id, db)
+    await require_campaign_master(db, current_user, entity.campaign_id)
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Missing filename")
+
+    content = await file.read()
+    try:
+        await save_entity_illustration_file(
+            db,
+            entity,
+            original_name=file.filename,
+            content=content,
+            mime_type=file.content_type,
+        )
+    except EntityIllustrationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return _entity_to_response(entity, include_secrets=True)
+
+
+@router.get("/{entity_id}/illustration")
+async def get_entity_illustration(
+    entity_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> FileResponse:
+    entity = await _get_entity_or_404(entity_id, db)
+    role = await require_campaign_member(db, current_user, entity.campaign_id)
+
+    if role != "MASTER" and not player_can_view_entity_illustration(entity):
+        raise HTTPException(status_code=404, detail="Illustration not found")
+
+    path = resolve_entity_illustration_path(entity)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Illustration not found")
+
+    media_types = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+    }
+    return FileResponse(path, media_type=media_types.get(path.suffix.lower(), "application/octet-stream"))
+
+
+@router.delete("/{entity_id}/illustration", status_code=204)
+async def remove_entity_illustration(
+    entity_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    entity = await _get_entity_or_404(entity_id, db)
+    await require_campaign_master(db, current_user, entity.campaign_id)
+    await clear_entity_illustration_file(db, entity)
 
 
 @router.delete("/{entity_id}", status_code=204)

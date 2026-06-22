@@ -61,6 +61,7 @@ class AINarrativeProfile(BaseModel):
     personality_traits: list[str]
     voice_and_tone: str
     avatar_url: str | None = None
+    illustration_url: str | None = None
 
 
 PlayerVisibility = Literal["hidden", "unknown", "visible"]
@@ -127,6 +128,7 @@ class PublicProfile(BaseModel):
     description: str
     personality_traits: list[str] = Field(default_factory=list)
     avatar_url: str | None = None
+    illustration_url: str | None = None
 
 
 class PCStateFlags(BaseModel):
@@ -161,6 +163,7 @@ class FactionNarrativeProfile(BaseModel):
     public_description: str
     secret_lore_master: str
     goals: list[str] = Field(default_factory=list)
+    illustration_url: str | None = None
 
 
 class FactionStateFlags(BaseModel):
@@ -195,6 +198,7 @@ class LocationNarrativeProfile(BaseModel):
     secret_lore_master: str
     ambient_tone: str | None = None
     notable_features: list[str] = Field(default_factory=list)
+    illustration_url: str | None = None
 
 
 class LocationStateFlags(BaseModel):
@@ -230,6 +234,7 @@ class NarrativeBond(BaseModel):
     public_status: str
     secret_nuance: str
     tension_level: int = Field(ge=0, le=10)
+    illustration_url: str | None = None
 
 
 class AIBehaviorGuidelines(BaseModel):

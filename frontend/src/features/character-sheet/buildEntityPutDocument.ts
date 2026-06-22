@@ -16,6 +16,7 @@ type NarrativeFields = {
   voiceAndTone?: string;
   personalityTraits?: string[];
   avatarUrl?: string;
+  illustrationUrl?: string;
   factionId?: string | null;
   locationId?: string;
 };
@@ -46,6 +47,12 @@ function buildNpcPutDocument(
     profile.avatar_url = avatarUrl;
   } else {
     delete profile.avatar_url;
+  }
+  const illustrationUrl = normalizeAvatarUrl(narrative.illustrationUrl);
+  if (illustrationUrl) {
+    profile.illustration_url = illustrationUrl;
+  } else {
+    delete profile.illustration_url;
   }
 
   return {
@@ -88,6 +95,12 @@ function buildPcPutDocument(
         publicProfile.avatar_url = avatarUrl;
       } else {
         delete publicProfile.avatar_url;
+      }
+      const illustrationUrl = normalizeAvatarUrl(narrative.illustrationUrl);
+      if (illustrationUrl) {
+        publicProfile.illustration_url = illustrationUrl;
+      } else {
+        delete publicProfile.illustration_url;
       }
       return publicProfile;
     })(),
