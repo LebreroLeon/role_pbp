@@ -1,7 +1,7 @@
 import { FormEvent, useMemo, useState } from "react";
 
 import { ApiError } from "../../api/http";
-import { Button, ErrorBanner, Input } from "../../components/ui";
+import { Button, ErrorBanner, Input, MasterOnlyField } from "../../components/ui";
 import { useUpdateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 import {
   ENTITY_TYPE_LABELS,
@@ -96,14 +96,14 @@ export function WorldEntityEditor({
               required
             />
           </label>
-          <label className="form-field">
-            <span>Lore secreto (solo Máster)</span>
+          <MasterOnlyField label="Lore secreto" htmlFor={`location-secret-${entity.id}`}>
             <textarea
+              id={`location-secret-${entity.id}`}
               value={form.secretLore}
               onChange={(e) => updateField("secretLore", e.target.value)}
               rows={3}
             />
-          </label>
+          </MasterOnlyField>
           <label className="form-field">
             <span>
               <input
@@ -163,14 +163,14 @@ export function WorldEntityEditor({
               required
             />
           </label>
-          <label className="form-field">
-            <span>Lore secreto (solo Máster)</span>
+          <MasterOnlyField label="Lore secreto" htmlFor={`location-secret-${entity.id}`}>
             <textarea
+              id={`location-secret-${entity.id}`}
               value={form.secretLore}
               onChange={(e) => updateField("secretLore", e.target.value)}
               rows={3}
             />
-          </label>
+          </MasterOnlyField>
           <Input
             label="Actitud hacia el grupo"
             value={form.attitude}
@@ -237,14 +237,14 @@ export function WorldEntityEditor({
             value={form.tensionLevel}
             onChange={(e) => updateField("tensionLevel", Number(e.target.value))}
           />
-          <label className="form-field">
-            <span>Matices secretos del vínculo</span>
+          <MasterOnlyField label="Matices secretos del vínculo" htmlFor={`bond-secret-${entity.id}`}>
             <textarea
+              id={`bond-secret-${entity.id}`}
               value={form.secretNuance}
               onChange={(e) => updateField("secretNuance", e.target.value)}
               rows={3}
             />
-          </label>
+          </MasterOnlyField>
           <label className="form-field">
             <span>
               <input

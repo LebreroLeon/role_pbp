@@ -4,17 +4,26 @@ import { GitBranch } from "lucide-react";
 
 import { api } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
-import type { MasterBriefingResponse, Scene } from "../../api/types";
-import { Button, CollapsibleSection, ErrorBanner, PanelHeader, SlideOver, StatusBadge } from "../../components/ui";
+import type { MasterBriefingResponse, Scene, ScenePickerItem } from "../../api/types";
+import {
+  Button,
+  ButtonLink,
+  ConfirmDialog,
+  ErrorBanner,
+  PanelHeader,
+  SlideOver,
+  StatusBadge,
+} from "../../components/ui";
 import { formatSceneLabel } from "../campaign";
-import { useCampaignScenesQuery } from "../../hooks/queries/useSceneQueries";
+import { useCampaignScenesQuery, useOpenSceneQuery } from "../../hooks/queries/useSceneQueries";
 import { useEntitiesQuery } from "../../hooks/queries/useEntityQueries";
-import { getSceneObjective } from "./sceneState";
+import { getChatBuffer } from "./sceneState";
 import { ScenePrepEditor } from "./ScenePrepEditor";
 import { MasterBriefingModal } from "./MasterBriefingModal";
 
 type PreparedScenesPanelProps = {
   campaignId: string;
+  onSceneClosed?: (preparedScenes: ScenePickerItem[]) => void;
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -24,9 +33,21 @@ const STATUS_LABELS: Record<string, string> = {
   CLOSED: "Cerrada",
 };
 
-export function PreparedScenesPanel({ campaignId }: PreparedScenesPanelProps) {
+const STATUS_SORT_ORDER: Record<string, number> = {
+  ACTIVE: 0,
+  PAUSED: 1,
+  PREPARED: 2,
+  CLOSED: 3,
+};
+
+function isCurrentScene(scene: Scene, openScene: Scene | null | undefined): boolean {
+  return Boolean(openScene && openScene.id === scene.id);
+}
+
+export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScenesPanelProps) {
   const queryClient = useQueryClient();
   const { data: scenes = [], refetch } = useCampaignScenesQuery(campaignId);
+  const { data: openScene } = useOpenSceneQuery(campaignId);
   const { data: entities = [] } = useEntitiesQuery(campaignId);
 
   const [error, setError] = useState<string | null>(null);
@@ -36,12 +57,19 @@ export function PreparedScenesPanel({ campaignId }: PreparedScenesPanelProps) {
   const [activatingId, setActivatingId] = useState<string | null>(null);
   const [briefing, setBriefing] = useState<MasterBriefingResponse | null>(null);
   const [sendOpening, setSendOpening] = useState(true);
+  const [freezing, setFreezing] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
 
-  const grouped = useMemo(() => {
-    const prepared = scenes.filter((scene) => scene.status === "PREPARED");
-    const closed = scenes.filter((scene) => scene.status === "CLOSED");
-    return { prepared, closed };
-  }, [scenes]);
+  const sortedScenes = useMemo(
+    () =>
+      [...scenes].sort((a, b) => {
+        const orderDiff = (STATUS_SORT_ORDER[a.status] ?? 99) - (STATUS_SORT_ORDER[b.status] ?? 99);
+        if (orderDiff !== 0) return orderDiff;
+        return b.scene_number - a.scene_number;
+      }),
+    [scenes],
+  );
 
   async function invalidate() {
     await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
@@ -112,16 +140,84 @@ export function PreparedScenesPanel({ campaignId }: PreparedScenesPanelProps) {
     }
   }
 
-  function renderSceneRow(scene: Scene, actions?: ReactNode) {
-    return (
-      <li key={scene.id} className="prepared-scenes__row">
-        <div>
-          <strong>{formatSceneLabel(scene)}</strong>
-          <p className="muted">{getSceneObjective(scene.scene_state) ?? "Sin objetivo"}</p>
+  async function handleFreeze() {
+    if (!openScene) return;
+    setFreezing(true);
+    setError(null);
+    try {
+      const next = openScene.status === "PAUSED" ? "ACTIVE" : "PAUSED";
+      const updated = await api.updateSceneStatus(openScene.id, next);
+      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), updated);
+      await invalidate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cambiar el estado");
+    } finally {
+      setFreezing(false);
+    }
+  }
+
+  async function handleCloseScene() {
+    if (!openScene) return;
+    setClosing(true);
+    setError(null);
+    try {
+      const result = await api.closeScene(openScene.id);
+      queryClient.removeQueries({ queryKey: queryKeys.campaigns.activeScene(campaignId) });
+      await invalidate();
+      setCloseDialogOpen(false);
+      onSceneClosed?.(result.prepared_scenes);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cerrar la escena");
+    } finally {
+      setClosing(false);
+    }
+  }
+
+  function renderSceneRow(scene: Scene) {
+    const current = isCurrentScene(scene, openScene);
+    const showMessages = current && (scene.status === "ACTIVE" || scene.status === "PAUSED");
+    const messageCount = getChatBuffer(scene.scene_state).length;
+
+    let quickActions: ReactNode = null;
+    if (current && (scene.status === "ACTIVE" || scene.status === "PAUSED")) {
+      quickActions = (
+        <div className="prepared-scenes__quick-actions">
+          <ButtonLink to={`/campaigns/${campaignId}/chat`} variant="secondary">
+            Ir a Jugar
+          </ButtonLink>
+          <Button variant="secondary" onClick={handleFreeze} disabled={freezing}>
+            {scene.status === "PAUSED" ? "Reanudar" : "Congelar"}
+          </Button>
+          <Button variant="secondary" onClick={() => setCloseDialogOpen(true)} disabled={closing}>
+            Cerrar
+          </Button>
         </div>
-        <div className="prepared-scenes__row-meta">
-          <StatusBadge label="Estado" value={STATUS_LABELS[scene.status] ?? scene.status} ok={scene.status === "ACTIVE"} />
-          {actions}
+      );
+    }
+
+    return (
+      <li key={scene.id} className={`prepared-scenes__row${current ? " prepared-scenes__row--current" : ""}`}>
+        <div className="prepared-scenes__row-main">
+          <strong className="prepared-scenes__row-title">{formatSceneLabel(scene)}</strong>
+          <div className="prepared-scenes__row-meta">
+            <StatusBadge
+              label="Estado"
+              value={STATUS_LABELS[scene.status] ?? scene.status}
+              ok={scene.status === "ACTIVE"}
+            />
+            {showMessages && <StatusBadge label="Mensajes" value={String(messageCount)} ok />}
+          </div>
+          {quickActions}
+        </div>
+        <div className="prepared-scenes__row-actions">
+          <Button variant="secondary" onClick={() => setEditingScene(scene)}>
+            Editar
+          </Button>
+          {!current && (
+            <Button onClick={() => handleRequestActivate(scene)} disabled={activatingId === scene.id}>
+              Activar
+            </Button>
+          )}
         </div>
       </li>
     );
@@ -133,9 +229,9 @@ export function PreparedScenesPanel({ campaignId }: PreparedScenesPanelProps) {
 
       <PanelHeader
         icon={GitBranch}
-        iconTone="amber"
-        title="Escenas preparadas"
-        description="Ramificaciones listas para activar cuando quieras (Puerta A / Puerta B)."
+        iconTone="teal"
+        title="Escenas"
+        description="Todas las escenas de la campaña: preparadas, en curso y cerradas."
         actions={
           <div className="prepared-scenes__header-actions">
             <Button onClick={handleCreatePrepared} disabled={creating}>
@@ -148,45 +244,14 @@ export function PreparedScenesPanel({ campaignId }: PreparedScenesPanelProps) {
         }
       />
 
-      {grouped.prepared.length === 0 ? (
-        <p className="muted">Sin escenas preparadas. Usa «+ Añadir Escena» para crear ramas antes de jugar.</p>
+      {sortedScenes.length === 0 ? (
+        <p className="muted">Sin escenas. Usa «+ Añadir Escena» para preparar la primera.</p>
       ) : (
-        <ul className="prepared-scenes__list">
-          {grouped.prepared.map((scene) =>
-            renderSceneRow(
-              scene,
-              <>
-                <Button variant="secondary" onClick={() => setEditingScene(scene)}>
-                  Editar
-                </Button>
-                <Button onClick={() => handleRequestActivate(scene)} disabled={activatingId === scene.id}>
-                  Activar
-                </Button>
-              </>,
-            ),
-          )}
-        </ul>
-      )}
-
-      {grouped.closed.length > 0 && (
-        <CollapsibleSection
-          title="Escenas cerradas"
-          description={`${grouped.closed.length} en el historial — últimas ${Math.min(grouped.closed.length, 5)}`}
-          defaultOpen={false}
-        >
-          <ul className="prepared-scenes__list prepared-scenes__list--closed">
-            {grouped.closed.slice(-5).reverse().map((scene) => renderSceneRow(scene))}
-          </ul>
-        </CollapsibleSection>
+        <ul className="prepared-scenes__list">{sortedScenes.map((scene) => renderSceneRow(scene))}</ul>
       )}
 
       {editingScene && (
-        <SlideOver
-          open
-          title={`Preparar — ${formatSceneLabel(editingScene)}`}
-          description="Preparación privada del máster: objetivo, ubicación, notas y entidades"
-          onClose={() => setEditingScene(null)}
-        >
+        <SlideOver open title="Editar escena" onClose={() => setEditingScene(null)}>
           <ScenePrepEditor
             scene={editingScene}
             entities={entities}
@@ -208,6 +273,27 @@ export function PreparedScenesPanel({ campaignId }: PreparedScenesPanelProps) {
             setBriefing(null);
             setActivatingId(null);
           }}
+        />
+      )}
+
+      {closeDialogOpen && (
+        <ConfirmDialog
+          title="Cerrar escena"
+          description={
+            <>
+              <p>
+                Se enviará todo el chat de la escena a la IA para generar un resumen narrativo en español (WorldLog).
+              </p>
+              <p className="muted">
+                El resumen quedará en el historial de escenas y en la memoria de campaña. Esta acción no se puede
+                deshacer.
+              </p>
+            </>
+          }
+          confirmLabel="Cerrar y generar resumen"
+          onConfirm={handleCloseScene}
+          onCancel={() => setCloseDialogOpen(false)}
+          confirming={closing}
         />
       )}
     </section>

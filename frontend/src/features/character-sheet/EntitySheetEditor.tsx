@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "../../api/http";
 import type { CampaignMember, SheetRollRequest } from "../../api/types";
-import { Button, ErrorBanner, Input, Switch } from "../../components/ui";
+import { Button, ErrorBanner, Input, MasterOnlyField, Switch } from "../../components/ui";
 import { gameSystemLabel, hasSheetTemplate } from "../campaign/gameSystems";
 import { useRollEntityMutation, useUpdateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 import {
@@ -280,14 +280,14 @@ export function EntitySheetEditor({
               value={voiceAndTone}
               onChange={(event) => setVoiceAndTone(event.target.value)}
             />
-            <label className="form-field sheet-secret-field">
-              <span>Lore secreto (solo Máster)</span>
+            <MasterOnlyField label="Lore secreto" htmlFor={`secret-lore-${entity.id}`}>
               <textarea
+                id={`secret-lore-${entity.id}`}
                 value={secretLore}
                 onChange={(event) => setSecretLore(event.target.value)}
                 rows={4}
               />
-            </label>
+            </MasterOnlyField>
           </>
         )}
 
@@ -308,14 +308,18 @@ export function EntitySheetEditor({
           <h3>Ficha mecánica — {gameSystemLabel(gameSystem)}</h3>
           <p className="muted">Vista Máster: stats, PV, ataques y secretos mecánicos visibles.</p>
           {entity.entity_type === "NPC" && (
-            <Switch
-              checked={rollMasterOnly}
-              onCheckedChange={setRollMasterOnly}
+            <MasterOnlyField
               label="Tirada en secreto"
               description="Las tiradas de este NPC solo las verá el Máster (salvo que esté oculto, que siempre son secretas para jugadores)"
-              tone="rose"
-              disabled={rollMutation.isPending}
-            />
+            >
+              <Switch
+                checked={rollMasterOnly}
+                onCheckedChange={setRollMasterOnly}
+                label="Activar tirada en secreto"
+                tone="rose"
+                disabled={rollMutation.isPending}
+              />
+            </MasterOnlyField>
           )}
           {rollSummary && <p className="sheet-roll-summary">{rollSummary}</p>}
           {gameSystem === "dnd5e" && (

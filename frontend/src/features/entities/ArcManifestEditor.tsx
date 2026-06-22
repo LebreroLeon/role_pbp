@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
 
 import { ApiError } from "../../api/http";
-import { Button, ErrorBanner, Input } from "../../components/ui";
+import { Button, ErrorBanner, Input, MasterOnlyField } from "../../components/ui";
 import { useUpdateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 import { newQuestId, type CampaignEntity } from "./entityDefaults";
 
@@ -180,14 +180,17 @@ export function ArcManifestEditor({ campaignId, entity, onSaved, onCancel }: Arc
                 rows={2}
               />
             </label>
-            <label className="form-field sheet-secret-field">
-              <span>Notas secretas del Máster</span>
+            <MasterOnlyField
+              label="Notas secretas del Máster"
+              htmlFor={`quest-secret-${quest.questId}`}
+            >
               <textarea
+                id={`quest-secret-${quest.questId}`}
                 value={quest.secretDmNotes}
                 onChange={(event) => updateQuest(index, { secretDmNotes: event.target.value })}
                 rows={2}
               />
-            </label>
+            </MasterOnlyField>
             <Button type="button" variant="secondary" onClick={() => removeQuest(index)}>
               Quitar misión
             </Button>

@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import type { CampaignEntity, PlayerVisibility, PreparedEntityRef, Scene } from "../../api/types";
 import { Button, ErrorBanner, MasterOnlyField, PlayerVisibleField, Switch } from "../../components/ui";
+import { NpcVisibilityControl } from "../entities/NpcVisibilityControl";
 import { getSceneObjective } from "./sceneState";
 import { entityLabel } from "./entityLabel";
 
@@ -19,12 +20,6 @@ type ScenePrepEditorProps = {
     prepared_entity_refs?: PreparedEntityRef[];
   }) => void;
 };
-
-const VISIBILITY_OPTIONS: { value: PlayerVisibility; label: string }[] = [
-  { value: "visible", label: "Visible" },
-  { value: "unknown", label: "Desconocido" },
-  { value: "hidden", label: "Oculto" },
-];
 
 export function ScenePrepEditor({ scene, entities, saving, error, onSave }: ScenePrepEditorProps) {
   const [displayName, setDisplayName] = useState(scene.display_name ?? "");
@@ -93,13 +88,13 @@ export function ScenePrepEditor({ scene, entities, saving, error, onSave }: Scen
       {error && <ErrorBanner message={error} />}
 
       <label className="form-field" htmlFor="prep-display-name">
-        <span>Nombre</span>
+        <span>Nombre de escena</span>
         <input
           id="prep-display-name"
           type="text"
           value={displayName}
           onChange={(event) => setDisplayName(event.target.value)}
-          placeholder='Ej. "Puerta A"'
+          placeholder='Ej. "La taberna del Grifo"'
           maxLength={200}
           disabled={saving}
         />
@@ -171,57 +166,39 @@ export function ScenePrepEditor({ scene, entities, saving, error, onSave }: Scen
         description="NPCs y PJs que quieres tener listos al activar la escena."
       >
         {entityRefs.length === 0 && <p className="muted">Sin entidades planificadas.</p>}
-        <ul className="entity-list scene-prep-editor__entity-list">
+        <ul className="scene-prep-editor__entity-list">
           {entityRefs.map((ref) => {
             const entity = rosterEntities.find((item) => item.id === ref.entity_id);
+            const label = entity ? entityLabel(entity) : ref.entity_id.slice(0, 8);
             return (
-              <li key={ref.entity_id} className="entity-card scene-prep-editor__entity-row">
-                <div className="entity-card__main">
-                  <div className="entity-card__header">
-                    <span className="entity-card__name">
-                      {entity ? entityLabel(entity) : ref.entity_id.slice(0, 8)}
-                    </span>
-                    <div className="entity-card__actions">
-                      <Button
-                        type="button"
-                        className="secondary"
-                        onClick={() => removeRef(ref.entity_id)}
-                        disabled={saving}
-                      >
-                        Quitar
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="scene-prep-editor__entity-controls">
-                    <label className="scene-prep-editor__visibility">
-                      <span className="scene-prep-editor__control-label">Visibilidad</span>
-                      <select
-                        value={ref.player_visibility}
-                        onChange={(event) =>
-                          updateRef(ref.entity_id, {
-                            player_visibility: event.target.value as PlayerVisibility,
-                          })
-                        }
-                        disabled={saving}
-                        aria-label={`Visibilidad de ${entity ? entityLabel(entity) : "entidad"}`}
-                      >
-                        {VISIBILITY_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <Switch
-                      checked={ref.add_to_roster}
-                      onCheckedChange={(checked) => updateRef(ref.entity_id, { add_to_roster: checked })}
-                      label="En roster"
-                      disabled={saving}
-                      tone="teal"
-                      className="sheet-switch--compact scene-prep-editor__roster-switch"
-                    />
-                  </div>
-                </div>
+              <li key={ref.entity_id} className="scene-prep-editor__entity-row">
+                <span className="scene-prep-editor__entity-name" title={label}>
+                  {label}
+                </span>
+                <NpcVisibilityControl
+                  compact
+                  value={ref.player_visibility as PlayerVisibility}
+                  onChange={(visibility) => updateRef(ref.entity_id, { player_visibility: visibility })}
+                  disabled={saving}
+                />
+                <Switch
+                  checked={ref.add_to_roster}
+                  onCheckedChange={(checked) => updateRef(ref.entity_id, { add_to_roster: checked })}
+                  label="Roster"
+                  disabled={saving}
+                  tone="teal"
+                  className="sheet-switch--compact scene-prep-editor__roster-switch"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="scene-prep-editor__remove-btn"
+                  onClick={() => removeRef(ref.entity_id)}
+                  disabled={saving}
+                  aria-label={`Quitar ${label}`}
+                >
+                  Quitar
+                </Button>
               </li>
             );
           })}

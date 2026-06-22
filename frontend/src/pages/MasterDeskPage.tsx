@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Send } from "lucide-react";
 
@@ -8,10 +8,9 @@ import type { MasterAssistMode, MasterAssistResponse } from "../api/types";
 import { queryKeys } from "../api/queryKeys";
 import { RoleGate } from "../components/auth/RoleGate";
 import { DESK_TAB_ICONS, SECTION_ICONS } from "../components/icons";
-import { Button, ButtonLink, ConfirmDialog, ErrorBanner, Panel, PanelHeader, StatusBadge, Toast, Tooltip } from "../components/ui";
-import { CampaignSettingsForm, formatSceneLabel, campaignDefaultPath } from "../features/campaign";
-import { MasterCheatSheet, PreparedScenesPanel, NextSceneModal } from "../features/scene";
-import { getChatBuffer, getSceneObjective } from "../features/scene/sceneState";
+import { Button, ErrorBanner, Panel, PanelHeader, Toast, Tooltip } from "../components/ui";
+import { CampaignSettingsForm, campaignDefaultPath } from "../features/campaign";
+import { PreparedScenesPanel, NextSceneModal } from "../features/scene";
 import { useCampaignQuery } from "../hooks/queries/useCampaignQueries";
 import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
 
@@ -93,13 +92,8 @@ export function MasterDeskPage() {
   const [response, setResponse] = useState<MasterAssistResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [freezing, setFreezing] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [nextSceneOpen, setNextSceneOpen] = useState(false);
   const [preparedScenes, setPreparedScenes] = useState<import("../api/types").ScenePickerItem[]>([]);
-  const [displayNameDraft, setDisplayNameDraft] = useState("");
-  const [savingName, setSavingName] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [sendingSuggestionKey, setSendingSuggestionKey] = useState<string | null>(null);
   const [narrativeDrafts, setNarrativeDrafts] = useState<string[]>([]);
@@ -117,10 +111,6 @@ export function MasterDeskPage() {
 
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: openScene } = useOpenSceneQuery(campaignId);
-
-  useEffect(() => {
-    setDisplayNameDraft(openScene?.display_name ?? "");
-  }, [openScene?.id, openScene?.display_name]);
 
   async function invalidateSceneQueries() {
     await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
@@ -142,56 +132,6 @@ export function MasterDeskPage() {
       setError(err instanceof Error ? err.message : "No se pudo consultar al asistente");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleFreeze() {
-    if (!openScene) return;
-    setFreezing(true);
-    setError(null);
-    try {
-      const next = openScene.status === "PAUSED" ? "ACTIVE" : "PAUSED";
-      const updated = await api.updateSceneStatus(openScene.id, next);
-      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), updated);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo cambiar el estado");
-    } finally {
-      setFreezing(false);
-    }
-  }
-
-  async function handleCloseScene() {
-    if (!openScene) return;
-    setClosing(true);
-    setError(null);
-    try {
-      const result = await api.closeScene(openScene.id);
-      queryClient.removeQueries({ queryKey: queryKeys.campaigns.activeScene(campaignId) });
-      await invalidateSceneQueries();
-      setCloseDialogOpen(false);
-      setPreparedScenes(result.prepared_scenes);
-      setNextSceneOpen(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo cerrar la escena");
-    } finally {
-      setClosing(false);
-    }
-  }
-
-  async function handleSaveDisplayName(event: FormEvent) {
-    event.preventDefault();
-    if (!openScene) return;
-    setSavingName(true);
-    setError(null);
-    try {
-      const trimmed = displayNameDraft.trim();
-      const updated = await api.updateSceneDisplayName(openScene.id, trimmed || null);
-      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), updated);
-      await invalidateSceneQueries();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo guardar el nombre");
-    } finally {
-      setSavingName(false);
     }
   }
 
@@ -252,74 +192,13 @@ export function MasterDeskPage() {
 
           {tab === "escenas" && (
             <section className="master-tab-panel master-scenes-panel">
-              <PanelHeader
-                icon={DESK_TAB_ICONS.escenas}
-                iconTone="teal"
-                title="Escena activa"
-                description="Estado, control y briefing de la partida en curso."
+              <PreparedScenesPanel
+                campaignId={campaignId}
+                onSceneClosed={(scenes) => {
+                  setPreparedScenes(scenes);
+                  setNextSceneOpen(true);
+                }}
               />
-              {openScene ? (
-                <div className="master-scenes-panel__active">
-                  <p className="muted">
-                    <strong>{formatSceneLabel(openScene)}</strong>
-                  </p>
-                  <p className="muted">{getSceneObjective(openScene.scene_state) ?? "Sin objetivo definido"}</p>
-                  <div className="status-row">
-                    <StatusBadge
-                      label="Estado"
-                      value={
-                        openScene.status === "ACTIVE"
-                          ? "Activa (abierta)"
-                          : openScene.status === "PAUSED"
-                            ? "Pausada (congelada)"
-                            : "Cerrada"
-                      }
-                      ok={openScene.status === "ACTIVE"}
-                    />
-                    <StatusBadge
-                      label="Mensajes"
-                      value={String(getChatBuffer(openScene.scene_state).length)}
-                      ok
-                    />
-                  </div>
-                  <form className="master-form" onSubmit={handleSaveDisplayName}>
-                    <label className="field-label" htmlFor="scene-display-name">
-                      Nombre de escena
-                    </label>
-                    <input
-                      id="scene-display-name"
-                      type="text"
-                      value={displayNameDraft}
-                      onChange={(event) => setDisplayNameDraft(event.target.value)}
-                      placeholder='Ej. "La taberna del Grifo"'
-                      maxLength={200}
-                      disabled={savingName}
-                    />
-                    <Button type="submit" variant="secondary" disabled={savingName}>
-                      Guardar nombre
-                    </Button>
-                  </form>
-                  <div className="actions">
-                    <ButtonLink to={`/campaigns/${campaignId}/chat`}>
-                      Ir a Jugar
-                    </ButtonLink>
-                    <Button variant="secondary" onClick={handleFreeze} disabled={freezing}>
-                      {openScene.status === "PAUSED" ? "Reanudar escena" : "Congelar escena"}
-                    </Button>
-                    <Button variant="secondary" onClick={() => setCloseDialogOpen(true)} disabled={closing}>
-                      Cerrar escena
-                    </Button>
-                  </div>
-                  <MasterCheatSheet campaignId={campaignId} scene={openScene} />
-                </div>
-              ) : (
-                <p className="muted master-scenes-panel__empty">
-                  No hay escena activa. Activa una escena preparada abajo o ve a{" "}
-                  <Link to={`/campaigns/${campaignId}/chat`}>Jugar</Link> para iniciar una.
-                </p>
-              )}
-
-              <PreparedScenesPanel campaignId={campaignId} />
             </section>
           )}
 
@@ -448,39 +327,10 @@ export function MasterDeskPage() {
           {tab === "settings" && (
             <section className="master-tab-panel">
               <CampaignSettingsForm campaignId={campaignId} campaign={campaign} />
-              <div className="actions">
-                <ButtonLink variant="secondary" to={`/campaigns/${campaignId}/biblioteca`}>
-                  Abrir biblioteca
-                </ButtonLink>
-                <ButtonLink variant="secondary" to={`/campaigns/${campaignId}/mundo`}>
-                  Abrir mundo
-                </ButtonLink>
-              </div>
             </section>
           )}
         </Panel>
       </div>
-
-      {closeDialogOpen && (
-        <ConfirmDialog
-          title="Cerrar escena"
-          description={
-            <>
-              <p>
-                Se enviará todo el chat de la escena a la IA para generar un resumen narrativo en español (WorldLog).
-              </p>
-              <p className="muted">
-                El resumen quedará en el historial de escenas y en la memoria de campaña. Esta acción no se puede
-                deshacer.
-              </p>
-            </>
-          }
-          confirmLabel="Cerrar y generar resumen"
-          onConfirm={handleCloseScene}
-          onCancel={() => setCloseDialogOpen(false)}
-          confirming={closing}
-        />
-      )}
 
       {nextSceneOpen && (
         <NextSceneModal
