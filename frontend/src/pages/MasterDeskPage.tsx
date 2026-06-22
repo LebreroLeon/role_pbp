@@ -7,24 +7,20 @@ import { api } from "../api/client";
 import type { MasterAssistMode, MasterAssistResponse } from "../api/types";
 import { queryKeys } from "../api/queryKeys";
 import { RoleGate } from "../components/auth/RoleGate";
-import { DESK_TAB_ICONS, SECTION_ICONS, UserPlus, Users } from "../components/icons";
+import { DESK_TAB_ICONS, SECTION_ICONS } from "../components/icons";
 import { Button, ButtonLink, ConfirmDialog, ErrorBanner, Panel, PanelHeader, StatusBadge, Toast, Tooltip } from "../components/ui";
-import { CampaignMemberList, CampaignSettingsForm, formatSceneLabel, InviteMemberForm, campaignDefaultPath } from "../features/campaign";
+import { CampaignSettingsForm, formatSceneLabel, campaignDefaultPath } from "../features/campaign";
 import { MasterCheatSheet, PreparedScenesPanel, NextSceneModal } from "../features/scene";
 import { getChatBuffer, getSceneObjective } from "../features/scene/sceneState";
-import {
-  useCampaignMembersQuery,
-  useCampaignQuery,
-} from "../hooks/queries/useCampaignQueries";
+import { useCampaignQuery } from "../hooks/queries/useCampaignQueries";
 import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
-import { useCampaignWs } from "../providers/CampaignWsContext";
 
 const NARRATOR_SPEAKER = {
   speaker_type: "NARRATOR" as const,
   speaker_display_name: "Máster / Narrador",
 };
 
-type DeskTab = "escenas" | "players" | "assist" | "settings";
+type DeskTab = "escenas" | "assist" | "settings";
 
 type ShadowMasterMode = MasterAssistMode;
 
@@ -83,9 +79,8 @@ const SHADOW_MASTER_MODE_META: Record<
 
 const TABS: { id: DeskTab; label: string; hint: string }[] = [
   { id: "escenas", label: "Escenas", hint: "Activa, preparadas e historial" },
-  { id: "players", label: "Jugadores", hint: "Mesa y invitaciones" },
   { id: "assist", label: "Shadow Master", hint: "Reglas, precios e ideas narrativas" },
-  { id: "settings", label: "Campaña", hint: "Datos generales" },
+  { id: "settings", label: "Campaña", hint: "Datos generales y jugadores" },
 ];
 
 export function MasterDeskPage() {
@@ -121,9 +116,7 @@ export function MasterDeskPage() {
   }, [narrativeSuggestions]);
 
   const { data: campaign } = useCampaignQuery(campaignId);
-  const { data: members = [] } = useCampaignMembersQuery(campaignId);
   const { data: openScene } = useOpenSceneQuery(campaignId);
-  const { onlineUserIds } = useCampaignWs();
 
   useEffect(() => {
     setDisplayNameDraft(openScene?.display_name ?? "");
@@ -233,7 +226,7 @@ export function MasterDeskPage() {
             icon={SECTION_ICONS.mesa}
             iconTone="teal"
             title="Mesa del Máster"
-            description="Herramientas de dirección: escena, jugadores y asistencia creativa."
+            description="Herramientas de dirección: escena, campaña y asistencia creativa."
           />
 
           <nav className="master-tabs">
@@ -327,30 +320,6 @@ export function MasterDeskPage() {
               )}
 
               <PreparedScenesPanel campaignId={campaignId} />
-            </section>
-          )}
-
-          {tab === "players" && (
-            <section className="master-tab-panel">
-              <PanelHeader
-                icon={Users}
-                iconTone="violet"
-                title="Personas en la campaña"
-                description="Máster y jugadores con acceso a esta partida."
-              />
-              <CampaignMemberList
-                members={members}
-                showEmails
-                showPresence
-                onlineUserIds={onlineUserIds}
-              />
-              <PanelHeader
-                icon={UserPlus}
-                iconTone="amber"
-                title="Invitar jugador"
-                description="Añade participantes por email."
-              />
-              <InviteMemberForm campaignId={campaignId} hideHeader />
             </section>
           )}
 

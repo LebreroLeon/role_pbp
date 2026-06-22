@@ -2,12 +2,15 @@ import { FormEvent, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../api/client";
-import type { Campaign, CampaignMember } from "../../api/types";
+import type { Campaign } from "../../api/types";
 import { queryKeys } from "../../api/queryKeys";
-import { Button, ErrorBanner, Input } from "../../components/ui";
+import { UserPlus, Users } from "../../components/icons";
+import { Button, CollapsibleSection, ErrorBanner, Input } from "../../components/ui";
+import { useCampaignMembersQuery } from "../../hooks/queries/useCampaignQueries";
 import { useCampaignWs } from "../../providers/CampaignWsContext";
 import { gameSystemLabel } from "./gameSystems";
 import { CampaignMemberList } from "./CampaignMemberList";
+import { InviteMemberForm } from "./InviteMemberForm";
 
 type CampaignSettingsFormProps = {
   campaignId: string;
@@ -19,18 +22,14 @@ export function CampaignSettingsForm({ campaignId, campaign }: CampaignSettingsF
   const { onlineUserIds } = useCampaignWs();
   const [name, setName] = useState(campaign?.name ?? "");
   const [tone, setTone] = useState(campaign?.tone ?? "");
-  const [members, setMembers] = useState<CampaignMember[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { data: members = [] } = useCampaignMembersQuery(campaignId);
 
   useEffect(() => {
     setName(campaign?.name ?? "");
     setTone(campaign?.tone ?? "");
   }, [campaign?.name, campaign?.tone]);
-
-  useEffect(() => {
-    api.listCampaignMembers(campaignId).then(setMembers).catch(() => undefined);
-  }, [campaignId]);
 
   async function handleSave(event: FormEvent) {
     event.preventDefault();
@@ -53,7 +52,6 @@ export function CampaignSettingsForm({ campaignId, campaign }: CampaignSettingsF
     setError(null);
     try {
       await api.removeCampaignMember(campaignId, userId);
-      setMembers((current) => current.filter((member) => member.user_id !== userId));
       await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.members(campaignId) });
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo expulsar al jugador");
@@ -75,14 +73,29 @@ export function CampaignSettingsForm({ campaignId, campaign }: CampaignSettingsF
         </Button>
       </form>
 
-      <h4>Jugadores</h4>
-      <CampaignMemberList
-        members={members.filter((member) => member.role === "PLAYER")}
-        showEmails
-        showPresence
-        onlineUserIds={onlineUserIds}
-        onRemove={handleRemoveMember}
-      />
+      <CollapsibleSection
+        icon={Users}
+        iconTone="violet"
+        title="Jugadores"
+        description="Participantes con acceso a la campaña."
+        defaultOpen
+      >
+        <CampaignMemberList
+          members={members.filter((member) => member.role === "PLAYER")}
+          showEmails
+          showPresence
+          onlineUserIds={onlineUserIds}
+          onRemove={handleRemoveMember}
+        />
+        <div className="campaign-settings__invite">
+          <h4 className="campaign-settings__subsection">
+            <UserPlus size={16} aria-hidden />
+            Invitar jugador
+          </h4>
+          <p className="muted">Añade participantes por email. Deben tener cuenta en RolePBP.</p>
+          <InviteMemberForm campaignId={campaignId} hideHeader />
+        </div>
+      </CollapsibleSection>
     </div>
   );
 }

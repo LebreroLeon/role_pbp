@@ -2407,6 +2407,29 @@
   font-size: 1rem;
 }
 
+.campaign-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.campaign-settings__invite {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.campaign-settings__subsection {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
 .master-scenes-panel {
   display: flex;
   flex-direction: column;
