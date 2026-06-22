@@ -184,7 +184,7 @@ export function PreparedScenesPanel({ campaignId }: PreparedScenesPanelProps) {
         <SlideOver
           open
           title={`Preparar — ${formatSceneLabel(editingScene)}`}
-          description="Objetivo, ubicación, apertura y entidades planificadas"
+          description="Preparación privada del máster: objetivo, ubicación, notas y entidades"
           onClose={() => setEditingScene(null)}
         >
           <ScenePrepEditor

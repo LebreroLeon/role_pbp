@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { ScenePickerItem } from "../../api/types";
-import { Button, Modal } from "../../components/ui";
+import { Button, Modal, MasterOnlyField } from "../../components/ui";
 
 type NextSceneModalProps = {
   preparedScenes: ScenePickerItem[];
@@ -82,29 +82,28 @@ export function NextSceneModal({
 
       {(mode === "create" || preparedScenes.length === 0) && (
         <div className="next-scene-modal__create">
-          <label className="field-label" htmlFor="next-scene-name">
-            Nombre
+          <label className="form-field" htmlFor="next-scene-name">
+            <span>Nombre</span>
+            <input
+              id="next-scene-name"
+              type="text"
+              value={newName}
+              onChange={(event) => setNewName(event.target.value)}
+              placeholder='Ej. "La cámara del trono"'
+              maxLength={200}
+              disabled={loading}
+            />
           </label>
-          <input
-            id="next-scene-name"
-            type="text"
-            value={newName}
-            onChange={(event) => setNewName(event.target.value)}
-            placeholder='Ej. "La cámara del trono"'
-            maxLength={200}
-            disabled={loading}
-          />
-          <label className="field-label" htmlFor="next-scene-objective">
-            Objetivo
-          </label>
-          <textarea
-            id="next-scene-objective"
-            value={newObjective}
-            onChange={(event) => setNewObjective(event.target.value)}
-            rows={2}
-            placeholder="Qué debe ocurrir en esta escena"
-            disabled={loading}
-          />
+          <MasterOnlyField label="Objetivo" htmlFor="next-scene-objective">
+            <textarea
+              id="next-scene-objective"
+              value={newObjective}
+              onChange={(event) => setNewObjective(event.target.value)}
+              rows={2}
+              placeholder="Qué quieres que ocurra (solo para ti)"
+              disabled={loading}
+            />
+          </MasterOnlyField>
           <Button
             onClick={() => onCreateNew(newName.trim(), newObjective.trim())}
             disabled={loading || !newObjective.trim()}

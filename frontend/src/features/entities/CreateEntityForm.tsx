@@ -3,7 +3,7 @@ import { FormEvent, useState } from "react";
 import type { CampaignMember } from "../../api/types";
 import { ApiError } from "../../api/http";
 import { MapPin } from "../../components/icons";
-import { Button, ErrorBanner, Input, Panel, PanelHeader } from "../../components/ui";
+import { Button, ErrorBanner, Input, MasterOnlyField, Panel, PanelHeader } from "../../components/ui";
 import { hasSheetTemplate } from "../campaign/gameSystems";
 import { useCreateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 import {
@@ -323,25 +323,23 @@ export function CreateEntityForm({
         )}
 
         {entityType !== "PC" && entityType !== "RELATIONSHIP" && (
-          <label className="form-field">
-            <span>Lore secreto (solo Máster)</span>
+          <MasterOnlyField label="Lore secreto">
             <textarea
               value={secretLore}
               onChange={(event) => setSecretLore(event.target.value)}
               rows={3}
             />
-          </label>
+          </MasterOnlyField>
         )}
 
         {entityType === "RELATIONSHIP" && (
-          <label className="form-field">
-            <span>Matices secretos del vínculo</span>
+          <MasterOnlyField label="Matices secretos del vínculo">
             <textarea
               value={secretNuance}
               onChange={(event) => setSecretNuance(event.target.value)}
               rows={3}
             />
-          </label>
+          </MasterOnlyField>
         )}
 
         {apiError && <ErrorBanner message={apiError} />}
