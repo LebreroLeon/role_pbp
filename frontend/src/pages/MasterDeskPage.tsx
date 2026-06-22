@@ -10,6 +10,7 @@ import { RoleGate } from "../components/auth/RoleGate";
 import { DESK_TAB_ICONS, SECTION_ICONS, UserPlus, Users } from "../components/icons";
 import { Button, ButtonLink, ConfirmDialog, ErrorBanner, Panel, PanelHeader, StatusBadge, Toast, Tooltip } from "../components/ui";
 import { CampaignMemberList, CampaignSettingsForm, formatSceneLabel, InviteMemberForm, campaignDefaultPath } from "../features/campaign";
+import { PreparedScenesPanel, NextSceneModal } from "../features/scene";
 import { getChatBuffer, getSceneObjective } from "../features/scene/sceneState";
 import {
   useCampaignMembersQuery,
@@ -23,7 +24,7 @@ const NARRATOR_SPEAKER = {
   speaker_display_name: "Máster / Narrador",
 };
 
-type DeskTab = "scene" | "players" | "assist" | "settings";
+type DeskTab = "scene" | "escenas" | "players" | "assist" | "settings";
 
 type ShadowMasterMode = MasterAssistMode;
 
@@ -82,6 +83,7 @@ const SHADOW_MASTER_MODE_META: Record<
 
 const TABS: { id: DeskTab; label: string; hint: string }[] = [
   { id: "scene", label: "Escena", hint: "Estado y control" },
+  { id: "escenas", label: "Escenas", hint: "Preparar y activar ramas" },
   { id: "players", label: "Jugadores", hint: "Mesa y invitaciones" },
   { id: "assist", label: "Shadow Master", hint: "Reglas, precios e ideas narrativas" },
   { id: "settings", label: "Campaña", hint: "Datos generales" },
@@ -100,6 +102,8 @@ export function MasterDeskPage() {
   const [freezing, setFreezing] = useState(false);
   const [closing, setClosing] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [nextSceneOpen, setNextSceneOpen] = useState(false);
+  const [preparedScenes, setPreparedScenes] = useState<import("../api/types").ScenePickerItem[]>([]);
   const [displayNameDraft, setDisplayNameDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -169,11 +173,12 @@ export function MasterDeskPage() {
     setClosing(true);
     setError(null);
     try {
-      await api.closeScene(openScene.id);
+      const result = await api.closeScene(openScene.id);
       queryClient.removeQueries({ queryKey: queryKeys.campaigns.activeScene(campaignId) });
       await invalidateSceneQueries();
       setCloseDialogOpen(false);
-      navigate(campaignDefaultPath(campaignId, "MASTER", null));
+      setPreparedScenes(result.prepared_scenes);
+      setNextSceneOpen(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cerrar la escena");
     } finally {
@@ -315,6 +320,12 @@ export function MasterDeskPage() {
                   (podrás asignar nombre al crearla).
                 </p>
               )}
+            </section>
+          )}
+
+          {tab === "escenas" && (
+            <section className="master-tab-panel">
+              <PreparedScenesPanel campaignId={campaignId} />
             </section>
           )}
 
@@ -498,6 +509,30 @@ export function MasterDeskPage() {
           onConfirm={handleCloseScene}
           onCancel={() => setCloseDialogOpen(false)}
           confirming={closing}
+        />
+      )}
+
+      {nextSceneOpen && (
+        <NextSceneModal
+          preparedScenes={preparedScenes}
+          onPickPrepared={(sceneId) => {
+            setNextSceneOpen(false);
+            navigate(`/campaigns/${campaignId}/chat`);
+            void api.activateScene(campaignId, sceneId).then(() => invalidateSceneQueries());
+          }}
+          onCreateNew={(displayName, objective) => {
+            setNextSceneOpen(false);
+            void api
+              .createScene(campaignId, { displayName: displayName || undefined, sceneObjective: objective })
+              .then(() => {
+                invalidateSceneQueries();
+                navigate(`/campaigns/${campaignId}/chat`);
+              });
+          }}
+          onCancel={() => {
+            setNextSceneOpen(false);
+            navigate(campaignDefaultPath(campaignId, "MASTER", null));
+          }}
         />
       )}
 

@@ -14,6 +14,8 @@ export const queryKeys = {
   },
   scenes: {
     detail: (id: string) => ["scenes", id] as const,
+    masterBriefing: (campaignId: string, sceneId: string) =>
+      ["scenes", campaignId, sceneId, "master-briefing"] as const,
   },
   documents: {
     all: (campaignId: string) => ["documents", campaignId] as const,

@@ -16,6 +16,9 @@ export type LegacyFlatSceneState = {
   active_npc_ids?: string[];
   hidden_npc_ids?: string[];
   scene_objective?: string | null;
+  master_prep_notes?: string | null;
+  opening_narration?: string | null;
+  prepared_entity_refs?: import("../../api/types").PreparedEntityRef[];
   current_turn_player_id?: string | null;
   turn_order?: string[];
   memory_settings?: Partial<MemorySettings>;
@@ -83,7 +86,7 @@ export function normalizeSceneState(raw: SceneStateInput): SceneState {
     const turnManagement = raw.turn_management;
     return {
       ...raw,
-      context: { ...raw.context, hidden_npc_ids: raw.context.hidden_npc_ids ?? [] },
+      context: { ...raw.context, hidden_npc_ids: raw.context.hidden_npc_ids ?? [], prepared_entity_refs: raw.context.prepared_entity_refs ?? [] },
       turn_management: {
         ...turnManagement,
         pbp_enabled: turnManagement.pbp_enabled ?? false,
@@ -103,6 +106,9 @@ export function normalizeSceneState(raw: SceneStateInput): SceneState {
       active_npc_ids: flat.active_npc_ids ?? [],
       hidden_npc_ids: flat.hidden_npc_ids ?? [],
       scene_objective: flat.scene_objective ?? null,
+      master_prep_notes: flat.master_prep_notes ?? null,
+      opening_narration: flat.opening_narration ?? null,
+      prepared_entity_refs: flat.prepared_entity_refs ?? [],
     },
     turn_management: {
       ...DEFAULT_TURN_MANAGEMENT,

@@ -93,13 +93,29 @@ export const api = {
     }),
   getActiveScene: (campaignId: string) => http<Scene>(`/api/v1/campaigns/${campaignId}/scenes/active`),
   listCampaignScenes: (campaignId: string) => http<Scene[]>(`/api/v1/campaigns/${campaignId}/scenes`),
-  createScene: (campaignId: string, options?: { sceneObjective?: string; displayName?: string }) =>
+  createScene: (
+    campaignId: string,
+    options?: {
+      sceneObjective?: string;
+      displayName?: string;
+      locationId?: string;
+      openingNarration?: string;
+      masterPrepNotes?: string;
+      preparedEntityRefs?: import("./types").PreparedEntityRef[];
+      status?: "ACTIVE" | "PREPARED";
+    },
+  ) =>
     http<Scene>("/api/v1/scenes", {
       method: "POST",
       body: JSON.stringify({
         campaign_id: campaignId,
         scene_objective: options?.sceneObjective,
         display_name: options?.displayName,
+        location_id: options?.locationId,
+        opening_narration: options?.openingNarration,
+        master_prep_notes: options?.masterPrepNotes,
+        prepared_entity_refs: options?.preparedEntityRefs,
+        status: options?.status ?? "ACTIVE",
       }),
     }),
   getScene: (sceneId: string) => http<Scene>(`/api/v1/scenes/${sceneId}`),
@@ -141,9 +157,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message_ids: messageIds ?? null }),
     }),
-  activateScene: (campaignId: string, sceneId: string) =>
+  activateScene: (campaignId: string, sceneId: string, options?: { sendOpeningToChat?: boolean }) =>
     http<Scene>(`/api/v1/campaigns/${campaignId}/scenes/${sceneId}/activate`, {
       method: "POST",
+      body: JSON.stringify({ send_opening_to_chat: options?.sendOpeningToChat ?? false }),
     }),
   updateSceneStatus: (sceneId: string, status: "ACTIVE" | "PAUSED") =>
     http<Scene>(`/api/v1/scenes/${sceneId}/status`, {
@@ -156,9 +173,18 @@ export const api = {
       body: JSON.stringify({ display_name: displayName }),
     }),
   closeScene: (sceneId: string) =>
-    http<Scene>(`/api/v1/scenes/${sceneId}/close`, {
+    http<import("./types").CloseSceneResponse>(`/api/v1/scenes/${sceneId}/close`, {
       method: "POST",
     }),
+  updateScenePrep: (sceneId: string, payload: import("./types").ScenePrepUpdate) =>
+    http<Scene>(`/api/v1/scenes/${sceneId}/prep`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  getMasterBriefing: (campaignId: string, sceneId: string) =>
+    http<import("./types").MasterBriefingResponse>(
+      `/api/v1/campaigns/${campaignId}/scenes/${sceneId}/master-briefing`,
+    ),
   deleteSceneMessage: (sceneId: string, messageId: string) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/messages/${messageId}`, {
       method: "DELETE",

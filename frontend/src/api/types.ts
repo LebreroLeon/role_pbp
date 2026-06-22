@@ -311,7 +311,15 @@ export type ChatMessage = {
 
 
 
-export type SceneStatusType = "ACTIVE" | "PAUSED" | "CLOSED";
+export type SceneStatusType = "PREPARED" | "ACTIVE" | "PAUSED" | "CLOSED";
+
+export type PlayerVisibility = "hidden" | "unknown" | "visible";
+
+export type PreparedEntityRef = {
+  entity_id: string;
+  player_visibility: PlayerVisibility;
+  add_to_roster: boolean;
+};
 
 
 
@@ -336,6 +344,12 @@ export type SceneContext = {
   hidden_npc_ids?: string[];
 
   scene_objective: string | null;
+
+  master_prep_notes?: string | null;
+
+  opening_narration?: string | null;
+
+  prepared_entity_refs?: PreparedEntityRef[];
 
 };
 
@@ -508,21 +522,62 @@ export type SceneState = {
 
 
 export type Scene = {
-
   id: string;
-
   campaign_id: string;
-
   scene_number: number;
-
   display_name?: string | null;
-
   status: string;
-
   summary?: string | null;
-
   scene_state: SceneState;
+};
 
+export type ScenePrepUpdate = {
+  display_name?: string | null;
+  scene_objective?: string | null;
+  location_id?: string | null;
+  opening_narration?: string | null;
+  master_prep_notes?: string | null;
+  prepared_entity_refs?: PreparedEntityRef[];
+};
+
+export type MasterBriefingNpcEntry = {
+  entity_id: string;
+  name: string;
+  voice_and_tone?: string | null;
+  secret_lore_master?: string | null;
+  player_visibility: PlayerVisibility;
+  in_roster: boolean;
+};
+
+export type MasterBriefingLocation = {
+  id: string;
+  name: string;
+};
+
+export type MasterBriefingResponse = {
+  scene_id: string;
+  display_name?: string | null;
+  scene_objective?: string | null;
+  location?: MasterBriefingLocation | null;
+  opening_narration?: string | null;
+  master_prep_notes?: string | null;
+  last_scene_summary?: string | null;
+  arc_manifest?: Record<string, unknown> | null;
+  npcs: MasterBriefingNpcEntry[];
+  prepared_entity_refs: PreparedEntityRef[];
+};
+
+export type ScenePickerItem = {
+  id: string;
+  scene_number: number;
+  display_name?: string | null;
+  scene_objective?: string | null;
+  status: string;
+};
+
+export type CloseSceneResponse = {
+  closed_scene: Scene;
+  prepared_scenes: ScenePickerItem[];
 };
 
 

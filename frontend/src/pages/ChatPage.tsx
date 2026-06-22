@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import { queryKeys } from "../api/queryKeys";
-import type { LoreAssistResponse, MessageType, Scene } from "../api/types";
+import type { LoreAssistResponse, MasterBriefingResponse, MessageType, Scene, ScenePickerItem } from "../api/types";
 import { SECTION_ICONS } from "../components/icons";
 import {
   Button,
@@ -15,7 +15,7 @@ import {
   StatusBadge,
   Toast,
 } from "../components/ui";
-import { ChatComposer, ChatLog, DiceRoller, getChatBuffer, type MemberLookup } from "../features/scene";
+import { ChatComposer, ChatLog, DiceRoller, getChatBuffer, MasterBriefingModal, MasterCheatSheet, NextSceneModal, type MemberLookup } from "../features/scene";
 import { GameSystemChatMiniSheet, type AdvantageMode } from "../features/systems";
 import {
   canUserPostInPbp,
@@ -59,8 +59,15 @@ export function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [newSceneName, setNewSceneName] = useState("");
+  const [newSceneObjective, setNewSceneObjective] = useState("");
+  const [newSceneLocationId, setNewSceneLocationId] = useState("");
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [preparedScenes, setPreparedScenes] = useState<ScenePickerItem[]>([]);
+  const [nextSceneOpen, setNextSceneOpen] = useState(false);
+  const [nextSceneLoading, setNextSceneLoading] = useState(false);
+  const [activateBriefing, setActivateBriefing] = useState<MasterBriefingResponse | null>(null);
+  const [sendOpeningOnActivate, setSendOpeningOnActivate] = useState(true);
   const [freezeDialogOpen, setFreezeDialogOpen] = useState(false);
   const [freezing, setFreezing] = useState(false);
   const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
@@ -93,6 +100,11 @@ export function ChatPage() {
     const option = speakerOptions.find((item) => item.id === speakerId);
     return option ? speakerOptionToPayload(option) : undefined;
   }, [isMaster, speakerId, speakerOptions]);
+
+  const locations = useMemo(
+    () => entities.filter((entity) => entity.entity_type === "LOCATION"),
+    [entities],
+  );
 
   const handleSceneUpdate = useCallback(
     (updated: Scene) => {
@@ -142,8 +154,9 @@ export function ChatPage() {
     setErrorMessage(null);
     try {
       const created = await api.createScene(campaignId, {
-        sceneObjective: "Escena inicial",
+        sceneObjective: newSceneObjective.trim() || undefined,
         displayName: newSceneName.trim() || undefined,
+        locationId: newSceneLocationId || undefined,
       });
       setScene(created);
       queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), created);
@@ -152,6 +165,59 @@ export function ChatPage() {
       setErrorMessage(err instanceof Error ? err.message : "No se pudo crear la escena");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleActivatePrepared(sceneId: string, sendOpening: boolean) {
+    setNextSceneLoading(true);
+    setErrorMessage(null);
+    try {
+      const activated = await api.activateScene(campaignId, sceneId, { sendOpeningToChat: sendOpening });
+      setScene(activated);
+      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), activated);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.entities.all(campaignId) });
+      setNextSceneOpen(false);
+      setActivateBriefing(null);
+      setPreparedScenes([]);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "No se pudo activar la escena");
+    } finally {
+      setNextSceneLoading(false);
+    }
+  }
+
+  async function handlePickPreparedScene(sceneId: string) {
+    setNextSceneLoading(true);
+    setErrorMessage(null);
+    try {
+      const briefing = await api.getMasterBriefing(campaignId, sceneId);
+      setActivateBriefing(briefing);
+      setSendOpeningOnActivate(Boolean(briefing.opening_narration?.trim()));
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "No se pudo cargar el briefing");
+    } finally {
+      setNextSceneLoading(false);
+    }
+  }
+
+  async function handleCreateNextScene(displayName: string, objective: string) {
+    setNextSceneLoading(true);
+    setErrorMessage(null);
+    try {
+      const created = await api.createScene(campaignId, {
+        displayName: displayName || undefined,
+        sceneObjective: objective,
+      });
+      setScene(created);
+      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), created);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
+      setNextSceneOpen(false);
+      setPreparedScenes([]);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "No se pudo crear la escena");
+    } finally {
+      setNextSceneLoading(false);
     }
   }
 
@@ -265,11 +331,13 @@ export function ChatPage() {
     setClosing(true);
     setErrorMessage(null);
     try {
-      await api.closeScene(currentScene.id);
+      const result = await api.closeScene(currentScene.id);
       queryClient.removeQueries({ queryKey: queryKeys.campaigns.activeScene(campaignId) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
+      setScene(null);
       setCloseDialogOpen(false);
-      navigate(campaignDefaultPath(campaignId, "MASTER", null));
+      setPreparedScenes(result.prepared_scenes);
+      setNextSceneOpen(true);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "No se pudo cerrar la escena");
     } finally {
@@ -329,6 +397,7 @@ export function ChatPage() {
             isMaster={Boolean(isMaster)}
             onSceneUpdate={handleSceneUpdate}
           />
+          {isMaster && <MasterCheatSheet campaignId={campaignId} scene={currentScene} />}
           {!isMaster && loreAssistHistory.length > 0 && (
             <aside className="lore-assist-panel" aria-label="Respuestas del asistente">
               <h3 className="lore-assist-panel__title">@asistente</h3>
@@ -401,8 +470,42 @@ export function ChatPage() {
               maxLength={200}
               disabled={loading}
             />
+            <label className="field-label" htmlFor="new-scene-objective">
+              Objetivo
+            </label>
+            <textarea
+              id="new-scene-objective"
+              value={newSceneObjective}
+              onChange={(event) => setNewSceneObjective(event.target.value)}
+              rows={2}
+              placeholder="Qué debe ocurrir en esta escena"
+              disabled={loading}
+            />
+            {locations.length > 0 && (
+              <>
+                <label className="field-label" htmlFor="new-scene-location">
+                  Ubicación
+                </label>
+                <select
+                  id="new-scene-location"
+                  value={newSceneLocationId}
+                  onChange={(event) => setNewSceneLocationId(event.target.value)}
+                  disabled={loading}
+                >
+                  <option value="">Sin ubicación</option>
+                  {locations.map((location) => {
+                    const identity = location.document.identity as { name?: string } | undefined;
+                    return (
+                      <option key={location.id} value={location.id}>
+                        {identity?.name ?? location.id.slice(0, 8)}
+                      </option>
+                    );
+                  })}
+                </select>
+              </>
+            )}
             <div className="actions">
-              <Button onClick={handleStart} disabled={loading}>
+              <Button onClick={handleStart} disabled={loading || !newSceneObjective.trim()}>
                 Iniciar escena
               </Button>
             </div>
@@ -523,6 +626,30 @@ export function ChatPage() {
           onConfirm={handleCloseScene}
           onCancel={() => setCloseDialogOpen(false)}
           confirming={closing}
+        />
+      )}
+
+      {nextSceneOpen && (
+        <NextSceneModal
+          preparedScenes={preparedScenes}
+          loading={nextSceneLoading}
+          onPickPrepared={handlePickPreparedScene}
+          onCreateNew={handleCreateNextScene}
+          onCancel={() => {
+            setNextSceneOpen(false);
+            navigate(campaignDefaultPath(campaignId, "MASTER", null));
+          }}
+        />
+      )}
+
+      {activateBriefing && (
+        <MasterBriefingModal
+          briefing={activateBriefing}
+          activating={nextSceneLoading}
+          sendOpening={sendOpeningOnActivate}
+          onSendOpeningChange={setSendOpeningOnActivate}
+          onActivate={() => handleActivatePrepared(activateBriefing.scene_id, sendOpeningOnActivate)}
+          onCancel={() => setActivateBriefing(null)}
         />
       )}
     </div>

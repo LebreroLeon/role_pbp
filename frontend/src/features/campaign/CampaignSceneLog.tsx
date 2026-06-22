@@ -8,6 +8,7 @@ import { Button, StatusBadge } from "../../components/ui";
 import { useCampaignScenesQuery } from "../../hooks/queries/useSceneQueries";
 
 const STATUS_LABELS: Record<SceneStatusType, string> = {
+  PREPARED: "Preparada",
   ACTIVE: "Activa (abierta)",
   PAUSED: "Pausada (congelada)",
   CLOSED: "Cerrada",

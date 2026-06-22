@@ -92,6 +92,7 @@ export const CAMPAIGN_NAV_ICONS = {
 
 export const DESK_TAB_ICONS = {
   scene: Clapperboard,
+  escenas: BookOpen,
   players: Users,
   assist: Sparkles,
   settings: Settings2,
