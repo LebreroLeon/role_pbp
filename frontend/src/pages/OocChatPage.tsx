@@ -1,36 +1,60 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { api } from "../api/client";
 import type { OocMessage } from "../api/types";
 import { mergeOocMessage, OocChatPanel } from "../features/ooc/OocChatPanel";
-import { useCampaignMembersQuery } from "../hooks/queries/useCampaignQueries";
+import type { OocChannelId } from "../features/ooc/oocChannels";
+import { buildOocChannelTabs } from "../features/ooc/oocChannels";
+import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
 import { useOocMessagesQuery } from "../hooks/queries/useOocQueries";
 import { useCampaignWs } from "../providers/CampaignWsContext";
 
 export function OocChatPage() {
   const { campaignId = "" } = useParams();
+  const { data: campaign } = useCampaignQuery(campaignId);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
-  const { data: initialMessages = [], isLoading } = useOocMessagesQuery(campaignId);
+  const viewerRole = campaign?.role ?? "PLAYER";
+  const [activeChannel, setActiveChannel] = useState<OocChannelId>("all");
+
+  const channelTabs = useMemo(
+    () => buildOocChannelTabs(members, viewerRole),
+    [members, viewerRole],
+  );
+
+  useEffect(() => {
+    if (!channelTabs.some((tab) => tab.id === activeChannel)) {
+      setActiveChannel("all");
+    }
+  }, [activeChannel, channelTabs]);
+
+  const { data: channelMessages = [], isLoading } = useOocMessagesQuery(campaignId, activeChannel);
   const [messages, setMessages] = useState<OocMessage[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [sending, setSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const visibleMessages = hydrated ? messages : initialMessages;
+  useEffect(() => {
+    if (channelMessages.length === 0) return;
+    setMessages((current) => {
+      let next = current;
+      for (const message of channelMessages) {
+        next = mergeOocMessage(next, message);
+      }
+      return next;
+    });
+    setHydrated(true);
+  }, [channelMessages]);
 
   const handleSnapshot = useCallback((snapshot: OocMessage[]) => {
     setMessages(snapshot);
     setHydrated(true);
   }, []);
 
-  const handleMessage = useCallback(
-    (message: OocMessage) => {
-      setMessages((current) => mergeOocMessage(current.length > 0 ? current : initialMessages, message));
-      setHydrated(true);
-    },
-    [initialMessages],
-  );
+  const handleMessage = useCallback((message: OocMessage) => {
+    setMessages((current) => mergeOocMessage(current, message));
+    setHydrated(true);
+  }, []);
 
   const { connected, registerOocHandlers } = useCampaignWs();
 
@@ -49,7 +73,7 @@ export function OocChatPage() {
       setErrorMessage(null);
       try {
         const message = await api.postOocMessage(campaignId, content);
-        setMessages((current) => mergeOocMessage(current.length > 0 ? current : initialMessages, message));
+        setMessages((current) => mergeOocMessage(current, message));
         setHydrated(true);
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "No se pudo enviar el mensaje");
@@ -57,7 +81,7 @@ export function OocChatPage() {
         setSending(false);
       }
     },
-    [campaignId, initialMessages],
+    [campaignId],
   );
 
   const sendWhisper = useCallback(
@@ -66,15 +90,15 @@ export function OocChatPage() {
       setErrorMessage(null);
       try {
         const message = await api.postOocWhisper(campaignId, content, targetUserId);
-        setMessages((current) => mergeOocMessage(current.length > 0 ? current : initialMessages, message));
+        setMessages((current) => mergeOocMessage(current, message));
         setHydrated(true);
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : "No se pudo enviar el susurro");
+        setErrorMessage(error instanceof Error ? error.message : "No se pudo enviar el mensaje privado");
       } finally {
         setSending(false);
       }
     },
-    [campaignId, initialMessages],
+    [campaignId],
   );
 
   const markOocRead = useCallback(() => {
@@ -82,10 +106,10 @@ export function OocChatPage() {
   }, [campaignId]);
 
   useEffect(() => {
-    if (!hydrated && initialMessages.length === 0) return;
+    if (!hydrated && channelMessages.length === 0) return;
     const timer = setTimeout(markOocRead, 400);
     return () => clearTimeout(timer);
-  }, [hydrated, initialMessages.length, visibleMessages.length, markOocRead]);
+  }, [hydrated, channelMessages.length, messages.length, activeChannel, markOocRead]);
 
   if (isLoading && !hydrated) {
     return <p className="muted">Cargando chat OOC...</p>;
@@ -94,9 +118,11 @@ export function OocChatPage() {
   return (
     <div className="ooc-page">
       <OocChatPanel
-        campaignId={campaignId}
         members={members}
-        messages={visibleMessages}
+        viewerRole={viewerRole}
+        messages={messages}
+        activeChannel={activeChannel}
+        onChannelChange={setActiveChannel}
         connected={connected}
         sending={sending}
         errorMessage={errorMessage}

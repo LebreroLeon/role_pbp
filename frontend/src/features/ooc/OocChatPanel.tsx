@@ -4,13 +4,20 @@ import type { CampaignMember, OocMessage } from "../../api/types";
 import { Button, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../../components/ui";
 import { SECTION_ICONS } from "../../components/icons";
 import { useAuthStore } from "../../stores/authStore";
-
-type RecipientMode = "all" | "whisper";
+import {
+  buildOocChannelTabs,
+  filterMessagesByChannel,
+  findMasterMembers,
+  type OocChannelId,
+  resolveWhisperTarget,
+} from "./oocChannels";
 
 type OocChatPanelProps = {
-  campaignId: string;
   members: CampaignMember[];
+  viewerRole: "MASTER" | "PLAYER";
   messages: OocMessage[];
+  activeChannel: OocChannelId;
+  onChannelChange: (channel: OocChannelId) => void;
   connected: boolean;
   sending: boolean;
   errorMessage: string | null;
@@ -37,9 +44,11 @@ export function mergeOocMessage(existing: OocMessage[], message: OocMessage): Oo
 }
 
 export function OocChatPanel({
-  campaignId,
   members,
+  viewerRole,
   messages,
+  activeChannel,
+  onChannelChange,
   connected,
   sending,
   errorMessage,
@@ -48,33 +57,35 @@ export function OocChatPanel({
 }: OocChatPanelProps) {
   const currentUserId = useAuthStore((state) => state.user?.id ?? "");
   const [draft, setDraft] = useState("");
-  const [recipientMode, setRecipientMode] = useState<RecipientMode>("all");
-  const [targetUserId, setTargetUserId] = useState("");
   const feedRef = useRef<HTMLDivElement>(null);
 
-  const whisperTargets = useMemo(
-    () => members.filter((member) => member.user_id !== currentUserId),
-    [members, currentUserId],
+  const masterMembers = useMemo(() => findMasterMembers(members), [members]);
+  const masterUserIds = useMemo(() => masterMembers.map((member) => member.user_id), [masterMembers]);
+  const channelTabs = useMemo(
+    () => buildOocChannelTabs(members, viewerRole),
+    [members, viewerRole],
   );
 
-  useEffect(() => {
-    if (recipientMode === "whisper" && !targetUserId && whisperTargets.length > 0) {
-      setTargetUserId(whisperTargets[0]?.user_id ?? "");
-    }
-  }, [recipientMode, targetUserId, whisperTargets]);
+  const channelMessages = useMemo(
+    () => filterMessagesByChannel(messages, activeChannel, currentUserId, masterUserIds),
+    [messages, activeChannel, currentUserId, masterUserIds],
+  );
+
+  const isPrivateChannel = activeChannel !== "all";
 
   useEffect(() => {
     const feed = feedRef.current;
     if (!feed) return;
     feed.scrollTop = feed.scrollHeight;
-  }, [messages.length]);
+  }, [channelMessages.length, activeChannel]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const content = draft.trim();
     if (!content || sending) return;
 
-    if (recipientMode === "whisper") {
+    if (isPrivateChannel) {
+      const targetUserId = resolveWhisperTarget(activeChannel, masterUserIds);
       if (!targetUserId) return;
       await onSendWhisper(content, targetUserId);
     } else {
@@ -82,6 +93,8 @@ export function OocChatPanel({
     }
     setDraft("");
   };
+
+  const activeTab = channelTabs.find((tab) => tab.id === activeChannel) ?? channelTabs[0];
 
   return (
     <Panel className="ooc-chat chat-panel">
@@ -95,14 +108,33 @@ export function OocChatPanel({
         }
       />
 
+      <nav className="ooc-chat__tabs master-tabs" role="tablist" aria-label="Canales OOC">
+        {channelTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeChannel === tab.id}
+            className={`master-tabs__btn ooc-chat__tab ${activeChannel === tab.id ? "is-active" : ""}`}
+            onClick={() => onChannelChange(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
       {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
 
       <div ref={feedRef} className="chat-log ooc-chat__messages">
-        {messages.length === 0 ? (
-          <p className="chat-log-empty">Todavía no hay mensajes OOC. Saluda al grupo.</p>
+        {channelMessages.length === 0 ? (
+          <p className="chat-log-empty">
+            {activeChannel === "all"
+              ? "Todavía no hay mensajes OOC. Saluda al grupo."
+              : `Sin mensajes en ${activeTab?.label ?? "este canal"}.`}
+          </p>
         ) : (
           <div className="chat-log-feed">
-            {messages.map((message) => {
+            {channelMessages.map((message) => {
               const isOwn = message.author_user_id === currentUserId;
               const isWhisper = message.message_type === "OOC_WHISPER";
               return (
@@ -126,7 +158,7 @@ export function OocChatPanel({
                         <strong>{message.author_display_name}</strong>
                         {isWhisper ? (
                           <span className="ooc-chat__whisper-label">
-                            Susurro
+                            Privado
                             {message.target_display_name ? ` → ${message.target_display_name}` : ""}
                           </span>
                         ) : (
@@ -147,49 +179,23 @@ export function OocChatPanel({
       </div>
 
       <form className="chat-composer ooc-chat__composer" onSubmit={handleSubmit}>
-        <div className="ooc-chat__recipient">
-          <label className="ooc-chat__recipient-label" htmlFor={`ooc-recipient-${campaignId}`}>
-            Destinatario
-          </label>
-          <select
-            id={`ooc-recipient-${campaignId}`}
-            className="chat-composer__speaker-select"
-            value={recipientMode === "all" ? "all" : targetUserId}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (value === "all") {
-                setRecipientMode("all");
-                return;
-              }
-              setRecipientMode("whisper");
-              setTargetUserId(value);
-            }}
-          >
-            <option value="all">Todos (público OOC)</option>
-            {whisperTargets.map((member) => (
-              <option key={member.user_id} value={member.user_id}>
-                Susurro a {member.display_name}
-              </option>
-            ))}
-          </select>
-        </div>
-
         <textarea
           className="chat-composer__input"
           rows={3}
           placeholder={
-            recipientMode === "whisper"
-              ? "Mensaje privado fuera de personaje..."
+            isPrivateChannel
+              ? `Mensaje privado con ${activeTab?.label ?? "Máster"}...`
               : "Mensaje para toda la mesa..."
           }
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           disabled={sending}
+          aria-label={`Mensaje OOC en ${activeTab?.label ?? "canal"}`}
         />
 
         <div className="ooc-chat__actions">
           <Button type="submit" disabled={sending || !draft.trim()}>
-            {sending ? "Enviando..." : recipientMode === "whisper" ? "Enviar susurro" : "Enviar OOC"}
+            {sending ? "Enviando..." : isPrivateChannel ? "Enviar privado" : "Enviar OOC"}
           </Button>
         </div>
       </form>

@@ -68,8 +68,10 @@ export const api = {
     http<Campaign>("/api/v1/campaigns", { method: "POST", body: JSON.stringify(payload) }),
   listCampaignMembers: (campaignId: string) =>
     http<CampaignMember[]>(`/api/v1/campaigns/${campaignId}/members`),
-  listOocMessages: (campaignId: string) =>
-    http<import("./types").OocMessage[]>(`/api/v1/campaigns/${campaignId}/ooc/messages`),
+  listOocMessages: (campaignId: string, channel = "all") =>
+    http<import("./types").OocMessage[]>(
+      `/api/v1/campaigns/${campaignId}/ooc/messages?channel=${encodeURIComponent(channel)}`,
+    ),
   postOocMessage: (campaignId: string, content: string) =>
     http<import("./types").OocMessage>(`/api/v1/campaigns/${campaignId}/ooc/messages`, {
       method: "POST",

@@ -815,9 +815,14 @@
 .ooc-page {
   display: flex;
   flex-direction: column;
+  width: 100%;
   height: calc(100dvh - 14rem);
   min-height: 22rem;
-  max-width: 720px;
+  max-width: none;
+}
+
+.ooc-chat__tabs {
+  margin-bottom: 0.75rem;
 }
 
 .ooc-chat.chat-panel {
@@ -2311,9 +2316,13 @@
 }
 
 .chat-page .panel,
-.ooc-page .panel,
 .master-screen .panel {
   max-width: 720px;
+}
+
+.ooc-page .panel {
+  max-width: none;
+  width: 100%;
 }
 
 /* —— Master Screen —— */

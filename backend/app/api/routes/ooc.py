@@ -30,11 +30,12 @@ async def get_ooc_messages(
     campaign_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
+    channel: str | None = None,
 ) -> list[OocMessageResponse]:
     campaign_uuid = parse_uuid(campaign_id, "campaign_id")
     await require_campaign_member(db, current_user, campaign_uuid)
     try:
-        return await list_ooc_messages(db, campaign_uuid, current_user.id)
+        return await list_ooc_messages(db, campaign_uuid, current_user.id, channel=channel)
     except OocServiceError as exc:
         raise _ooc_error_to_http(exc) from exc
 

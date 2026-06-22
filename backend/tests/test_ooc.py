@@ -10,6 +10,12 @@ from app.main import app
 from app.models.user import User
 from app.schemas.ooc import OocMessageResponse
 from app.services.campaign_ws import user_can_see_ooc_message
+from app.services.ooc import (
+    OOC_CHANNEL_ALL,
+    OOC_CHANNEL_MASTER,
+    message_matches_ooc_channel,
+    normalize_ooc_channel,
+)
 
 
 def _make_user() -> User:
@@ -179,3 +185,107 @@ async def test_post_ooc_whisper_passes_five_service_args(override_db, mock_db):
 
     assert response.status_code == 201
     whisper.assert_awaited_once_with(mock_db, campaign_id, user.id, target_id, "Secret")
+
+
+def test_normalize_ooc_channel_defaults_to_none():
+    assert normalize_ooc_channel(None) is None
+    assert normalize_ooc_channel("") is None
+    assert normalize_ooc_channel("  ALL  ") == OOC_CHANNEL_ALL
+
+
+def test_message_matches_public_channel_only():
+    author = str(uuid.uuid4())
+    viewer = str(uuid.uuid4())
+    assert message_matches_ooc_channel(
+        message_type="OOC_PUBLIC",
+        author_user_id=author,
+        target_user_id=None,
+        channel=OOC_CHANNEL_ALL,
+        viewer_user_id=viewer,
+        master_user_ids=set(),
+    )
+    assert not message_matches_ooc_channel(
+        message_type="OOC_WHISPER",
+        author_user_id=author,
+        target_user_id=viewer,
+        channel=OOC_CHANNEL_ALL,
+        viewer_user_id=viewer,
+        master_user_ids=set(),
+    )
+
+
+def test_message_matches_master_channel_for_player():
+    player = str(uuid.uuid4())
+    master = str(uuid.uuid4())
+    outsider = str(uuid.uuid4())
+
+    assert message_matches_ooc_channel(
+        message_type="OOC_WHISPER",
+        author_user_id=player,
+        target_user_id=master,
+        channel=OOC_CHANNEL_MASTER,
+        viewer_user_id=player,
+        master_user_ids={master},
+    )
+    assert message_matches_ooc_channel(
+        message_type="OOC_WHISPER",
+        author_user_id=master,
+        target_user_id=player,
+        channel=OOC_CHANNEL_MASTER,
+        viewer_user_id=player,
+        master_user_ids={master},
+    )
+    assert not message_matches_ooc_channel(
+        message_type="OOC_WHISPER",
+        author_user_id=player,
+        target_user_id=outsider,
+        channel=OOC_CHANNEL_MASTER,
+        viewer_user_id=player,
+        master_user_ids={master},
+    )
+
+
+def test_message_matches_player_channel_for_master():
+    master = str(uuid.uuid4())
+    player = str(uuid.uuid4())
+    other_player = str(uuid.uuid4())
+
+    assert message_matches_ooc_channel(
+        message_type="OOC_WHISPER",
+        author_user_id=master,
+        target_user_id=player,
+        channel=player,
+        viewer_user_id=master,
+        master_user_ids={master},
+        player_user_id=player,
+    )
+    assert not message_matches_ooc_channel(
+        message_type="OOC_WHISPER",
+        author_user_id=master,
+        target_user_id=other_player,
+        channel=player,
+        viewer_user_id=master,
+        master_user_ids={master},
+        player_user_id=player,
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_ooc_messages_passes_channel_filter(override_db, mock_db):
+    user = _make_user()
+    campaign_id = uuid.uuid4()
+    _override_user(user)
+
+    with (
+        patch("app.api.routes.ooc.require_campaign_member", new_callable=AsyncMock, return_value="MASTER"),
+        patch("app.api.routes.ooc.list_ooc_messages", new_callable=AsyncMock, return_value=[]) as list_messages,
+    ):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get(
+                f"/api/v1/campaigns/{campaign_id}/ooc/messages",
+                params={"channel": "all"},
+            )
+
+    assert response.status_code == 200
+    list_messages.assert_awaited_once_with(mock_db, campaign_id, user.id, channel="all")
