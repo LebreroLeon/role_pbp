@@ -1,3 +1,4 @@
+import type { ChatMessage } from "../../api/types";
 import type { CampaignEntity } from "./entityDefaults";
 import { getNpcPlayerVisibility } from "./playerVisibility";
 
@@ -46,4 +47,16 @@ export function canShowIllustrationPreview(entity: CampaignEntity, isMaster: boo
   if (!extractIllustrationUrl(entity)) return false;
   if (isMaster) return true;
   return canPlayerSeeIllustration(entity);
+}
+
+export function resolveMessageSpeakerEntity(
+  message: ChatMessage,
+  entities?: CampaignEntity[],
+): CampaignEntity | undefined {
+  if (!entities?.length) return undefined;
+
+  const entityId = message.speaker_entity_id ?? message.entity_id;
+  if (!entityId) return undefined;
+
+  return entities.find((item) => item.id === entityId);
 }

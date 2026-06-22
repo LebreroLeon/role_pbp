@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Image as ImageIcon } from "lucide-react";
 
 import { Button, Modal, Tooltip } from "../../components/ui";
 import { extractIllustrationUrl } from "./entityIllustration";
@@ -10,12 +11,14 @@ type EntityIllustrationPreviewButtonProps = {
   entity: CampaignEntity;
   entities: CampaignEntity[];
   compact?: boolean;
+  iconOnly?: boolean;
 };
 
 export function EntityIllustrationPreviewButton({
   entity,
   entities,
   compact = false,
+  iconOnly = false,
 }: EntityIllustrationPreviewButtonProps) {
   const [open, setOpen] = useState(false);
   const illustrationUrl = extractIllustrationUrl(entity);
@@ -23,17 +26,25 @@ export function EntityIllustrationPreviewButton({
 
   if (!illustrationUrl) return null;
 
+  const buttonClassName = [
+    "entity-illustration-preview-btn",
+    compact ? "entity-illustration-preview-btn--compact" : "",
+    iconOnly ? "entity-illustration-preview-btn--icon" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <>
       <Tooltip content="Ver ilustración">
         <Button
           type="button"
           variant="secondary"
-          className={compact ? "entity-illustration-preview-btn entity-illustration-preview-btn--compact" : "entity-illustration-preview-btn"}
+          className={buttonClassName}
           onClick={() => setOpen(true)}
           aria-label={`Ver ilustración de ${entityName}`}
         >
-          {compact ? "Ver" : "Ilustración"}
+          {iconOnly ? <ImageIcon size={15} aria-hidden /> : compact ? "Ver" : "Ilustración"}
         </Button>
       </Tooltip>
 

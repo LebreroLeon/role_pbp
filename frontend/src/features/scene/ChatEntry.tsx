@@ -4,6 +4,7 @@ import { resolveCombatEntityName, shouldRenderCombatEntry } from "../combat/comb
 import type { SceneStateInput } from "./sceneState";
 import { Eye } from "../../components/icons";
 import { Tooltip } from "../../components/ui";
+import { ChatIllustrationPreviewIcon } from "./ChatIllustrationPreviewIcon";
 import { ChatMessageDeleteButton } from "./ChatMessageDeleteButton";
 import { resolveMessageAvatarUrl } from "../entities/entityAvatar";
 import { ChatAvatar } from "./ChatAvatar";
@@ -124,6 +125,7 @@ export function ChatEntry({
         togglingLikeId={togglingLikeId}
         currentUserId={currentUserId}
         members={members}
+        entities={entities}
       />
     );
   }
@@ -152,7 +154,10 @@ export function ChatEntry({
         <div className="chat-card__identity">
           <ChatAvatar name={characterName} avatarUrl={avatarUrl} />
           <div className="chat-card__identity-text">
-            <strong className="chat-card__character">{characterName}</strong>
+            <span className="chat-card__character-row">
+              <strong className="chat-card__character">{characterName}</strong>
+              <ChatIllustrationPreviewIcon message={message} entities={entities} isMaster={isMaster} />
+            </span>
             <span className={`chat-card__type chat-card__type--${meta.color}`}>{meta.label}</span>
             {masterOnly && <MasterOnlyMessageBadge message={message} />}
           </div>

@@ -290,6 +290,17 @@
   line-height: 1.2;
 }
 
+.chat-card__character-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  max-width: 100%;
+}
+
+.chat-card__character-row .chat-card__character {
+  display: inline;
+}
+
 .chat-card__player {
   font-size: 0.8rem;
   font-weight: 600;
@@ -3422,6 +3433,18 @@
 .entity-illustration-preview-btn--compact {
   min-width: 2.25rem;
   padding-inline: 0.5rem;
+}
+
+.entity-illustration-preview-btn--icon {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.375rem;
+  opacity: 0.75;
+}
+
+.entity-illustration-preview-btn--icon:hover,
+.entity-illustration-preview-btn--icon:focus-visible {
+  opacity: 1;
 }
 
 .entity-illustration-preview__body {

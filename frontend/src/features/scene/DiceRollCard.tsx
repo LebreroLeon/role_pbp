@@ -1,5 +1,6 @@
-import type { ChatMessage } from "../../api/types";
+import type { CampaignEntity, ChatMessage } from "../../api/types";
 import type { MemberLookup } from "./ChatEntry";
+import { ChatIllustrationPreviewIcon } from "./ChatIllustrationPreviewIcon";
 import { ChatMessageDeleteButton } from "./ChatMessageDeleteButton";
 import { ChatAvatar } from "./ChatAvatar";
 import { MESSAGE_TYPE_META } from "./messageTypes";
@@ -27,6 +28,7 @@ type DiceRollCardProps = {
   togglingLikeId?: string | null;
   currentUserId: string;
   members: MemberLookup;
+  entities?: CampaignEntity[];
 };
 
 export function DiceRollCard({
@@ -42,6 +44,7 @@ export function DiceRollCard({
   togglingLikeId = null,
   currentUserId,
   members,
+  entities,
 }: DiceRollCardProps) {
   const rollLabel = resolveRollLabel(message);
   const dice = resolveRollDice(message);
@@ -69,7 +72,10 @@ export function DiceRollCard({
         <div className="chat-card__identity">
           <ChatAvatar name={characterName} avatarUrl={avatarUrl} />
           <div className="chat-card__identity-text">
-            <strong className="chat-card__character">{characterName}</strong>
+            <span className="chat-card__character-row">
+              <strong className="chat-card__character">{characterName}</strong>
+              <ChatIllustrationPreviewIcon message={message} entities={entities} isMaster={isMaster} />
+            </span>
             <span className={`chat-card__type chat-card__type--${meta.color}`}>{meta.label}</span>
             {masterOnly && <MasterOnlyMessageBadge message={message} />}
           </div>

@@ -1,5 +1,6 @@
 import type { CampaignEntity, ChatMessage } from "../../api/types";
 import type { MemberLookup } from "../scene/ChatEntry";
+import { ChatIllustrationPreviewIcon } from "../scene/ChatIllustrationPreviewIcon";
 import { ChatMessageDeleteButton } from "../scene/ChatMessageDeleteButton";
 import { resolveEntityAvatarUrl } from "../entities/entityAvatar";
 import { ChatAvatar } from "../scene/ChatAvatar";
@@ -100,7 +101,14 @@ export function CombatEntry({
           <div className="chat-card__identity">
             <ChatAvatar name={characterName} avatarUrl={avatarUrl} />
             <div className="chat-card__identity-text">
-              <strong className="chat-card__character">{characterName}</strong>
+              <span className="chat-card__character-row">
+                <strong className="chat-card__character">{characterName}</strong>
+                <ChatIllustrationPreviewIcon
+                  entityId={speakerEntityId}
+                  entities={entities}
+                  isMaster={isMaster}
+                />
+              </span>
               <span className="chat-card__type chat-card__type--action">Combate</span>
               {masterOnly && <MasterOnlyMessageBadge message={message} />}
             </div>
@@ -147,7 +155,14 @@ export function CombatEntry({
         <div className="chat-card__identity">
           <ChatAvatar name={characterName} avatarUrl={avatarUrl} />
           <div className="chat-card__identity-text">
-            <strong className="chat-card__character">{characterName}</strong>
+            <span className="chat-card__character-row">
+              <strong className="chat-card__character">{characterName}</strong>
+              <ChatIllustrationPreviewIcon
+                entityId={speakerEntityId}
+                entities={entities}
+                isMaster={isMaster}
+              />
+            </span>
             <span className="chat-card__type chat-card__type--action">Combate</span>
             {masterOnly && <MasterOnlyMessageBadge message={message} />}
           </div>

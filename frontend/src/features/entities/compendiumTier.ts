@@ -3,9 +3,9 @@ import type { CampaignEntity } from "./entityDefaults";
 export type CompendiumTier = "story" | "combat" | "archive";
 
 export const COMPENDIUM_TIER_LABELS: Record<CompendiumTier, string> = {
-  story: "Relevante",
-  combat: "Combate",
-  archive: "Archivo",
+  story: "Historia",
+  combat: "Bestiario",
+  archive: "Archivado",
 };
 
 export type WorldViewFilter = "story" | "combat" | "all";
