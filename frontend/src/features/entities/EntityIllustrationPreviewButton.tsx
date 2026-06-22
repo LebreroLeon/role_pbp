@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Image as ImageIcon } from "lucide-react";
+import { Eye } from "lucide-react";
 
 import { Button, Modal, Tooltip } from "../../components/ui";
 import { extractIllustrationUrl } from "./entityIllustration";
@@ -44,7 +44,7 @@ export function EntityIllustrationPreviewButton({
           onClick={() => setOpen(true)}
           aria-label={`Ver ilustración de ${entityName}`}
         >
-          {iconOnly ? <ImageIcon size={15} aria-hidden /> : compact ? "Ver" : "Ilustración"}
+          {iconOnly ? <Eye size={14} aria-hidden /> : compact ? "Ver" : "Ilustración"}
         </Button>
       </Tooltip>
 
