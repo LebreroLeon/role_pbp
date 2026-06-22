@@ -374,6 +374,14 @@ def scene_to_response(scene: Scene, *, viewer_role: str = "MASTER") -> SceneResp
     )
 
 
+def _strip_master_only_scene_context(context: SceneContext) -> None:
+    context.scene_objective = None
+    context.master_prep_notes = None
+    context.opening_narration = None
+    context.prepared_entity_refs = []
+    context.location_id = None
+
+
 def filter_scene_state_for_viewer(state: SceneState, viewer_role: str) -> SceneState:
     if viewer_role == "MASTER":
         return state
@@ -383,6 +391,7 @@ def filter_scene_state_for_viewer(state: SceneState, viewer_role: str) -> SceneS
         for message in filtered.chat_buffer
         if (message.visibility or "all") != "master_only"
     ]
+    _strip_master_only_scene_context(filtered.context)
     return filtered
 
 

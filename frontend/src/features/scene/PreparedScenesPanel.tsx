@@ -1,10 +1,11 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { GitBranch } from "lucide-react";
 
 import { api } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
 import type { MasterBriefingResponse, Scene } from "../../api/types";
-import { Button, ErrorBanner, SlideOver, StatusBadge } from "../../components/ui";
+import { Button, CollapsibleSection, ErrorBanner, PanelHeader, SlideOver, StatusBadge } from "../../components/ui";
 import { formatSceneLabel } from "../campaign";
 import { useCampaignScenesQuery } from "../../hooks/queries/useSceneQueries";
 import { useEntitiesQuery } from "../../hooks/queries/useEntityQueries";
@@ -38,9 +39,8 @@ export function PreparedScenesPanel({ campaignId }: PreparedScenesPanelProps) {
 
   const grouped = useMemo(() => {
     const prepared = scenes.filter((scene) => scene.status === "PREPARED");
-    const active = scenes.filter((scene) => scene.status === "ACTIVE" || scene.status === "PAUSED");
     const closed = scenes.filter((scene) => scene.status === "CLOSED");
-    return { prepared, active, closed };
+    return { prepared, closed };
   }, [scenes]);
 
   async function invalidate() {
@@ -131,18 +131,25 @@ export function PreparedScenesPanel({ campaignId }: PreparedScenesPanelProps) {
     <section className="prepared-scenes">
       {error && <ErrorBanner message={error} />}
 
-      <div className="actions">
-        <Button onClick={handleCreatePrepared} disabled={creating}>
-          {creating ? "Creando…" : "Nueva escena preparada"}
-        </Button>
-        <Button variant="secondary" onClick={() => refetch()}>
-          Actualizar
-        </Button>
-      </div>
+      <PanelHeader
+        icon={GitBranch}
+        iconTone="amber"
+        title="Escenas preparadas"
+        description="Ramificaciones listas para activar cuando quieras (Puerta A / Puerta B)."
+        actions={
+          <div className="prepared-scenes__header-actions">
+            <Button onClick={handleCreatePrepared} disabled={creating}>
+              {creating ? "Creando…" : "+ Añadir Escena"}
+            </Button>
+            <Button variant="secondary" onClick={() => refetch()}>
+              Actualizar
+            </Button>
+          </div>
+        }
+      />
 
-      <h3>Preparadas</h3>
       {grouped.prepared.length === 0 ? (
-        <p className="muted">Sin escenas preparadas. Crea ramas (Puerta A / Puerta B) antes de jugar.</p>
+        <p className="muted">Sin escenas preparadas. Usa «+ Añadir Escena» para crear ramas antes de jugar.</p>
       ) : (
         <ul className="prepared-scenes__list">
           {grouped.prepared.map((scene) =>
@@ -161,22 +168,16 @@ export function PreparedScenesPanel({ campaignId }: PreparedScenesPanelProps) {
         </ul>
       )}
 
-      <h3>Activas / pausadas</h3>
-      {grouped.active.length === 0 ? (
-        <p className="muted">Ninguna escena en juego.</p>
-      ) : (
-        <ul className="prepared-scenes__list">
-          {grouped.active.map((scene) => renderSceneRow(scene))}
-        </ul>
-      )}
-
-      <h3>Cerradas</h3>
-      {grouped.closed.length === 0 ? (
-        <p className="muted">Sin historial aún.</p>
-      ) : (
-        <ul className="prepared-scenes__list prepared-scenes__list--closed">
-          {grouped.closed.slice(-5).reverse().map((scene) => renderSceneRow(scene))}
-        </ul>
+      {grouped.closed.length > 0 && (
+        <CollapsibleSection
+          title="Escenas cerradas"
+          description={`${grouped.closed.length} en el historial — últimas ${Math.min(grouped.closed.length, 5)}`}
+          defaultOpen={false}
+        >
+          <ul className="prepared-scenes__list prepared-scenes__list--closed">
+            {grouped.closed.slice(-5).reverse().map((scene) => renderSceneRow(scene))}
+          </ul>
+        </CollapsibleSection>
       )}
 
       {editingScene && (

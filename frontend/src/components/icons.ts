@@ -91,7 +91,6 @@ export const CAMPAIGN_NAV_ICONS = {
 } as const;
 
 export const DESK_TAB_ICONS = {
-  scene: Clapperboard,
   escenas: BookOpen,
   players: Users,
   assist: Sparkles,

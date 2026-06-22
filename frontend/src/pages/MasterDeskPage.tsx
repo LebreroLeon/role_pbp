@@ -10,7 +10,7 @@ import { RoleGate } from "../components/auth/RoleGate";
 import { DESK_TAB_ICONS, SECTION_ICONS, UserPlus, Users } from "../components/icons";
 import { Button, ButtonLink, ConfirmDialog, ErrorBanner, Panel, PanelHeader, StatusBadge, Toast, Tooltip } from "../components/ui";
 import { CampaignMemberList, CampaignSettingsForm, formatSceneLabel, InviteMemberForm, campaignDefaultPath } from "../features/campaign";
-import { PreparedScenesPanel, NextSceneModal } from "../features/scene";
+import { MasterCheatSheet, PreparedScenesPanel, NextSceneModal } from "../features/scene";
 import { getChatBuffer, getSceneObjective } from "../features/scene/sceneState";
 import {
   useCampaignMembersQuery,
@@ -24,7 +24,7 @@ const NARRATOR_SPEAKER = {
   speaker_display_name: "Máster / Narrador",
 };
 
-type DeskTab = "scene" | "escenas" | "players" | "assist" | "settings";
+type DeskTab = "escenas" | "players" | "assist" | "settings";
 
 type ShadowMasterMode = MasterAssistMode;
 
@@ -82,8 +82,7 @@ const SHADOW_MASTER_MODE_META: Record<
 };
 
 const TABS: { id: DeskTab; label: string; hint: string }[] = [
-  { id: "scene", label: "Escena", hint: "Estado y control" },
-  { id: "escenas", label: "Escenas", hint: "Preparar y activar ramas" },
+  { id: "escenas", label: "Escenas", hint: "Activa, preparadas e historial" },
   { id: "players", label: "Jugadores", hint: "Mesa y invitaciones" },
   { id: "assist", label: "Shadow Master", hint: "Reglas, precios e ideas narrativas" },
   { id: "settings", label: "Campaña", hint: "Datos generales" },
@@ -93,7 +92,7 @@ export function MasterDeskPage() {
   const { campaignId = "" } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<DeskTab>("scene");
+  const [tab, setTab] = useState<DeskTab>("escenas");
   const [assistMode, setAssistMode] = useState<ShadowMasterMode>("campaign");
   const [query, setQuery] = useState(SHADOW_MASTER_MODES.find((m) => m.id === "campaign")!.defaultQuery);
   const [response, setResponse] = useState<MasterAssistResponse | null>(null);
@@ -258,11 +257,16 @@ export function MasterDeskPage() {
 
           {error && <ErrorBanner message={error} />}
 
-          {tab === "scene" && (
-            <section className="master-tab-panel">
-              <h3>Escena activa</h3>
+          {tab === "escenas" && (
+            <section className="master-tab-panel master-scenes-panel">
+              <PanelHeader
+                icon={DESK_TAB_ICONS.escenas}
+                iconTone="teal"
+                title="Escena activa"
+                description="Estado, control y briefing de la partida en curso."
+              />
               {openScene ? (
-                <>
+                <div className="master-scenes-panel__active">
                   <p className="muted">
                     <strong>{formatSceneLabel(openScene)}</strong>
                   </p>
@@ -313,18 +317,15 @@ export function MasterDeskPage() {
                       Cerrar escena
                     </Button>
                   </div>
-                </>
+                  <MasterCheatSheet campaignId={campaignId} scene={openScene} />
+                </div>
               ) : (
-                <p className="muted">
-                  No hay escena activa. Ve a <Link to={`/campaigns/${campaignId}/chat`}>Jugar</Link> para iniciar una
-                  (podrás asignar nombre al crearla).
+                <p className="muted master-scenes-panel__empty">
+                  No hay escena activa. Activa una escena preparada abajo o ve a{" "}
+                  <Link to={`/campaigns/${campaignId}/chat`}>Jugar</Link> para iniciar una.
                 </p>
               )}
-            </section>
-          )}
 
-          {tab === "escenas" && (
-            <section className="master-tab-panel">
               <PreparedScenesPanel campaignId={campaignId} />
             </section>
           )}

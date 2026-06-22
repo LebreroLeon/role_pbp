@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import type { CampaignEntity, PlayerVisibility, PreparedEntityRef, Scene } from "../../api/types";
-import { Button, ErrorBanner } from "../../components/ui";
+import { Button, ErrorBanner, MasterOnlyField, PlayerVisibleField, Switch } from "../../components/ui";
 import { getSceneObjective } from "./sceneState";
 import { entityLabel } from "./entityLabel";
 
@@ -92,109 +92,136 @@ export function ScenePrepEditor({ scene, entities, saving, error, onSave }: Scen
     <form className="scene-prep-editor" onSubmit={handleSubmit}>
       {error && <ErrorBanner message={error} />}
 
-      <label className="field-label" htmlFor="prep-display-name">
-        Nombre
+      <label className="form-field" htmlFor="prep-display-name">
+        <span>Nombre</span>
+        <input
+          id="prep-display-name"
+          type="text"
+          value={displayName}
+          onChange={(event) => setDisplayName(event.target.value)}
+          placeholder='Ej. "Puerta A"'
+          maxLength={200}
+          disabled={saving}
+        />
       </label>
-      <input
-        id="prep-display-name"
-        type="text"
-        value={displayName}
-        onChange={(event) => setDisplayName(event.target.value)}
-        placeholder='Ej. "Puerta A"'
-        maxLength={200}
-        disabled={saving}
-      />
 
-      <label className="field-label" htmlFor="prep-objective">
-        Objetivo de escena
-      </label>
-      <textarea
-        id="prep-objective"
-        value={objective}
-        onChange={(event) => setObjective(event.target.value)}
-        rows={2}
-        placeholder="Qué debe lograr o descubrir el grupo"
-        disabled={saving}
-      />
-
-      <label className="field-label" htmlFor="prep-location">
-        Ubicación
-      </label>
-      <select
-        id="prep-location"
-        value={locationId}
-        onChange={(event) => setLocationId(event.target.value)}
-        disabled={saving}
+      <MasterOnlyField
+        label="Objetivo de escena"
+        htmlFor="prep-objective"
+        description="Solo para tu preparación; los jugadores no lo ven."
       >
-        <option value="">Sin ubicación</option>
-        {locations.map((location) => (
-          <option key={location.id} value={location.id}>
-            {entityLabel(location)}
-          </option>
-        ))}
-      </select>
+        <textarea
+          id="prep-objective"
+          value={objective}
+          onChange={(event) => setObjective(event.target.value)}
+          rows={2}
+          placeholder="Qué quieres que ocurra (solo para ti)"
+          disabled={saving}
+        />
+      </MasterOnlyField>
 
-      <label className="field-label" htmlFor="prep-opening">
-        Apertura narrativa
-      </label>
-      <textarea
-        id="prep-opening"
-        value={opening}
-        onChange={(event) => setOpening(event.target.value)}
-        rows={4}
-        placeholder="Texto que puedes enviar al chat al activar la escena"
-        disabled={saving}
-      />
+      <MasterOnlyField label="Ubicación" htmlFor="prep-location" description="Referencia de preparación; no se expone a jugadores.">
+        <select
+          id="prep-location"
+          value={locationId}
+          onChange={(event) => setLocationId(event.target.value)}
+          disabled={saving}
+        >
+          <option value="">Sin ubicación</option>
+          {locations.map((location) => (
+            <option key={location.id} value={location.id}>
+              {entityLabel(location)}
+            </option>
+          ))}
+        </select>
+      </MasterOnlyField>
 
-      <label className="field-label" htmlFor="prep-notes">
-        Notas del máster
-      </label>
-      <textarea
-        id="prep-notes"
-        value={notes}
-        onChange={(event) => setNotes(event.target.value)}
-        rows={4}
-        placeholder="Trampas, secretos, pistas — solo para ti"
-        disabled={saving}
-      />
+      <PlayerVisibleField
+        label="Apertura narrativa"
+        htmlFor="prep-opening"
+        description="Opcional. Puedes enviarla al chat al activar la escena."
+      >
+        <textarea
+          id="prep-opening"
+          value={opening}
+          onChange={(event) => setOpening(event.target.value)}
+          rows={4}
+          placeholder="Texto narrativo para abrir la escena en el chat"
+          disabled={saving}
+        />
+      </PlayerVisibleField>
 
-      <fieldset className="scene-prep-editor__entities">
-        <legend className="field-label">Entidades planificadas</legend>
+      <MasterOnlyField
+        label="Notas del máster"
+        htmlFor="prep-notes"
+        description="Trampas, secretos y pistas — nunca visibles para jugadores."
+      >
+        <textarea
+          id="prep-notes"
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+          rows={4}
+          placeholder="Trampas, secretos, pistas — solo para ti"
+          disabled={saving}
+        />
+      </MasterOnlyField>
+
+      <MasterOnlyField
+        label="Entidades planificadas"
+        description="NPCs y PJs que quieres tener listos al activar la escena."
+      >
         {entityRefs.length === 0 && <p className="muted">Sin entidades planificadas.</p>}
-        <ul className="scene-prep-editor__entity-list">
+        <ul className="entity-list scene-prep-editor__entity-list">
           {entityRefs.map((ref) => {
             const entity = rosterEntities.find((item) => item.id === ref.entity_id);
             return (
-              <li key={ref.entity_id} className="scene-prep-editor__entity-row">
-                <span>{entity ? entityLabel(entity) : ref.entity_id.slice(0, 8)}</span>
-                <select
-                  value={ref.player_visibility}
-                  onChange={(event) =>
-                    updateRef(ref.entity_id, {
-                      player_visibility: event.target.value as PlayerVisibility,
-                    })
-                  }
-                  disabled={saving}
-                  aria-label="Visibilidad para jugadores"
-                >
-                  {VISIBILITY_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <label className="scene-prep-editor__roster-check">
-                  <input
-                    type="checkbox"
-                    checked={ref.add_to_roster}
-                    onChange={(event) => updateRef(ref.entity_id, { add_to_roster: event.target.checked })}
-                    disabled={saving}
-                  />
-                  En roster
-                </label>
-                <button type="button" className="link-btn" onClick={() => removeRef(ref.entity_id)} disabled={saving}>
-                  Quitar
-                </button>
+              <li key={ref.entity_id} className="entity-card scene-prep-editor__entity-row">
+                <div className="entity-card__main">
+                  <div className="entity-card__header">
+                    <span className="entity-card__name">
+                      {entity ? entityLabel(entity) : ref.entity_id.slice(0, 8)}
+                    </span>
+                    <div className="entity-card__actions">
+                      <Button
+                        type="button"
+                        className="secondary"
+                        onClick={() => removeRef(ref.entity_id)}
+                        disabled={saving}
+                      >
+                        Quitar
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="scene-prep-editor__entity-controls">
+                    <label className="scene-prep-editor__visibility">
+                      <span className="scene-prep-editor__control-label">Visibilidad</span>
+                      <select
+                        value={ref.player_visibility}
+                        onChange={(event) =>
+                          updateRef(ref.entity_id, {
+                            player_visibility: event.target.value as PlayerVisibility,
+                          })
+                        }
+                        disabled={saving}
+                        aria-label={`Visibilidad de ${entity ? entityLabel(entity) : "entidad"}`}
+                      >
+                        {VISIBILITY_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <Switch
+                      checked={ref.add_to_roster}
+                      onCheckedChange={(checked) => updateRef(ref.entity_id, { add_to_roster: checked })}
+                      label="En roster"
+                      disabled={saving}
+                      tone="teal"
+                      className="sheet-switch--compact scene-prep-editor__roster-switch"
+                    />
+                  </div>
+                </div>
               </li>
             );
           })}
@@ -220,7 +247,7 @@ export function ScenePrepEditor({ scene, entities, saving, error, onSave }: Scen
             ))}
           </select>
         )}
-      </fieldset>
+      </MasterOnlyField>
 
       <Button type="submit" disabled={saving}>
         {saving ? "Guardando…" : "Guardar preparación"}

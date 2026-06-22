@@ -5,6 +5,8 @@ export { Button } from "./Button";
 export { ButtonLink } from "./ButtonLink";
 export { ErrorBanner } from "./ErrorBanner";
 export { Input } from "./Input";
+export { MasterOnlyField } from "./MasterOnlyField";
+export { PlayerVisibleField } from "./PlayerVisibleField";
 export { Panel, PanelHeader } from "./Panel";
 export { Section, SectionToneProvider, useSectionTone } from "./SectionToneContext";
 export { getToneFromPath, type SectionTone } from "./sectionTone";
