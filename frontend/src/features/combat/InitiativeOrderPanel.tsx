@@ -18,7 +18,14 @@ import {
   resolveCurrentTurnLabel,
   type SceneStateInput,
 } from "../scene/sceneState";
-import { buildSceneRoster, enrichInitiativeEntry, resolveInitiativeEntryDisplay } from "./sceneRoster";
+import {
+  buildSceneRoster,
+  enrichInitiativeEntry,
+  getSceneRosterNotInInitiative,
+  resolveInitiativeEntryDisplay,
+  rosterEntryToInitiativeEntry,
+  type SceneRosterEntry,
+} from "./sceneRoster";
 
 type InitiativeOrderPanelProps = {
   sceneId: string;
@@ -131,15 +138,18 @@ export function InitiativeOrderPanel({
           .then(() => undefined)
           .catch(() => undefined)
       }
-      onSave={(entries) =>
-        updateTurnManagement.mutateAsync({
+      onSave={(entries) => {
+        const turnStillValid =
+          currentTurnEntityId != null &&
+          entries.some((entry) => entry.entity_id === currentTurnEntityId);
+        return updateTurnManagement.mutateAsync({
           sceneId,
           order_source: "manual",
           initiative_order: entries,
-          current_turn_entity_id: currentTurnEntityId,
+          ...(turnStillValid ? { current_turn_entity_id: currentTurnEntityId } : {}),
           resort: false,
-        })
-      }
+        });
+      }}
       isSaving={updateTurnManagement.isPending}
       saveError={
         updateTurnManagement.error instanceof Error ? updateTurnManagement.error.message : null
@@ -541,6 +551,25 @@ function InitiativeManageModal({
     setLocalEntries(next);
   }
 
+  const sceneNotInTrack = useMemo(
+    () =>
+      getSceneRosterNotInInitiative(
+        sceneState,
+        entities,
+        isMaster,
+        localEntries.map((entry) => entry.entity_id),
+      ),
+    [sceneState, entities, isMaster, localEntries],
+  );
+
+  function addEntryFromScene(rosterEntry: SceneRosterEntry) {
+    setLocalEntries((current) => [...current, rosterEntryToInitiativeEntry(rosterEntry)]);
+  }
+
+  function removeEntry(index: number) {
+    setLocalEntries((current) => current.filter((_, entryIndex) => entryIndex !== index));
+  }
+
   const saveStatusLabel = isSaving ? "Guardando…" : showSaved ? "Guardado" : null;
 
   return (
@@ -583,7 +612,11 @@ function InitiativeManageModal({
       </div>
 
       {localEntries.length === 0 ? (
-        <p className="muted">No hay entidades en escena. Añade PNJs o PCs presentes.</p>
+        <p className="muted">
+          {sceneNotInTrack.length > 0
+            ? "Nadie en el track aún. Añade entidades de la escena abajo."
+            : "No hay entidades en escena. Añade PNJs o PCs presentes."}
+        </p>
       ) : (
         <ol className="initiative-manage-list">
           {localEntries.map((entry, index) => {
@@ -630,11 +663,47 @@ function InitiativeManageModal({
                   >
                     ↓
                   </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="initiative-manage-item__remove"
+                    disabled={isBusy}
+                    onClick={() => removeEntry(index)}
+                    aria-label={`Quitar ${displayName} del track`}
+                  >
+                    Quitar
+                  </Button>
                 </div>
               </li>
             );
           })}
         </ol>
+      )}
+
+      {sceneNotInTrack.length > 0 && (
+        <section className="initiative-modal__add-section" aria-label="En escena, fuera del track">
+          <h4 className="initiative-modal__add-heading">En escena, fuera del track</h4>
+          <ul className="initiative-manage-list initiative-manage-list--add">
+            {sceneNotInTrack.map((rosterEntry) => (
+              <li key={rosterEntry.id} className="initiative-manage-item initiative-manage-item--add">
+                <span className="initiative-manage-item__name">{rosterEntry.label}</span>
+                <div className="initiative-manage-item__meta">
+                  <span className="initiative-entry__tag">{rosterEntry.entityType}</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="initiative-manage-item__add"
+                  disabled={isBusy}
+                  onClick={() => addEntryFromScene(rosterEntry)}
+                  aria-label={`Añadir ${rosterEntry.label} al track`}
+                >
+                  + Añadir
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </Modal>
   );

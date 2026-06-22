@@ -208,6 +208,25 @@ export function getOffSceneNpcs(
     .sort((a, b) => getEntityDisplayName(a).localeCompare(getEntityDisplayName(b), "es"));
 }
 
+/** Scene roster entries not yet in the initiative / turn track. */
+export function getSceneRosterNotInInitiative(
+  sceneState: SceneStateInput | null | undefined,
+  entities: CampaignEntity[] | undefined,
+  isMaster: boolean,
+  trackEntityIds: Iterable<string>,
+): SceneRosterEntry[] {
+  const trackIds = new Set(trackEntityIds);
+  return buildSceneRoster(sceneState, entities, isMaster).filter((entry) => !trackIds.has(entry.id));
+}
+
+export function rosterEntryToInitiativeEntry(rosterEntry: SceneRosterEntry): CombatInitiativeEntry {
+  return {
+    entity_id: rosterEntry.id,
+    display_name: rosterEntry.label,
+    entity_type: rosterEntry.entityType,
+  };
+}
+
 export function getOffScenePcs(
   sceneState: SceneStateInput | null | undefined,
   entities: CampaignEntity[] | undefined,

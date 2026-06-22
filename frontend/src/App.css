@@ -1863,6 +1863,38 @@
   padding: 0.2rem 0.35rem;
 }
 
+.initiative-manage-item__remove {
+  font-size: 0.78rem;
+  padding: 0.2rem 0.45rem;
+}
+
+.initiative-manage-item__add {
+  font-size: 0.82rem;
+  padding: 0.25rem 0.55rem;
+  white-space: nowrap;
+}
+
+.initiative-modal__add-section {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.initiative-modal__add-heading {
+  margin: 0 0 0.65rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.initiative-manage-item--add {
+  grid-template-columns: 1fr auto auto;
+}
+
+.initiative-manage-list--add {
+  gap: 0.3rem;
+}
+
 .game-system-preview {
   padding: 0.85rem 1rem;
   border-radius: var(--radius-md);
