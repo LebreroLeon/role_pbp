@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import type { CampaignEntity, CombatInitiativeEntry, Scene, TurnOrderSource } from "../../api/types";
+import type { CampaignEntity, CombatInitiativeEntry, Scene } from "../../api/types";
 import { Button, Modal, Switch, Tooltip } from "../../components/ui";
 import {
   useAdvancePbpTurnMutation,
@@ -12,7 +12,6 @@ import {
   getCombatState,
   getCurrentCombatTurnIndex,
   getCurrentTurnEntityId,
-  getOrderSource,
   isConflictModeActive,
   isPbpEnabled,
   normalizeSceneState,
@@ -30,12 +29,6 @@ type InitiativeOrderPanelProps = {
   isMaster?: boolean;
   onSceneUpdate?: (scene: Scene) => void;
 };
-
-const ORDER_SOURCE_OPTIONS: { value: TurnOrderSource; label: string }[] = [
-  { value: "initiative", label: "Iniciativa" },
-  { value: "attribute", label: "Destreza" },
-  { value: "manual", label: "Manual" },
-];
 
 function buildDisplayEntries(
   sceneState: SceneStateInput,
@@ -78,7 +71,6 @@ export function InitiativeOrderPanel({
   const currentTurnEntityId = getCurrentTurnEntityId(state);
   const conflictActive = isConflictModeActive(state);
   const pbpOn = isPbpEnabled(state);
-  const orderSource = getOrderSource(state);
   const turnLabel = resolveCurrentTurnLabel(sceneState, members, entities, isMaster);
   const [manageOpen, setManageOpen] = useState(false);
 
@@ -132,25 +124,21 @@ export function InitiativeOrderPanel({
       entities={entities}
       sceneState={sceneState}
       isMaster={isMaster}
-      orderSource={orderSource}
-      onOrderSourceChange={(next) =>
-        void updateTurnManagement.mutateAsync({ sceneId, order_source: next }).catch(() => undefined)
-      }
       onClose={() => setManageOpen(false)}
-      onRollAll={() =>
+      onRollAll={(entityIds) =>
         rollInitiative
-          .mutateAsync({ sceneId, activateCombat: false })
-          .then(() => setManageOpen(false))
+          .mutateAsync({ sceneId, activateCombat: false, entityIds })
+          .then(() => undefined)
           .catch(() => undefined)
       }
-      onSave={(entries, source) =>
+      onSave={(entries) =>
         updateTurnManagement
           .mutateAsync({
             sceneId,
-            order_source: source,
+            order_source: "manual",
             initiative_order: entries,
             current_turn_entity_id: entries[0]?.entity_id ?? null,
-            resort: source !== "manual",
+            resort: false,
           })
           .then(() => setManageOpen(false))
       }
@@ -424,11 +412,9 @@ type InitiativeManageModalProps = {
   entities: CampaignEntity[];
   sceneState: SceneStateInput;
   isMaster: boolean;
-  orderSource: TurnOrderSource;
-  onOrderSourceChange: (source: TurnOrderSource) => void;
   onClose: () => void;
-  onRollAll: () => void;
-  onSave: (entries: CombatInitiativeEntry[], source: TurnOrderSource) => Promise<void>;
+  onRollAll: (entityIds: string[]) => Promise<void>;
+  onSave: (entries: CombatInitiativeEntry[]) => Promise<void>;
   isSaving?: boolean;
   isRolling?: boolean;
   saveError?: string | null;
@@ -439,8 +425,6 @@ function InitiativeManageModal({
   entities,
   sceneState,
   isMaster,
-  orderSource,
-  onOrderSourceChange,
   onClose,
   onRollAll,
   onSave,
@@ -449,15 +433,11 @@ function InitiativeManageModal({
   saveError = null,
 }: InitiativeManageModalProps) {
   const [localEntries, setLocalEntries] = useState(entries);
-  const [localSource, setLocalSource] = useState(orderSource);
+  const isBusy = isSaving || isRolling;
 
   useEffect(() => {
     setLocalEntries(entries);
   }, [entries]);
-
-  useEffect(() => {
-    setLocalSource(orderSource);
-  }, [orderSource]);
 
   function moveEntry(index: number, direction: -1 | 1) {
     const target = index + direction;
@@ -466,13 +446,6 @@ function InitiativeManageModal({
     const [item] = next.splice(index, 1);
     next.splice(target, 0, item);
     setLocalEntries(next);
-    setLocalSource("manual");
-    onOrderSourceChange("manual");
-  }
-
-  function handleSourceChange(next: TurnOrderSource) {
-    setLocalSource(next);
-    onOrderSourceChange(next);
   }
 
   return (
@@ -484,19 +457,19 @@ function InitiativeManageModal({
       footer={
         <>
           <p className="muted initiative-modal__note">
-            Guardar orden actualiza el turno narrativo y la iniciativa en escena. El Máster siempre puede
-            escribir.
+            Tirar iniciativa ordena por valor (mayor primero). El Máster puede ajustar el orden con
+            las flechas y guardar.
           </p>
           {saveError && <p className="error">{saveError}</p>}
           <div className="ui-modal__actions">
-            <Button type="button" variant="secondary" onClick={onClose} disabled={isSaving || isRolling}>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={isBusy}>
               Cerrar
             </Button>
             <Button
               type="button"
-              disabled={isSaving || isRolling || localEntries.length === 0}
+              disabled={isBusy || localEntries.length === 0}
               onClick={() => {
-                void onSave(localEntries, localSource).catch(() => undefined);
+                void onSave(localEntries).catch(() => undefined);
               }}
             >
               {isSaving ? "Guardando…" : "Guardar orden"}
@@ -506,21 +479,14 @@ function InitiativeManageModal({
       }
     >
       <div className="initiative-modal__toolbar">
-        <label className="initiative-modal__sort">
-          Ordenar por
-          <select
-            value={localSource}
-            onChange={(event) => handleSourceChange(event.target.value as TurnOrderSource)}
-            disabled={isSaving || isRolling}
-          >
-            {ORDER_SOURCE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Button type="button" variant="secondary" disabled={isSaving || isRolling} onClick={onRollAll}>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={isBusy || localEntries.length === 0}
+          onClick={() => {
+            void onRollAll(localEntries.map((entry) => entry.entity_id)).catch(() => undefined);
+          }}
+        >
           {isRolling ? "Tirando…" : "Tirar iniciativa de todos"}
         </Button>
       </div>
@@ -538,33 +504,35 @@ function InitiativeManageModal({
             );
 
             return (
-            <li key={entry.entity_id} className="initiative-manage-item">
-              <span className="initiative-manage-item__name">
-                {displayName}
-              </span>
-              {entry.initiative_score != null && (
-                <span className="initiative-entry__score">{entry.initiative_score}</span>
-              )}
-              {entityType && <span className="initiative-entry__tag">{entityType}</span>}
-              <div className="initiative-manage-item__actions">
-                <button
-                  type="button"
-                  disabled={index === 0 || isSaving}
-                  onClick={() => moveEntry(index, -1)}
-                  aria-label="Subir"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  disabled={index === localEntries.length - 1 || isSaving}
-                  onClick={() => moveEntry(index, 1)}
-                  aria-label="Bajar"
-                >
-                  ↓
-                </button>
-              </div>
-            </li>
+              <li key={entry.entity_id} className="initiative-manage-item">
+                <span className="initiative-manage-item__name">{displayName}</span>
+                {entry.initiative_score != null && (
+                  <span className="initiative-entry__score">{entry.initiative_score}</span>
+                )}
+                {entityType && <span className="initiative-entry__tag">{entityType}</span>}
+                <div className="initiative-manage-item__actions">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="initiative-manage-item__move"
+                    disabled={index === 0 || isBusy}
+                    onClick={() => moveEntry(index, -1)}
+                    aria-label={`Subir ${displayName}`}
+                  >
+                    ↑
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="initiative-manage-item__move"
+                    disabled={index === localEntries.length - 1 || isBusy}
+                    onClick={() => moveEntry(index, 1)}
+                    aria-label={`Bajar ${displayName}`}
+                  >
+                    ↓
+                  </Button>
+                </div>
+              </li>
             );
           })}
         </ol>

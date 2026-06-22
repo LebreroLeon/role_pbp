@@ -20,10 +20,12 @@ export function useRollCombatInitiativeMutation({
     mutationFn: ({
       sceneId,
       activateCombat = true,
+      entityIds,
     }: {
       sceneId: string;
       activateCombat?: boolean;
-    }) => api.rollCombatInitiative(sceneId, { activateCombat }),
+      entityIds?: string[];
+    }) => api.rollCombatInitiative(sceneId, { activateCombat, entityIds }),
     onSuccess: (scene) => {
       const normalized = normalizeScene(scene);
       queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), normalized);

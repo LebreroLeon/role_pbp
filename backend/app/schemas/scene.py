@@ -154,6 +154,7 @@ class CombatAttackRequest(BaseModel):
 
 class CombatInitiativeRequest(BaseModel):
     activate_combat: bool = True
+    entity_ids: list[str] | None = None
 
 
 class SceneTurnManagementUpdate(BaseModel):

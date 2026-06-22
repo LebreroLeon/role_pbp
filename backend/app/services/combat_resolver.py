@@ -632,12 +632,25 @@ async def execute_initiative(
     sender_id: str,
     sender_role: str,
     activate_combat: bool = True,
+    entity_ids: list[str] | None = None,
 ) -> CombatExecutionResult:
     assert_master_only(sender_role, "initiative rolls")
     plugin = get_combat_plugin(campaign.game_system)
-    scene_entities = await fetch_scene_combat_entities(db, campaign.id, state)
-    if not scene_entities:
-        raise CombatResolverError("No entities present in scene for initiative")
+    if entity_ids:
+        from app.services.pbp_turn import fetch_entities_by_id
+
+        entities_by_id = await fetch_entities_by_id(db, campaign.id, entity_ids)
+        scene_entities = [
+            entities_by_id[str(entity_id)]
+            for entity_id in entity_ids
+            if str(entity_id) in entities_by_id
+        ]
+        if not scene_entities:
+            raise CombatResolverError("No entities on initiative track")
+    else:
+        scene_entities = await fetch_scene_combat_entities(db, campaign.id, state)
+        if not scene_entities:
+            raise CombatResolverError("No entities present in scene for initiative")
 
     from app.services.entities import get_effective_hidden_npc_ids
 

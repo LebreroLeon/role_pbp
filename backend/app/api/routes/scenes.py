@@ -393,6 +393,7 @@ async def roll_combat_initiative_route(
             sender_id=str(current_user.id),
             sender_role=role,
             activate_combat=payload.activate_combat,
+            entity_ids=payload.entity_ids,
         )
     except CombatResolverError as exc:
         raise scene_service_error_to_http(SceneServiceError(str(exc))) from exc

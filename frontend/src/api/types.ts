@@ -404,6 +404,7 @@ export type SystemManualStatusResponse = {
 
 export type CombatInitiativeRequest = {
   activate_combat?: boolean;
+  entity_ids?: string[];
 };
 
 

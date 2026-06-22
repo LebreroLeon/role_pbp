@@ -165,10 +165,16 @@ export const api = {
     http<Scene>(`/api/v1/scenes/${sceneId}/messages/${messageId}/like`, {
       method: "POST",
     }),
-  rollCombatInitiative: (sceneId: string, options?: { activateCombat?: boolean }) =>
+  rollCombatInitiative: (
+    sceneId: string,
+    options?: { activateCombat?: boolean; entityIds?: string[] },
+  ) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/combat/initiative`, {
       method: "POST",
-      body: JSON.stringify({ activate_combat: options?.activateCombat ?? true }),
+      body: JSON.stringify({
+        activate_combat: options?.activateCombat ?? true,
+        ...(options?.entityIds?.length ? { entity_ids: options.entityIds } : {}),
+      }),
     }),
   updateSceneTurnManagement: (sceneId: string, payload: import("./types").SceneTurnManagementUpdate) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/turn-management`, {

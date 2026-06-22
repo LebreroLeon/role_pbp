@@ -1826,19 +1826,9 @@
   gap: 0.25rem;
 }
 
-.initiative-manage-item__actions button {
+.initiative-manage-item__move {
   min-width: 1.75rem;
   padding: 0.2rem 0.35rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-
-.initiative-manage-item__actions button:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
 }
 
 .game-system-preview {

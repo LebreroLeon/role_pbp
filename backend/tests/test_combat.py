@@ -12,6 +12,7 @@ from app.services.combat_resolver import (
     assert_attacker_permission,
     entity_display_name,
     execute_attack,
+    execute_initiative,
     fetch_scene_combat_entities,
     get_combat_plugin,
     resolve_entity_reference,
@@ -209,3 +210,52 @@ class TestExecuteAttack:
         assert "1d8=" in combat["combat_event"]["damage"]["chat_summary"]
         assert entity_display_name(attacker) in combat["text"]
         assert "1d20" in combat["chat_summary"]
+
+
+class TestExecuteInitiative:
+    def test_rolls_only_track_entities_and_sorts_descending(self, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda _a, _b: 10)
+
+        fast = _make_entity(name="Rápido", user_id="player-1")
+        slow = _make_entity(name="Lento", user_id="player-2")
+        off_track = _make_entity(name="Fuera", user_id="player-3", present=False)
+
+        db = AsyncMock()
+        db.scalar = AsyncMock(return_value=None)
+        db.scalars = AsyncMock(return_value=MagicMock(all=lambda: []))
+
+        campaign = Campaign(id=uuid.uuid4(), name="Test", game_system="dnd5e")
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id=str(campaign.id), status="ACTIVE"),
+            context=SceneContext(active_npc_ids=[]),
+            state_flags=StateFlags(),
+        )
+
+        track_ids = [str(fast.id), str(slow.id)]
+
+        def fake_fetch_entities_by_id(_db, _campaign_id, entity_ids):
+            by_id = {str(fast.id): fast, str(slow.id): slow, str(off_track.id): off_track}
+            return {entity_id: by_id[entity_id] for entity_id in entity_ids if entity_id in by_id}
+
+        monkeypatch.setattr(
+            "app.services.pbp_turn.fetch_entities_by_id",
+            AsyncMock(side_effect=fake_fetch_entities_by_id),
+        )
+
+        result = asyncio.run(
+            execute_initiative(
+                db,
+                campaign,
+                state,
+                sender_id="master-1",
+                sender_role="MASTER",
+                activate_combat=False,
+                entity_ids=track_ids,
+            )
+        )
+
+        rolled_ids = [entry.entity_id for entry in state.combat.initiative_order]
+        assert rolled_ids == track_ids
+        assert off_track.id not in {uuid.UUID(entity_id) for entity_id in rolled_ids}
+        assert state.combat.is_active is False
+        assert result.messages[0]["combat_event"]["kind"] == "INITIATIVE_ROLLED"
