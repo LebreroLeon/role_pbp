@@ -136,15 +136,13 @@ export function InitiativeOrderPanel({
           sceneId,
           order_source: "manual",
           initiative_order: entries,
-          current_turn_entity_id: entries[0]?.entity_id ?? null,
+          current_turn_entity_id: currentTurnEntityId,
           resort: false,
         })
       }
-      isSaving={updateTurnManagement.isPending || rollInitiative.isPending}
+      isSaving={updateTurnManagement.isPending}
       saveError={
-        (updateTurnManagement.error ?? rollInitiative.error) instanceof Error
-          ? (updateTurnManagement.error ?? rollInitiative.error)?.message ?? null
-          : null
+        updateTurnManagement.error instanceof Error ? updateTurnManagement.error.message : null
       }
       isRolling={rollInitiative.isPending}
     />
@@ -446,10 +444,12 @@ function InitiativeManageModal({
   saveError = null,
 }: InitiativeManageModalProps) {
   const [localEntries, setLocalEntries] = useState(entries);
+  const [showSaved, setShowSaved] = useState(false);
   const isBusy = isSaving || isRolling;
   const onSaveRef = useRef(onSave);
   const skipAutoSaveRef = useRef(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const entriesRef = useRef(entries);
   const localEntriesRef = useRef(localEntries);
 
@@ -462,6 +462,12 @@ function InitiativeManageModal({
     skipAutoSaveRef.current = true;
   }, [entries]);
 
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    };
+  }, []);
+
   const flushPendingSave = useCallback(() => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -469,7 +475,13 @@ function InitiativeManageModal({
     }
     const pending = localEntriesRef.current;
     if (!initiativeEntriesMatch(pending, entriesRef.current)) {
-      void onSaveRef.current(pending).catch(() => undefined);
+      void onSaveRef.current(pending)
+        .then(() => {
+          setShowSaved(true);
+          if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+          savedTimerRef.current = setTimeout(() => setShowSaved(false), 2000);
+        })
+        .catch(() => undefined);
     }
   }, []);
 
@@ -483,7 +495,13 @@ function InitiativeManageModal({
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
       debounceTimerRef.current = null;
-      void onSaveRef.current(localEntries).catch(() => undefined);
+      void onSaveRef.current(localEntries)
+        .then(() => {
+          setShowSaved(true);
+          if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+          savedTimerRef.current = setTimeout(() => setShowSaved(false), 2000);
+        })
+        .catch(() => undefined);
     }, INITIATIVE_AUTOSAVE_MS);
 
     return () => {
@@ -510,6 +528,21 @@ function InitiativeManageModal({
     setLocalEntries(next);
   }
 
+  function updateInitiativeScore(index: number, rawValue: string) {
+    const score = rawValue === "" ? null : Number.parseInt(rawValue, 10);
+    const next = localEntries.map((entry, entryIndex) =>
+      entryIndex === index
+        ? {
+            ...entry,
+            initiative_score: score == null || Number.isNaN(score) ? null : score,
+          }
+        : entry,
+    );
+    setLocalEntries(next);
+  }
+
+  const saveStatusLabel = isSaving ? "Guardando…" : showSaved ? "Guardado" : null;
+
   return (
     <Modal
       title="Gestionar iniciativa"
@@ -522,7 +555,11 @@ function InitiativeManageModal({
             Los cambios se guardan solos. Tirar iniciativa ordena por valor (mayor primero); usa las
             flechas para ajustar el orden.
           </p>
-          {isSaving && <p className="muted initiative-modal__saving">Guardando…</p>}
+          {saveStatusLabel && (
+            <p className="initiative-modal__save-status muted" role="status" aria-live="polite">
+              {saveStatusLabel}
+            </p>
+          )}
           {saveError && <p className="error">{saveError}</p>}
           <div className="ui-modal__actions">
             <Button type="button" variant="secondary" onClick={handleClose} disabled={isBusy}>
@@ -560,10 +597,18 @@ function InitiativeManageModal({
             return (
               <li key={entry.entity_id} className="initiative-manage-item">
                 <span className="initiative-manage-item__name">{displayName}</span>
-                {entry.initiative_score != null && (
-                  <span className="initiative-entry__score">{entry.initiative_score}</span>
-                )}
-                {entityType && <span className="initiative-entry__tag">{entityType}</span>}
+                <div className="initiative-manage-item__meta">
+                  <input
+                    type="number"
+                    className="initiative-manage-item__score"
+                    value={entry.initiative_score ?? ""}
+                    placeholder="—"
+                    disabled={isBusy}
+                    aria-label={`Iniciativa de ${displayName}`}
+                    onChange={(event) => updateInitiativeScore(index, event.target.value)}
+                  />
+                  {entityType && <span className="initiative-entry__tag">{entityType}</span>}
+                </div>
                 <div className="initiative-manage-item__actions">
                   <Button
                     type="button"

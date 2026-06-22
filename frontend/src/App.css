@@ -1635,6 +1635,12 @@
   font-size: 0.85rem;
 }
 
+.initiative-modal__save-status {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
 .initiative-modal__toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -1814,6 +1820,27 @@
   padding: 0.45rem 0.5rem;
   border-radius: var(--radius-sm);
   background: var(--bg-base);
+}
+
+.initiative-manage-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.initiative-manage-item__score {
+  width: 3.25rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.initiative-manage-item__score:disabled {
+  opacity: 0.6;
 }
 
 .initiative-manage-item__name {
