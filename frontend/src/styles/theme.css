@@ -24,6 +24,12 @@
   --accent-teal-soft: rgba(62, 207, 189, 0.12);
   --accent-amber: #f0b429;
   --accent-amber-soft: rgba(240, 180, 41, 0.12);
+  --master-only-border: rgba(245, 158, 11, 0.35);
+  --master-only-bg: rgba(245, 158, 11, 0.05);
+  --master-only-accent: rgb(217, 119, 6);
+  --player-visible-border: rgba(45, 212, 191, 0.35);
+  --player-visible-bg: rgba(45, 212, 191, 0.05);
+  --player-visible-accent: var(--accent-teal);
   --accent-sky: #5eb8ff;
   --accent-sky-soft: rgba(94, 184, 255, 0.12);
 

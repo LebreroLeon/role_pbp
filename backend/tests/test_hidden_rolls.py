@@ -157,6 +157,28 @@ class TestFilterSceneStateForViewer:
         assert len(filtered.chat_buffer) == 1
         assert filtered.chat_buffer[0].text == "Público"
 
+    def test_players_do_not_see_master_only_scene_context(self):
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id="c1", status="ACTIVE"),
+            context=SceneContext(
+                location_id="loc-1",
+                scene_objective="Descubrir la verdad",
+                master_prep_notes="Trampa oculta",
+                opening_narration="Un pasillo oscuro…",
+                prepared_entity_refs=[
+                    {"entity_id": "npc-1", "player_visibility": "hidden", "add_to_roster": True},
+                ],
+            ),
+        )
+
+        filtered = filter_scene_state_for_viewer(state, "PLAYER")
+
+        assert filtered.context.scene_objective is None
+        assert filtered.context.master_prep_notes is None
+        assert filtered.context.opening_narration is None
+        assert filtered.context.location_id is None
+        assert filtered.context.prepared_entity_refs == []
+
     def test_master_sees_all_messages(self):
         state = SceneState(
             metadata=SceneMetadata(campaign_id="c1", status="ACTIVE"),
