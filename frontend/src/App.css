@@ -3443,15 +3443,23 @@
   width: 1.75rem;
   height: 1.75rem;
   padding: 0;
-  border-radius: 0.3rem;
+  border: none;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--text-muted);
   line-height: 0;
   box-shadow: none;
-  opacity: 0.7;
+  cursor: pointer;
+}
+
+.entity-illustration-preview-btn--icon svg {
+  flex-shrink: 0;
 }
 
 .entity-illustration-preview-btn--icon:hover:not(:disabled),
 .entity-illustration-preview-btn--icon:focus-visible {
-  opacity: 1;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
   transform: none;
   box-shadow: none;
 }

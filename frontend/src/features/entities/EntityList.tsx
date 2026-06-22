@@ -131,7 +131,7 @@ export function EntityList({
                               </label>
                             )}
                             {showIllustrationPreview && (
-                              <EntityIllustrationPreviewButton entity={entity} entities={entities} compact />
+                              <EntityIllustrationPreviewButton entity={entity} entities={entities} iconOnly />
                             )}
                             {isMaster && entity.entity_type === "NPC" && npcVisibility && (
                               <NpcVisibilityControl

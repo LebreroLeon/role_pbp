@@ -223,3 +223,97 @@ async def test_master_can_upload_illustration(override_db, mock_db):
 
     assert response.status_code == 200
     assert response.json()["document"]["ai_narrative_profile"]["illustration_url"].endswith("/illustration")
+
+
+@pytest.mark.asyncio
+async def test_avatar_upload_preserves_illustration_url(tmp_path):
+    from unittest.mock import AsyncMock
+
+    from app.core.config import settings
+    from app.services.entity_avatars import read_entity_avatar_url, save_entity_avatar_file
+
+    original_upload_dir = settings.upload_dir
+    settings.upload_dir = str(tmp_path)
+    try:
+        entity = _make_entity()
+        illustration_path = f"/api/v1/entities/{entity.id}/illustration"
+        write_entity_illustration_url(entity, illustration_path)
+
+        mock_db = AsyncMock()
+        await save_entity_avatar_file(
+            mock_db,
+            entity,
+            original_name="avatar.png",
+            content=b"fake-png",
+            mime_type="image/png",
+        )
+
+        assert read_entity_illustration_url(entity) == illustration_path
+        assert read_entity_avatar_url(entity) == f"/api/v1/entities/{entity.id}/avatar"
+    finally:
+        settings.upload_dir = original_upload_dir
+
+
+@pytest.mark.asyncio
+async def test_resolve_illustration_path_finds_uploaded_file(tmp_path):
+    from app.core.config import settings
+    from app.services.entity_illustrations import (
+        illustration_api_path,
+        resolve_entity_illustration_path,
+        save_entity_illustration_file,
+    )
+    from unittest.mock import AsyncMock
+
+    original_upload_dir = settings.upload_dir
+    settings.upload_dir = str(tmp_path)
+    try:
+        entity = _make_entity()
+        mock_db = AsyncMock()
+        await save_entity_illustration_file(
+            mock_db,
+            entity,
+            original_name="portrait.png",
+            content=b"fake-png",
+            mime_type="image/png",
+        )
+
+        assert read_entity_illustration_url(entity) == illustration_api_path(entity.id)
+        resolved = resolve_entity_illustration_path(entity)
+        assert resolved is not None
+        assert resolved.exists()
+        assert resolved.read_bytes() == b"fake-png"
+    finally:
+        settings.upload_dir = original_upload_dir
+
+
+@pytest.mark.asyncio
+async def test_master_can_get_npc_illustration_file(override_db, mock_db, tmp_path):
+    from app.core.config import settings
+    from app.services.entity_illustrations import save_entity_illustration_file
+    from unittest.mock import AsyncMock
+
+    original_upload_dir = settings.upload_dir
+    settings.upload_dir = str(tmp_path)
+    try:
+        user = _make_user()
+        entity = _make_entity(document=_npc_document(visibility="visible"))
+        _override_user(user)
+
+        mock_db.scalar = AsyncMock(return_value=entity)
+        await save_entity_illustration_file(
+            mock_db,
+            entity,
+            original_name="portrait.png",
+            content=b"fake-png",
+            mime_type="image/png",
+        )
+
+        with patch("app.api.deps.get_user_campaign_role", new_callable=AsyncMock, return_value="MASTER"):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.get(f"/api/v1/entities/{entity.id}/illustration")
+
+        assert response.status_code == 200
+        assert response.content == b"fake-png"
+    finally:
+        settings.upload_dir = original_upload_dir

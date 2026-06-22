@@ -26,6 +26,21 @@ function normalizeAvatarUrl(value: string | undefined): string | undefined {
   return trimmed || undefined;
 }
 
+function applyProfileMediaUrl(
+  profile: Record<string, unknown>,
+  key: "avatar_url" | "illustration_url",
+  value: string | undefined,
+): void {
+  const normalized = normalizeAvatarUrl(value);
+  if (normalized) {
+    profile[key] = normalized;
+    return;
+  }
+  if (value === "") {
+    delete profile[key];
+  }
+}
+
 function buildNpcPutDocument(
   workingDocument: Record<string, unknown>,
   narrative: NarrativeFields,
@@ -42,18 +57,8 @@ function buildNpcPutDocument(
     voice_and_tone: narrative.voiceAndTone?.trim() || "Neutral",
     personality_traits: traits,
   };
-  const avatarUrl = normalizeAvatarUrl(narrative.avatarUrl);
-  if (avatarUrl) {
-    profile.avatar_url = avatarUrl;
-  } else {
-    delete profile.avatar_url;
-  }
-  const illustrationUrl = normalizeAvatarUrl(narrative.illustrationUrl);
-  if (illustrationUrl) {
-    profile.illustration_url = illustrationUrl;
-  } else {
-    delete profile.illustration_url;
-  }
+  applyProfileMediaUrl(profile, "avatar_url", narrative.avatarUrl);
+  applyProfileMediaUrl(profile, "illustration_url", narrative.illustrationUrl);
 
   return {
     ...workingDocument,
@@ -90,18 +95,8 @@ function buildPcPutDocument(
         personality_traits:
           (workingDocument.public_profile as { personality_traits?: string[] } | undefined)?.personality_traits ?? [],
       };
-      const avatarUrl = normalizeAvatarUrl(narrative.avatarUrl);
-      if (avatarUrl) {
-        publicProfile.avatar_url = avatarUrl;
-      } else {
-        delete publicProfile.avatar_url;
-      }
-      const illustrationUrl = normalizeAvatarUrl(narrative.illustrationUrl);
-      if (illustrationUrl) {
-        publicProfile.illustration_url = illustrationUrl;
-      } else {
-        delete publicProfile.illustration_url;
-      }
+      applyProfileMediaUrl(publicProfile, "avatar_url", narrative.avatarUrl);
+      applyProfileMediaUrl(publicProfile, "illustration_url", narrative.illustrationUrl);
       return publicProfile;
     })(),
   };

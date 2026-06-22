@@ -90,8 +90,8 @@ export function EntitySheetEditor({
   const [secretLore, setSecretLore] = useState("");
   const [voiceAndTone, setVoiceAndTone] = useState("");
   const [personalityTraits, setPersonalityTraits] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [illustrationUrl, setIllustrationUrl] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState(() => extractAvatarUrl(entity) ?? "");
+  const [illustrationUrl, setIllustrationUrl] = useState(() => extractIllustrationUrl(entity) ?? "");
   const [factionId, setFactionId] = useState("");
   const [locationId, setLocationId] = useState("");
 

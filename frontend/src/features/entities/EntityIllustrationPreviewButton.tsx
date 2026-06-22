@@ -37,15 +37,26 @@ export function EntityIllustrationPreviewButton({
   return (
     <>
       <Tooltip content="Ver ilustración">
-        <Button
-          type="button"
-          variant="secondary"
-          className={buttonClassName}
-          onClick={() => setOpen(true)}
-          aria-label={`Ver ilustración de ${entityName}`}
-        >
-          {iconOnly ? <Eye size={14} aria-hidden /> : compact ? "Ver" : "Ilustración"}
-        </Button>
+        {iconOnly ? (
+          <button
+            type="button"
+            className={buttonClassName}
+            onClick={() => setOpen(true)}
+            aria-label={`Ver ilustración de ${entityName}`}
+          >
+            <Eye size={14} aria-hidden />
+          </button>
+        ) : (
+          <Button
+            type="button"
+            variant="secondary"
+            className={buttonClassName}
+            onClick={() => setOpen(true)}
+            aria-label={`Ver ilustración de ${entityName}`}
+          >
+            {compact ? "Ver" : "Ilustración"}
+          </Button>
+        )}
       </Tooltip>
 
       <Modal

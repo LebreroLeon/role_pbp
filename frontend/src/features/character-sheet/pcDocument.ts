@@ -125,7 +125,12 @@ export function documentToCharacterSheetUpsert(document: Record<string, unknown>
     current_location_id?: string;
   };
   const publicProfile = document.public_profile as
-    | { description?: string; personality_traits?: string[] }
+    | {
+        description?: string;
+        personality_traits?: string[];
+        avatar_url?: string;
+        illustration_url?: string;
+      }
     | undefined;
   const mechanics = document.system_mechanics as
     | { system_id?: string; schema_version?: string; sheet?: Record<string, unknown> }
@@ -145,6 +150,12 @@ export function documentToCharacterSheetUpsert(document: Record<string, unknown>
       ? {
           description: publicProfile.description ?? "",
           personality_traits: publicProfile.personality_traits ?? [],
+          ...(publicProfile.avatar_url?.trim()
+            ? { avatar_url: publicProfile.avatar_url.trim() }
+            : {}),
+          ...(publicProfile.illustration_url?.trim()
+            ? { illustration_url: publicProfile.illustration_url.trim() }
+            : {}),
         }
       : null,
     system_mechanics: {
