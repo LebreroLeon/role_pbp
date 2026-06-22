@@ -140,16 +140,17 @@ class TestCloseScene:
         db = AsyncMock()
         db.commit = AsyncMock()
         db.refresh = AsyncMock(side_effect=lambda obj: obj)
+        db.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
 
         with patch(
             "app.services.scenes.generate_scene_closure_summary",
             new=AsyncMock(return_value="Resumen de prueba."),
         ), patch("app.services.scenes.rag_service.index_message", new=AsyncMock()) as index_mock:
-            response = asyncio.run(close_scene(db, scene))
+            result = asyncio.run(close_scene(db, scene))
 
         assert scene.status == "CLOSED"
         assert scene.scene_state["metadata"]["closure_summary"] == "Resumen de prueba."
-        assert response.summary == "Resumen de prueba."
+        assert result.closed_scene.summary == "Resumen de prueba."
         index_mock.assert_awaited_once()
 
     def test_update_scene_display_name(self):
@@ -274,6 +275,7 @@ class TestCloseSceneCombatPause:
         db = AsyncMock()
         db.commit = AsyncMock()
         db.refresh = AsyncMock(side_effect=lambda obj: obj)
+        db.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
 
         with patch(
             "app.services.scenes.generate_scene_closure_summary",

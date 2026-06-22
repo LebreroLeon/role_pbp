@@ -16,12 +16,14 @@ from app.schemas.campaign_mgmt import (
     CampaignResponse,
     CampaignUpdate,
 )
-from app.schemas.scene import SceneResponse
+from app.schemas.scene import ActivateSceneRequest, MasterBriefingResponse, SceneResponse
 from app.schemas.unread import UnreadCountsResponse
 from app.services.scenes import (
     SceneServiceError,
     ensure_player_pc_present_in_scene,
     get_active_scene,
+    get_master_briefing,
+    get_scene_by_id,
     list_campaign_scenes,
     scene_to_response,
     start_active_scene,
@@ -165,8 +167,8 @@ async def get_campaign_scenes(
     db: AsyncSession = Depends(get_db),
 ) -> list[SceneResponse]:
     campaign_uuid = parse_uuid(campaign_id, "campaign_id")
-    await require_campaign_member(db, current_user, campaign_uuid)
-    return await list_campaign_scenes(db, campaign_uuid)
+    role = await require_campaign_member(db, current_user, campaign_uuid)
+    return await list_campaign_scenes(db, campaign_uuid, viewer_role=role)
 
 
 @router.get("/{campaign_id}/scenes/active", response_model=SceneResponse)
@@ -212,10 +214,29 @@ async def mark_campaign_ooc_read(
     await campaign_ws_manager.broadcast_unread_counts(db, campaign_id)
 
 
+@router.get("/{campaign_id}/scenes/{scene_id}/master-briefing", response_model=MasterBriefingResponse)
+async def get_scene_master_briefing(
+    campaign_id: str,
+    scene_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> MasterBriefingResponse:
+    campaign_uuid = parse_uuid(campaign_id, "campaign_id")
+    scene_uuid = parse_uuid(scene_id, "scene_id")
+    await require_campaign_master(db, current_user, campaign_uuid)
+
+    scene = await get_scene_by_id(db, scene_uuid)
+    if scene is None or scene.campaign_id != campaign_uuid:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    return await get_master_briefing(db, scene)
+
+
 @router.post("/{campaign_id}/scenes/{scene_id}/activate", response_model=SceneResponse)
 async def start_active_campaign_scene(
     campaign_id: str,
     scene_id: str,
+    payload: ActivateSceneRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
 ) -> SceneResponse:
@@ -223,13 +244,19 @@ async def start_active_campaign_scene(
     scene_uuid = parse_uuid(scene_id, "scene_id")
     await require_campaign_master(db, current_user, campaign_uuid)
 
-    from app.services.scenes import get_scene_by_id
-
     scene = await get_scene_by_id(db, scene_uuid)
     if scene is None or scene.campaign_id != campaign_uuid:
         raise HTTPException(status_code=404, detail="Scene not found")
 
     try:
-        return await start_active_scene(db, scene)
+        from app.services.scene_ws import broadcast_scene_update
+
+        await start_active_scene(
+            db,
+            scene,
+            send_opening_to_chat=payload.send_opening_to_chat,
+            activator_user_id=str(current_user.id),
+        )
+        return await broadcast_scene_update(db, scene, requester_role="MASTER")
     except SceneServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

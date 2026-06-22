@@ -14,17 +14,21 @@ from app.api.deps import (
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.scene import (
+    ActivateSceneRequest,
     ChatMessage,
+    CloseSceneResponse,
     CombatAttackRequest,
     CombatInitiativeRequest,
     DiceRollRequest,
     LoreAssistRequest,
     LoreAssistResponse,
     MarkReadRequest,
+    MasterBriefingResponse,
     PostMessageRequest,
     SceneAddPlayerRequest,
     SceneCreate,
     ScenePresenceUpdate,
+    ScenePrepUpdate,
     SceneResponse,
     SceneStatusUpdate,
     SceneTurnManagementUpdate,
@@ -52,6 +56,7 @@ from app.services.scenes import (
     start_active_scene,
     update_scene_display_name,
     update_scene_npc_presence,
+    update_scene_prep,
     update_scene_status,
     update_scene_turn_management,
     advance_scene_pbp_turn,
@@ -151,13 +156,19 @@ async def mark_read_route(
 @router.post("/{scene_id}/activate", response_model=SceneResponse)
 async def activate_scene_route(
     scene_id: str,
+    payload: ActivateSceneRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
 ) -> SceneResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_campaign_master(db, current_user, scene.campaign_id)
     try:
-        await start_active_scene(db, scene)
+        await start_active_scene(
+            db,
+            scene,
+            send_opening_to_chat=payload.send_opening_to_chat,
+            activator_user_id=str(current_user.id),
+        )
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
@@ -227,20 +238,38 @@ async def delete_scene_message_route(
     return await broadcast_scene_update(db, scene, requester_role="MASTER")
 
 
-@router.post("/{scene_id}/close", response_model=SceneResponse)
-async def close_scene_route(
+@router.patch("/{scene_id}/prep", response_model=SceneResponse)
+async def patch_scene_prep_route(
     scene_id: str,
+    payload: ScenePrepUpdate,
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
 ) -> SceneResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_campaign_master(db, current_user, scene.campaign_id)
     try:
-        await close_scene(db, scene)
+        await update_scene_prep(db, scene, payload)
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
     return await broadcast_scene_update(db, scene, requester_role="MASTER")
+
+
+@router.post("/{scene_id}/close", response_model=CloseSceneResponse)
+async def close_scene_route(
+    scene_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> CloseSceneResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_campaign_master(db, current_user, scene.campaign_id)
+    try:
+        result = await close_scene(db, scene)
+    except SceneServiceError as exc:
+        raise scene_service_error_to_http(exc) from exc
+
+    await broadcast_scene_update(db, scene, requester_role="MASTER")
+    return result
 
 
 async def _presence_route(

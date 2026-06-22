@@ -7,16 +7,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.campaign import Campaign, CampaignEntity, MemoryDocumentType, Scene
 from app.schemas.scene import (
     ChatMessage,
+    CloseSceneResponse,
     CombatState,
     DiceRollRequest,
     InitiativeEntry,
+    MasterBriefingLocation,
+    MasterBriefingNpcEntry,
+    MasterBriefingResponse,
     MemorySettings,
     NpcPresenceEntry,
     PostMessageRequest,
+    PreparedEntityRef,
     SceneContext,
     SceneCreate,
     SceneMetadata,
+    ScenePickerItem,
     ScenePresenceUpdate,
+    ScenePrepUpdate,
     SceneResponse,
     SceneState,
     SceneStatusType,
@@ -158,8 +165,12 @@ def migrate_scene_state(data: dict, *, scene_status: str | None = None) -> dict:
         if scene_status is not None and isinstance(migrated.get("metadata"), dict):
             migrated["metadata"]["status"] = scene_status
         context = migrated.get("context")
-        if isinstance(context, dict) and "hidden_npc_ids" not in context:
-            context["hidden_npc_ids"] = []
+        if isinstance(context, dict):
+            if "hidden_npc_ids" not in context:
+                context["hidden_npc_ids"] = []
+            context.setdefault("master_prep_notes", None)
+            context.setdefault("opening_narration", None)
+            context.setdefault("prepared_entity_refs", [])
         return migrated
 
     memory_settings = _coerce_memory_settings(data.get("memory_settings"))
@@ -176,6 +187,9 @@ def migrate_scene_state(data: dict, *, scene_status: str | None = None) -> dict:
             "active_npc_ids": list(data.get("active_npc_ids") or []),
             "hidden_npc_ids": list(data.get("hidden_npc_ids") or []),
             "scene_objective": data.get("scene_objective"),
+            "master_prep_notes": data.get("master_prep_notes"),
+            "opening_narration": data.get("opening_narration"),
+            "prepared_entity_refs": list(data.get("prepared_entity_refs") or []),
         },
         "turn_management": _coerce_turn_management(
             {
@@ -323,10 +337,21 @@ def default_scene_state(
     *,
     turn_order: list[str],
     scene_objective: str | None = None,
+    location_id: str | None = None,
+    opening_narration: str | None = None,
+    master_prep_notes: str | None = None,
+    prepared_entity_refs: list[PreparedEntityRef] | None = None,
+    status: SceneStatusType = "ACTIVE",
 ) -> SceneState:
     return SceneState(
-        metadata=SceneMetadata(campaign_id=str(campaign_id), status="ACTIVE"),
-        context=SceneContext(scene_objective=scene_objective),
+        metadata=SceneMetadata(campaign_id=str(campaign_id), status=status),
+        context=SceneContext(
+            scene_objective=scene_objective,
+            location_id=location_id,
+            opening_narration=opening_narration,
+            master_prep_notes=master_prep_notes,
+            prepared_entity_refs=list(prepared_entity_refs or []),
+        ),
         turn_management=TurnManagement(
             turn_order=turn_order,
             current_turn_player_id=turn_order[0] if turn_order else None,
@@ -524,7 +549,12 @@ async def delete_scene_message(
     return await scene_to_response_with_likes(db, scene)
 
 
-async def list_campaign_scenes(db: AsyncSession, campaign_id: uuid.UUID) -> list[SceneResponse]:
+async def list_campaign_scenes(
+    db: AsyncSession,
+    campaign_id: uuid.UUID,
+    *,
+    viewer_role: str = "MASTER",
+) -> list[SceneResponse]:
     scenes = (
         await db.scalars(
             select(Scene)
@@ -532,7 +562,32 @@ async def list_campaign_scenes(db: AsyncSession, campaign_id: uuid.UUID) -> list
             .order_by(Scene.scene_number.asc())
         )
     ).all()
-    return [scene_to_response(scene) for scene in scenes]
+    if viewer_role != "MASTER":
+        scenes = [scene for scene in scenes if scene.status != "PREPARED"]
+    return [scene_to_response(scene, viewer_role=viewer_role) for scene in scenes]
+
+
+async def list_prepared_scenes(db: AsyncSession, campaign_id: uuid.UUID) -> list[ScenePickerItem]:
+    scenes = (
+        await db.scalars(
+            select(Scene)
+            .where(Scene.campaign_id == campaign_id, Scene.status == "PREPARED")
+            .order_by(Scene.scene_number.asc())
+        )
+    ).all()
+    items: list[ScenePickerItem] = []
+    for scene in scenes:
+        state = load_scene_state(scene)
+        items.append(
+            ScenePickerItem(
+                id=str(scene.id),
+                scene_number=scene.scene_number,
+                display_name=scene.display_name,
+                scene_objective=state.context.scene_objective,
+                status=scene.status,
+            )
+        )
+    return items
 
 
 async def get_active_scene(db: AsyncSession, campaign_id: uuid.UUID) -> Scene | None:
@@ -592,13 +647,20 @@ async def create_scene(
     if campaign is None:
         raise SceneServiceError("Campaign not found")
 
-    await pause_other_active_scenes(db, campaign_id)
+    target_status = payload.status
+    if target_status == "ACTIVE":
+        await pause_other_active_scenes(db, campaign_id)
 
     turn_order = payload.turn_order or [str(creator_user_id)]
     scene_state = default_scene_state(
         str(campaign_id),
         turn_order=turn_order,
         scene_objective=payload.scene_objective,
+        location_id=payload.location_id,
+        opening_narration=payload.opening_narration,
+        master_prep_notes=payload.master_prep_notes,
+        prepared_entity_refs=payload.prepared_entity_refs,
+        status=target_status,
     )
     scene_number = await _next_scene_number(db, campaign_id)
     display_name = _normalize_display_name(payload.display_name)
@@ -607,16 +669,17 @@ async def create_scene(
         campaign_id=campaign_id,
         scene_number=scene_number,
         display_name=display_name,
-        status="ACTIVE",
+        status=target_status,
         scene_state=scene_state.model_dump(),
     )
     db.add(scene)
     await db.commit()
     await db.refresh(scene)
 
-    await mark_all_campaign_pcs_present_for_scene(db, scene)
+    if target_status == "ACTIVE":
+        await mark_all_campaign_pcs_present_for_scene(db, scene)
+        await db.refresh(scene)
 
-    await db.refresh(scene)
     return scene_to_response(scene)
 
 
@@ -807,14 +870,6 @@ async def update_scene_status(
     return scene_to_response(scene)
 
 
-async def start_active_scene(db: AsyncSession, scene: Scene) -> SceneResponse:
-    if scene.status == "CLOSED":
-        raise SceneServiceError("Cannot activate a closed scene")
-    if scene.status == "ACTIVE":
-        return scene_to_response(scene)
-    return await update_scene_status(db, scene, "ACTIVE")
-
-
 async def update_scene_display_name(
     db: AsyncSession,
     scene: Scene,
@@ -826,7 +881,151 @@ async def update_scene_display_name(
     return scene_to_response(scene)
 
 
-async def close_scene(db: AsyncSession, scene: Scene) -> SceneResponse:
+async def update_scene_prep(
+    db: AsyncSession,
+    scene: Scene,
+    payload: ScenePrepUpdate,
+) -> SceneResponse:
+    if scene.status == "CLOSED":
+        raise SceneServiceError("Cannot edit a closed scene")
+
+    state = load_scene_state(scene)
+    if payload.display_name is not None:
+        scene.display_name = _normalize_display_name(payload.display_name)
+    if payload.scene_objective is not None:
+        state.context.scene_objective = payload.scene_objective.strip() or None
+    if payload.location_id is not None:
+        state.context.location_id = payload.location_id.strip() or None
+    if payload.opening_narration is not None:
+        state.context.opening_narration = payload.opening_narration.strip() or None
+    if payload.master_prep_notes is not None:
+        state.context.master_prep_notes = payload.master_prep_notes.strip() or None
+    if payload.prepared_entity_refs is not None:
+        state.context.prepared_entity_refs = list(payload.prepared_entity_refs)
+
+    save_scene_state(scene, state)
+    await db.commit()
+    await db.refresh(scene)
+    return scene_to_response(scene)
+
+
+async def _apply_prepared_entity_refs(
+    db: AsyncSession,
+    scene: Scene,
+    state: SceneState,
+    refs: list[PreparedEntityRef],
+) -> None:
+    from app.services.entities import set_pc_present_in_scene
+
+    if not refs:
+        return
+
+    entity_ids = [str(ref.entity_id).strip() for ref in refs if str(ref.entity_id).strip()]
+    entities = (
+        await db.scalars(
+            select(CampaignEntity).where(
+                CampaignEntity.campaign_id == scene.campaign_id,
+                CampaignEntity.id.in_([uuid.UUID(value) for value in entity_ids]),
+            )
+        )
+    ).all()
+    entities_by_id = {str(entity.id): entity for entity in entities}
+    missing = set(entity_ids) - set(entities_by_id)
+    if missing:
+        raise SceneServiceError(f"Entity not found in campaign: {', '.join(sorted(missing))}")
+
+    npc_add: list[NpcPresenceEntry] = []
+    for ref in refs:
+        entity_id = str(ref.entity_id).strip()
+        entity = entities_by_id.get(entity_id)
+        if entity is None:
+            continue
+
+        if entity.entity_type == "NPC":
+            flags = dict(entity.document.get("state_flags") or {})
+            visibility = ref.player_visibility
+            if visibility in ("hidden", "unknown", "visible"):
+                flags["player_visibility"] = visibility
+                flags["hidden_from_players"] = visibility == "hidden"
+                entity.document = {**entity.document, "state_flags": flags}
+
+            if ref.add_to_roster:
+                npc_add.append(
+                    NpcPresenceEntry(
+                        entity_id=entity_id,
+                        is_hidden_from_players=visibility in ("hidden", "unknown"),
+                    )
+                )
+        elif entity.entity_type == "PC" and ref.add_to_roster:
+            await set_pc_present_in_scene(db, entity, present=True, commit=False)
+
+    if npc_add:
+        _apply_npc_presence_to_state(state, add=npc_add, remove=[])
+
+
+async def activate_scene(
+    db: AsyncSession,
+    scene: Scene,
+    *,
+    send_opening_to_chat: bool = False,
+    activator_user_id: str | None = None,
+) -> SceneResponse:
+    if scene.status == "CLOSED":
+        raise SceneServiceError("Cannot activate a closed scene")
+    if scene.status == "ACTIVE":
+        return scene_to_response(scene)
+
+    await pause_other_active_scenes(db, scene.campaign_id, except_scene_id=scene.id)
+
+    state = load_scene_state(scene)
+    refs = list(state.context.prepared_entity_refs)
+    await _apply_prepared_entity_refs(db, scene, state, refs)
+
+    state.metadata.status = "ACTIVE"
+    save_scene_state(scene, state)
+    scene.status = "ACTIVE"
+
+    opening = (state.context.opening_narration or "").strip()
+    if send_opening_to_chat and opening and activator_user_id:
+        message = {
+            "id": str(uuid.uuid4()),
+            "timestamp": utc_now_iso(),
+            "sender_id": activator_user_id,
+            "type": "ACTION",
+            "text": opening,
+            "read_by": [activator_user_id],
+            "speaker_type": "NARRATOR",
+            "speaker_display_name": DEFAULT_NARRATOR_DISPLAY_NAME,
+            "speaker_entity_id": None,
+        }
+        state.chat_buffer.append(ChatMessage.model_validate(message))
+        state.chat_buffer = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
+        save_scene_state(scene, state)
+
+    await db.commit()
+    await db.refresh(scene)
+
+    await mark_all_campaign_pcs_present_for_scene(db, scene)
+    await db.refresh(scene)
+    return scene_to_response(scene)
+
+
+async def start_active_scene(
+    db: AsyncSession,
+    scene: Scene,
+    *,
+    send_opening_to_chat: bool = False,
+    activator_user_id: str | None = None,
+) -> SceneResponse:
+    return await activate_scene(
+        db,
+        scene,
+        send_opening_to_chat=send_opening_to_chat,
+        activator_user_id=activator_user_id,
+    )
+
+
+async def close_scene(db: AsyncSession, scene: Scene) -> CloseSceneResponse:
     if scene.status == "CLOSED":
         raise SceneServiceError("Scene is already closed")
 
@@ -857,7 +1056,102 @@ async def close_scene(db: AsyncSession, scene: Scene) -> SceneResponse:
         document_type=MemoryDocumentType.SCENE_SUMMARY,
     )
     await rag_service.purge_semantic_cache(db, campaign_id=str(scene.campaign_id))
-    return scene_to_response(scene)
+
+    prepared_scenes = await list_prepared_scenes(db, scene.campaign_id)
+    return CloseSceneResponse(
+        closed_scene=scene_to_response(scene),
+        prepared_scenes=prepared_scenes,
+    )
+
+
+async def get_master_briefing(db: AsyncSession, scene: Scene) -> MasterBriefingResponse:
+    state = load_scene_state(scene)
+
+    last_summary: str | None = None
+    last_closed = await db.scalar(
+        select(Scene)
+        .where(Scene.campaign_id == scene.campaign_id, Scene.status == "CLOSED")
+        .order_by(Scene.scene_number.desc(), Scene.updated_at.desc())
+        .limit(1)
+    )
+    if last_closed is not None:
+        closed_state = load_scene_state(last_closed)
+        last_summary = closed_state.metadata.closure_summary
+
+    arc_manifest: dict | None = None
+    arc_entity = await db.scalar(
+        select(CampaignEntity).where(
+            CampaignEntity.campaign_id == scene.campaign_id,
+            CampaignEntity.entity_type == "ARC_MANIFEST",
+        )
+    )
+    if arc_entity is not None:
+        arc_manifest = dict(arc_entity.document)
+
+    location: MasterBriefingLocation | None = None
+    location_id = state.context.location_id
+    if location_id:
+        location_entity = await db.scalar(
+            select(CampaignEntity).where(
+                CampaignEntity.campaign_id == scene.campaign_id,
+                CampaignEntity.id == uuid.UUID(str(location_id)),
+            )
+        )
+        if location_entity is not None:
+            identity = location_entity.document.get("identity", {})
+            name = identity.get("name", str(location_id)[:8]) if isinstance(identity, dict) else str(location_id)[:8]
+            location = MasterBriefingLocation(id=str(location_entity.id), name=str(name))
+
+    from app.services.entities import npc_player_visibility
+
+    refs = list(state.context.prepared_entity_refs)
+    ref_entity_ids = {str(ref.entity_id) for ref in refs}
+    npc_ids = set(state.context.active_npc_ids) | ref_entity_ids
+
+    npc_entries: list[MasterBriefingNpcEntry] = []
+    if npc_ids:
+        npcs = (
+            await db.scalars(
+                select(CampaignEntity).where(
+                    CampaignEntity.campaign_id == scene.campaign_id,
+                    CampaignEntity.entity_type == "NPC",
+                    CampaignEntity.id.in_([uuid.UUID(value) for value in npc_ids]),
+                )
+            )
+        ).all()
+        refs_by_id = {str(ref.entity_id): ref for ref in refs}
+        for npc in npcs:
+            entity_id = str(npc.id)
+            identity = npc.document.get("identity", {})
+            name = identity.get("name", entity_id[:8]) if isinstance(identity, dict) else entity_id[:8]
+            profile = npc.document.get("ai_narrative_profile", {})
+            voice = profile.get("voice_and_tone") if isinstance(profile, dict) else None
+            secret = profile.get("secret_lore_master") if isinstance(profile, dict) else None
+            ref = refs_by_id.get(entity_id)
+            visibility = ref.player_visibility if ref else npc_player_visibility(npc.document)
+            npc_entries.append(
+                MasterBriefingNpcEntry(
+                    entity_id=entity_id,
+                    name=str(name),
+                    voice_and_tone=str(voice) if voice else None,
+                    secret_lore_master=str(secret) if secret else None,
+                    player_visibility=visibility,
+                    in_roster=ref.add_to_roster if ref else entity_id in state.context.active_npc_ids,
+                )
+            )
+
+    return MasterBriefingResponse(
+        scene_id=str(scene.id),
+        display_name=scene.display_name,
+        scene_objective=state.context.scene_objective,
+        location=location,
+        opening_narration=state.context.opening_narration,
+        master_prep_notes=state.context.master_prep_notes,
+        last_scene_summary=last_summary,
+        arc_manifest=arc_manifest,
+        npcs=npc_entries,
+        prepared_entity_refs=refs,
+    )
 
 
 def _normalize_npc_id_list(ids: list[str]) -> list[str]:

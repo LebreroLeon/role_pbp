@@ -5,7 +5,9 @@ from pydantic import BaseModel, Field
 MessageType = Literal["SPEAK", "ACTION", "CONTEXT", "MASTER", "NARRATIVE", "DICE_ROLL"]
 MessageVisibility = Literal["all", "master_only"]
 PlayerMessageType = Literal["SPEAK", "ACTION", "CONTEXT"]
-SceneStatusType = Literal["ACTIVE", "PAUSED", "CLOSED"]
+SceneStatusType = Literal["PREPARED", "ACTIVE", "PAUSED", "CLOSED"]
+PlayerVisibility = Literal["hidden", "unknown", "visible"]
+PreparedSceneStatus = Literal["PREPARED", "ACTIVE"]
 SpeakerType = Literal["MASTER", "NPC", "PC", "NARRATOR"]
 TurnOrderSource = Literal["initiative", "attribute", "manual"]
 
@@ -49,11 +51,20 @@ class SceneMetadata(BaseModel):
     closure_summary: str | None = None
 
 
+class PreparedEntityRef(BaseModel):
+    entity_id: str
+    player_visibility: PlayerVisibility = "visible"
+    add_to_roster: bool = True
+
+
 class SceneContext(BaseModel):
     location_id: str | None = None
     active_npc_ids: list[str] = Field(default_factory=list)
     hidden_npc_ids: list[str] = Field(default_factory=list)
     scene_objective: str | None = None
+    master_prep_notes: str | None = None
+    opening_narration: str | None = None
+    prepared_entity_refs: list[PreparedEntityRef] = Field(default_factory=list)
 
 
 class TurnManagement(BaseModel):
@@ -99,11 +110,29 @@ class SceneCreate(BaseModel):
     campaign_id: str
     display_name: str | None = Field(default=None, max_length=200)
     scene_objective: str | None = None
+    location_id: str | None = None
+    opening_narration: str | None = None
+    master_prep_notes: str | None = None
+    prepared_entity_refs: list[PreparedEntityRef] = Field(default_factory=list)
     turn_order: list[str] = Field(default_factory=list)
+    status: PreparedSceneStatus = "ACTIVE"
 
 
 class SceneUpdate(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class ScenePrepUpdate(BaseModel):
+    display_name: str | None = Field(default=None, max_length=200)
+    scene_objective: str | None = None
+    location_id: str | None = None
+    opening_narration: str | None = None
+    master_prep_notes: str | None = None
+    prepared_entity_refs: list[PreparedEntityRef] | None = None
+
+
+class ActivateSceneRequest(BaseModel):
+    send_opening_to_chat: bool = False
 
 
 class SceneResponse(BaseModel):
@@ -192,3 +221,43 @@ class ScenePresenceUpdate(BaseModel):
 class SceneAddPlayerRequest(BaseModel):
     entity_id: str | None = None
     user_id: str | None = None
+
+
+class MasterBriefingNpcEntry(BaseModel):
+    entity_id: str
+    name: str
+    voice_and_tone: str | None = None
+    secret_lore_master: str | None = None
+    player_visibility: PlayerVisibility
+    in_roster: bool = False
+
+
+class MasterBriefingLocation(BaseModel):
+    id: str
+    name: str
+
+
+class MasterBriefingResponse(BaseModel):
+    scene_id: str
+    display_name: str | None = None
+    scene_objective: str | None = None
+    location: MasterBriefingLocation | None = None
+    opening_narration: str | None = None
+    master_prep_notes: str | None = None
+    last_scene_summary: str | None = None
+    arc_manifest: dict | None = None
+    npcs: list[MasterBriefingNpcEntry] = Field(default_factory=list)
+    prepared_entity_refs: list[PreparedEntityRef] = Field(default_factory=list)
+
+
+class ScenePickerItem(BaseModel):
+    id: str
+    scene_number: int
+    display_name: str | None = None
+    scene_objective: str | None = None
+    status: str
+
+
+class CloseSceneResponse(BaseModel):
+    closed_scene: SceneResponse
+    prepared_scenes: list[ScenePickerItem] = Field(default_factory=list)

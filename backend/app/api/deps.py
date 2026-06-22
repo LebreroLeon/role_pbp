@@ -74,7 +74,7 @@ async def require_player_open_scene(
     role = await require_campaign_member(db, user, scene.campaign_id)
     if role == "MASTER":
         return
-    if scene.status == "CLOSED":
+    if scene.status in ("CLOSED", "PREPARED"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=PLAYER_NO_ACTIVE_SCENE_DETAIL,
