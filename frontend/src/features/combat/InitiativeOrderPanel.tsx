@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import type { CampaignEntity, CombatInitiativeEntry, Scene } from "../../api/types";
 import { Button, Modal, Switch, Tooltip } from "../../components/ui";
@@ -132,15 +132,13 @@ export function InitiativeOrderPanel({
           .catch(() => undefined)
       }
       onSave={(entries) =>
-        updateTurnManagement
-          .mutateAsync({
-            sceneId,
-            order_source: "manual",
-            initiative_order: entries,
-            current_turn_entity_id: entries[0]?.entity_id ?? null,
-            resort: false,
-          })
-          .then(() => setManageOpen(false))
+        updateTurnManagement.mutateAsync({
+          sceneId,
+          order_source: "manual",
+          initiative_order: entries,
+          current_turn_entity_id: entries[0]?.entity_id ?? null,
+          resort: false,
+        })
       }
       isSaving={updateTurnManagement.isPending || rollInitiative.isPending}
       saveError={
@@ -407,6 +405,21 @@ function CombatInitiativePanel({
   );
 }
 
+const INITIATIVE_AUTOSAVE_MS = 400;
+
+function initiativeEntriesMatch(
+  a: CombatInitiativeEntry[],
+  b: CombatInitiativeEntry[],
+): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((entry, index) => {
+    const other = b[index];
+    return (
+      entry.entity_id === other.entity_id && entry.initiative_score === other.initiative_score
+    );
+  });
+}
+
 type InitiativeManageModalProps = {
   entries: CombatInitiativeEntry[];
   entities: CampaignEntity[];
@@ -414,7 +427,7 @@ type InitiativeManageModalProps = {
   isMaster: boolean;
   onClose: () => void;
   onRollAll: (entityIds: string[]) => Promise<void>;
-  onSave: (entries: CombatInitiativeEntry[]) => Promise<void>;
+  onSave: (entries: CombatInitiativeEntry[]) => Promise<unknown>;
   isSaving?: boolean;
   isRolling?: boolean;
   saveError?: string | null;
@@ -434,10 +447,59 @@ function InitiativeManageModal({
 }: InitiativeManageModalProps) {
   const [localEntries, setLocalEntries] = useState(entries);
   const isBusy = isSaving || isRolling;
+  const onSaveRef = useRef(onSave);
+  const skipAutoSaveRef = useRef(false);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const entriesRef = useRef(entries);
+  const localEntriesRef = useRef(localEntries);
+
+  onSaveRef.current = onSave;
+  entriesRef.current = entries;
+  localEntriesRef.current = localEntries;
 
   useEffect(() => {
     setLocalEntries(entries);
+    skipAutoSaveRef.current = true;
   }, [entries]);
+
+  const flushPendingSave = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    const pending = localEntriesRef.current;
+    if (!initiativeEntriesMatch(pending, entriesRef.current)) {
+      void onSaveRef.current(pending).catch(() => undefined);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (skipAutoSaveRef.current) {
+      skipAutoSaveRef.current = false;
+      return;
+    }
+    if (initiativeEntriesMatch(localEntries, entries)) return;
+
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null;
+      void onSaveRef.current(localEntries).catch(() => undefined);
+    }, INITIATIVE_AUTOSAVE_MS);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    };
+  }, [localEntries, entries]);
+
+  useEffect(() => () => flushPendingSave(), [flushPendingSave]);
+
+  function handleClose() {
+    flushPendingSave();
+    onClose();
+  }
 
   function moveEntry(index: number, direction: -1 | 1) {
     const target = index + direction;
@@ -452,27 +514,19 @@ function InitiativeManageModal({
     <Modal
       title="Gestionar iniciativa"
       titleId="initiative-modal-title"
-      onClose={onClose}
+      onClose={handleClose}
       size="md"
       footer={
         <>
           <p className="muted initiative-modal__note">
-            Tirar iniciativa ordena por valor (mayor primero). El Máster puede ajustar el orden con
-            las flechas y guardar.
+            Los cambios se guardan solos. Tirar iniciativa ordena por valor (mayor primero); usa las
+            flechas para ajustar el orden.
           </p>
+          {isSaving && <p className="muted initiative-modal__saving">Guardando…</p>}
           {saveError && <p className="error">{saveError}</p>}
           <div className="ui-modal__actions">
-            <Button type="button" variant="secondary" onClick={onClose} disabled={isBusy}>
+            <Button type="button" variant="secondary" onClick={handleClose} disabled={isBusy}>
               Cerrar
-            </Button>
-            <Button
-              type="button"
-              disabled={isBusy || localEntries.length === 0}
-              onClick={() => {
-                void onSave(localEntries).catch(() => undefined);
-              }}
-            >
-              {isSaving ? "Guardando…" : "Guardar orden"}
             </Button>
           </div>
         </>
