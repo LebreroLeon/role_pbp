@@ -910,12 +910,52 @@ async def update_scene_prep(
     if payload.master_prep_notes is not None:
         state.context.master_prep_notes = payload.master_prep_notes.strip() or None
     if payload.prepared_entity_refs is not None:
-        state.context.prepared_entity_refs = list(payload.prepared_entity_refs)
+        state.context.prepared_entity_refs = await _normalize_prepared_entity_refs(
+            db,
+            scene.campaign_id,
+            list(payload.prepared_entity_refs),
+        )
 
     save_scene_state(scene, state)
     await db.commit()
     await db.refresh(scene)
     return scene_to_response(scene)
+
+
+async def _normalize_prepared_entity_refs(
+    db: AsyncSession,
+    campaign_id: uuid.UUID,
+    refs: list[PreparedEntityRef],
+) -> list[PreparedEntityRef]:
+    if not refs:
+        return []
+
+    entity_ids: list[uuid.UUID] = []
+    for ref in refs:
+        try:
+            entity_ids.append(uuid.UUID(str(ref.entity_id).strip()))
+        except ValueError:
+            continue
+
+    if not entity_ids:
+        return list(refs)
+
+    entities = (
+        await db.scalars(
+            select(CampaignEntity).where(
+                CampaignEntity.campaign_id == campaign_id,
+                CampaignEntity.id.in_(entity_ids),
+            )
+        )
+    ).all()
+    pc_ids = {str(entity.id) for entity in entities if entity.entity_type == "PC"}
+
+    return [
+        ref.model_copy(update={"player_visibility": "visible"})
+        if str(ref.entity_id).strip() in pc_ids
+        else ref
+        for ref in refs
+    ]
 
 
 async def _apply_prepared_entity_refs(
@@ -965,8 +1005,10 @@ async def _apply_prepared_entity_refs(
                         is_hidden_from_players=visibility in ("hidden", "unknown"),
                     )
                 )
-        elif entity.entity_type == "PC" and ref.add_to_roster:
-            await set_pc_present_in_scene(db, entity, present=True, commit=False)
+        elif entity.entity_type == "PC":
+            # PCs are always visible to players; ignore player_visibility on ref.
+            if ref.add_to_roster:
+                await set_pc_present_in_scene(db, entity, present=True, commit=False)
 
     if npc_add:
         _apply_npc_presence_to_state(state, add=npc_add, remove=[])
@@ -987,7 +1029,11 @@ async def activate_scene(
     await pause_other_active_scenes(db, scene.campaign_id, except_scene_id=scene.id)
 
     state = load_scene_state(scene)
-    refs = list(state.context.prepared_entity_refs)
+    refs = await _normalize_prepared_entity_refs(
+        db,
+        scene.campaign_id,
+        list(state.context.prepared_entity_refs),
+    )
     await _apply_prepared_entity_refs(db, scene, state, refs)
 
     state.metadata.status = "ACTIVE"

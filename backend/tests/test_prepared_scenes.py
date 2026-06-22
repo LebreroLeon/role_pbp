@@ -91,6 +91,19 @@ def _npc_entity(campaign_id: uuid.UUID, name: str = "Goblin") -> CampaignEntity:
     )
 
 
+def _pc_entity(campaign_id: uuid.UUID, name: str = "Kaelen") -> CampaignEntity:
+    return CampaignEntity(
+        id=uuid.uuid4(),
+        campaign_id=campaign_id,
+        entity_type="PC",
+        document={
+            "identity": {"name": name},
+            "player_binding": {"user_id": str(uuid.uuid4())},
+            "state_flags": {"is_present_in_scene": False, "is_incapacitated": False},
+        },
+    )
+
+
 class TestPreparedSceneCrud:
     def test_create_prepared_scene_does_not_pause_active(self):
         campaign_id = uuid.uuid4()
@@ -130,6 +143,7 @@ class TestPreparedSceneCrud:
     def test_update_scene_prep_persists_fields(self):
         scene = _make_scene()
         db = AsyncMock()
+        db.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
         db.commit = AsyncMock()
         db.refresh = AsyncMock(side_effect=lambda obj: obj)
 
@@ -156,6 +170,37 @@ class TestPreparedSceneCrud:
         assert scene.scene_state["context"]["master_prep_notes"] == "Notas del máster"
         assert response.scene_state.context.prepared_entity_refs[0].entity_id == npc_id
 
+    def test_update_scene_prep_forces_pc_visibility_visible(self):
+        campaign_id = uuid.uuid4()
+        scene = _make_scene(campaign_id=campaign_id)
+        pc = _pc_entity(campaign_id)
+        pc_id = str(pc.id)
+
+        db = AsyncMock()
+        db.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[pc])))
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock(side_effect=lambda obj: obj)
+
+        response = asyncio.run(
+            update_scene_prep(
+                db,
+                scene,
+                ScenePrepUpdate(
+                    prepared_entity_refs=[
+                        PreparedEntityRef(
+                            entity_id=pc_id,
+                            player_visibility="hidden",
+                            add_to_roster=True,
+                        )
+                    ],
+                ),
+            )
+        )
+
+        saved = response.scene_state.context.prepared_entity_refs[0]
+        assert saved.entity_id == pc_id
+        assert saved.player_visibility == "visible"
+
 
 class TestActivatePreparedScene:
     def test_activate_applies_entity_refs_to_roster(self):
@@ -176,6 +221,7 @@ class TestActivatePreparedScene:
             side_effect=[
                 MagicMock(all=MagicMock(return_value=[])),
                 MagicMock(all=MagicMock(return_value=[npc])),
+                MagicMock(all=MagicMock(return_value=[npc])),
                 MagicMock(all=MagicMock(return_value=[])),
             ]
         )
@@ -189,6 +235,41 @@ class TestActivatePreparedScene:
         assert npc_id in response.scene_state.context.active_npc_ids
         assert npc_id in response.scene_state.context.hidden_npc_ids
         assert npc.document["state_flags"]["player_visibility"] == "unknown"
+
+    def test_activate_pc_ignores_hidden_visibility_on_ref(self):
+        campaign_id = uuid.uuid4()
+        scene = _make_scene(campaign_id=campaign_id)
+        pc = _pc_entity(campaign_id)
+        pc_id = str(pc.id)
+        scene.scene_state["context"]["prepared_entity_refs"] = [
+            {
+                "entity_id": pc_id,
+                "player_visibility": "hidden",
+                "add_to_roster": True,
+            }
+        ]
+
+        db = AsyncMock()
+        db.scalars = AsyncMock(
+            side_effect=[
+                MagicMock(all=MagicMock(return_value=[])),
+                MagicMock(all=MagicMock(return_value=[pc])),
+                MagicMock(all=MagicMock(return_value=[pc])),
+                MagicMock(all=MagicMock(return_value=[])),
+            ]
+        )
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock(side_effect=lambda obj: obj)
+
+        with patch("app.services.scenes.mark_all_campaign_pcs_present_for_scene", new=AsyncMock()), patch(
+            "app.services.entities.set_pc_present_in_scene",
+            new=AsyncMock(),
+        ) as set_pc_present:
+            asyncio.run(activate_scene(db, scene, activator_user_id=str(uuid.uuid4())))
+
+        set_pc_present.assert_awaited_once()
+        assert pc_id not in scene.scene_state["context"].get("hidden_npc_ids", [])
+        assert pc_id not in scene.scene_state["context"].get("active_npc_ids", [])
 
 
 class TestMasterBriefing:

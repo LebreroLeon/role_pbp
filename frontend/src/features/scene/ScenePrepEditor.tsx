@@ -1,10 +1,24 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import type { CampaignEntity, PlayerVisibility, PreparedEntityRef, Scene } from "../../api/types";
+import type { CampaignEntity, PreparedEntityRef, Scene } from "../../api/types";
 import { Button, ErrorBanner, MasterOnlyField, PlayerVisibleField, Switch } from "../../components/ui";
 import { NpcVisibilityControl } from "../entities/NpcVisibilityControl";
 import { getSceneObjective } from "./sceneState";
 import { entityLabel } from "./entityLabel";
+
+function normalizePreparedEntityRefs(
+  refs: PreparedEntityRef[],
+  entities: CampaignEntity[],
+): PreparedEntityRef[] {
+  const entitiesById = new Map(entities.map((entity) => [entity.id, entity]));
+  return refs.map((ref) => {
+    const entity = entitiesById.get(ref.entity_id);
+    if (entity?.entity_type === "PC") {
+      return { ...ref, player_visibility: "visible" };
+    }
+    return ref;
+  });
+}
 
 type ScenePrepEditorProps = {
   scene: Scene;
@@ -62,7 +76,7 @@ export function ScenePrepEditor({ scene, entities, saving, error, onSave }: Scen
       location_id: locationId || null,
       opening_narration: opening.trim() || null,
       master_prep_notes: notes.trim() || null,
-      prepared_entity_refs: entityRefs,
+      prepared_entity_refs: normalizePreparedEntityRefs(entityRefs, entities),
     });
   }
 
@@ -163,24 +177,31 @@ export function ScenePrepEditor({ scene, entities, saving, error, onSave }: Scen
 
       <MasterOnlyField
         label="Entidades planificadas"
-        description="NPCs y PJs que quieres tener listos al activar la escena."
+        description="NPCs y PJs listos al activar. Solo los NPCs tienen control de visibilidad: define qué ven los jugadores al activar la escena. Los PJs son siempre visibles."
       >
         {entityRefs.length === 0 && <p className="muted">Sin entidades planificadas.</p>}
         <ul className="scene-prep-editor__entity-list">
           {entityRefs.map((ref) => {
             const entity = rosterEntities.find((item) => item.id === ref.entity_id);
             const label = entity ? entityLabel(entity) : ref.entity_id.slice(0, 8);
+            const isPc = entity?.entity_type === "PC";
             return (
               <li key={ref.entity_id} className="scene-prep-editor__entity-row">
                 <span className="scene-prep-editor__entity-name" title={label}>
                   {label}
                 </span>
-                <NpcVisibilityControl
-                  compact
-                  value={ref.player_visibility as PlayerVisibility}
-                  onChange={(visibility) => updateRef(ref.entity_id, { player_visibility: visibility })}
-                  disabled={saving}
-                />
+                {isPc ? (
+                  <span className="scene-prep-editor__visibility muted" title="Los PJs siempre son visibles para jugadores">
+                    Siempre visible
+                  </span>
+                ) : (
+                  <NpcVisibilityControl
+                    compact
+                    value={ref.player_visibility}
+                    onChange={(visibility) => updateRef(ref.entity_id, { player_visibility: visibility })}
+                    disabled={saving}
+                  />
+                )}
                 <Switch
                   checked={ref.add_to_roster}
                   onCheckedChange={(checked) => updateRef(ref.entity_id, { add_to_roster: checked })}
