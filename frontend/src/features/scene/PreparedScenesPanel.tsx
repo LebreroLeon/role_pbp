@@ -98,8 +98,8 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
     setSaving(true);
     setError(null);
     try {
-      const updated = await api.updateScenePrep(editingScene.id, payload);
-      setEditingScene(updated);
+      await api.updateScenePrep(editingScene.id, payload);
+      setEditingScene(null);
       await invalidate();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo guardar");
