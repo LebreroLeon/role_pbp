@@ -46,6 +46,7 @@ from app.services.scenes import (
     create_scene,
     delete_scene_message,
     ensure_player_pc_present_in_scene,
+    ensure_scene_post_allowed,
     get_scene_by_id,
     load_scene_state,
     mark_messages_read,
@@ -464,6 +465,11 @@ async def combat_attack_route(
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
     await require_player_open_scene(db, current_user, scene)
     role = await require_campaign_member(db, current_user, scene.campaign_id)
+
+    try:
+        ensure_scene_post_allowed(scene, sender_role=role)
+    except SceneServiceError as exc:
+        raise scene_service_error_to_http(exc) from exc
 
     try:
         campaign = await get_campaign_or_error(db, scene.campaign_id)

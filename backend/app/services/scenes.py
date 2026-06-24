@@ -60,6 +60,7 @@ ALLOWED_SPEAKER_TYPES = {"MASTER", "NPC", "PC", "NARRATOR"}
 DEFAULT_NARRATOR_DISPLAY_NAME = "Máster / Narrador"
 MASTER_DICE_ROLL_DISPLAY_NAME = "Máster"
 INTERACTIVE_SCENE_STATUSES = {"ACTIVE"}
+FROZEN_SCENE_DETAIL = "La escena está congelada por el Máster."
 FALLBACK_SUMMARY_MESSAGE_COUNT = 5
 
 
@@ -218,10 +219,16 @@ def save_scene_state(scene: Scene, state: SceneState) -> None:
     scene.status = state.metadata.status
 
 
-def ensure_scene_interactive(scene: Scene) -> None:
+def ensure_scene_post_allowed(scene: Scene, *, sender_role: str = "PLAYER") -> None:
+    """ACTIVE allows everyone; PAUSED blocks players but not the Master."""
     status = scene.status
-    if status not in INTERACTIVE_SCENE_STATUSES:
-        raise SceneServiceError(f"Scene is {status}")
+    if status in INTERACTIVE_SCENE_STATUSES:
+        return
+    if status == "PAUSED" and sender_role == "MASTER":
+        return
+    if status == "PAUSED":
+        raise SceneServiceError(FROZEN_SCENE_DETAIL)
+    raise SceneServiceError(f"Scene is {status}")
 
 
 def _speaker_fields_requested(payload: PostMessageRequest) -> bool:
@@ -704,7 +711,7 @@ async def post_message(
     *,
     sender_role: str = "PLAYER",
 ) -> SceneResponse:
-    ensure_scene_interactive(scene)
+    ensure_scene_post_allowed(scene, sender_role=sender_role)
 
     msg_type = normalize_message_type(payload.type)
     if msg_type == "MASTER" and sender_role != "MASTER":
@@ -768,7 +775,7 @@ async def roll_scene_dice(
     *,
     sender_role: str = "PLAYER",
 ) -> SceneResponse:
-    ensure_scene_interactive(scene)
+    ensure_scene_post_allowed(scene, sender_role=sender_role)
 
     if payload.master_only and sender_role != "MASTER":
         raise SceneServiceError("Solo el Máster puede tirar en secreto")
@@ -1440,7 +1447,7 @@ async def append_dice_roll_to_scene(
     visibility: str = "all",
     sender_role: str = "PLAYER",
 ) -> SceneResponse:
-    ensure_scene_interactive(scene)
+    ensure_scene_post_allowed(scene, sender_role=sender_role)
     state = load_scene_state(scene)
     speaker_fields = await resolve_dice_roll_speaker_fields(
         db,

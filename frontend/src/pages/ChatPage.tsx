@@ -131,8 +131,11 @@ export function ChatPage() {
   }, [currentScene, memberLookup, entities, isMaster]);
 
   const pbpEnabled = currentScene ? isPbpEnabled(currentScene.scene_state) : false;
+  const isSceneFrozen = currentScene?.status === "PAUSED";
   const composerDisabled =
-    loading || currentScene?.status === "PAUSED" || (pbpEnabled && !canPostInPbp && !isMaster);
+    loading ||
+    (isSceneFrozen && !isMaster) ||
+    (pbpEnabled && !canPostInPbp && !isMaster);
 
   const handleMarkRead = useCallback(() => {
     if (!currentScene || !currentUserId) return;
@@ -373,7 +376,7 @@ export function ChatPage() {
   }
 
   return (
-    <div className="chat-page">
+    <div className={`chat-page${isSceneFrozen ? " chat-page--frozen" : ""}`}>
       <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
       {currentScene && (
         <aside className="chat-page__sidebar">
@@ -385,7 +388,7 @@ export function ChatPage() {
             entities={entities}
             currentUserId={currentUserId}
             isMaster={Boolean(isMaster)}
-            disabled={loading || currentScene.status === "PAUSED"}
+            disabled={loading || (isSceneFrozen && !isMaster)}
             onSceneUpdate={handleSceneUpdate}
           />
           <InitiativeOrderPanel
@@ -425,7 +428,7 @@ export function ChatPage() {
         </aside>
       )}
 
-      <Panel className="chat-panel">
+      <Panel className={`chat-panel${isSceneFrozen ? " chat-panel--frozen" : ""}`}>
         <PanelHeader
           icon={SECTION_ICONS.chat}
           iconTone="rose"
@@ -575,8 +578,12 @@ export function ChatPage() {
               onSceneRefresh={() => refetch()}
             />
 
-            {currentScene.status === "PAUSED" && (
-              <p className="muted chat-paused">La escena está congelada por el Máster.</p>
+            {isSceneFrozen && (
+              <p className="chat-paused" role="status">
+                {isMaster
+                  ? "Escena congelada. Los jugadores no pueden actuar; tú sigues pudiendo narrar, tirar dados y gestionar combate."
+                  : "La escena está congelada por el Máster."}
+              </p>
             )}
           </>
         ) : null}
@@ -604,7 +611,8 @@ export function ChatPage() {
           title="Congelar escena"
           description={
             <p className="muted">
-              Los jugadores no podrán enviar mensajes ni tirar dados hasta que reanudes la escena.
+              Los jugadores no podrán enviar mensajes ni tirar dados hasta que reanudes la escena. Tú
+              seguirás pudiendo actuar como Máster.
             </p>
           }
           confirmLabel="Congelar"

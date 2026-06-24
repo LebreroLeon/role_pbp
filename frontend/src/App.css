@@ -420,6 +420,31 @@
   color: var(--accent-amber);
 }
 
+/* —— Frozen scene (Jugar chat card) —— */
+.chat-page--frozen .chat-panel--frozen {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent-amber) 6%, var(--bg-surface)),
+    var(--bg-surface)
+  );
+  border-color: color-mix(in srgb, var(--accent-amber) 45%, var(--border-subtle));
+  box-shadow:
+    var(--shadow-sm),
+    0 0 0 1px color-mix(in srgb, var(--accent-amber) 18%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent-amber) 8%, transparent);
+}
+
+.chat-page--frozen .chat-panel--frozen .panel-header__icon--rose {
+  background: var(--accent-amber-soft);
+  color: var(--accent-amber);
+}
+
+@media (max-width: 720px) {
+  .chat-page--frozen .chat-panel--frozen {
+    border-width: 2px;
+  }
+}
+
 /* —— Dice roll card —— */
 .dice-roll-card .dice-card__stage {
   display: flex;
