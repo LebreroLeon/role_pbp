@@ -142,6 +142,7 @@ export function CombatEntry({
   const attackRoll = event.attack_roll;
   const damage = event.damage;
   const isHealing = Boolean(event.is_healing || damage?.is_healing);
+  const isSaveAttack = attackRoll?.resolution === "save" || attackRoll?.save_dc != null;
   const isCritical = Boolean(
     event.is_critical || attackRoll?.is_critical || attackRoll?.natural_20 || damage?.is_critical,
   );
@@ -177,7 +178,9 @@ export function CombatEntry({
       {event.kind === "ATTACK_RESOLVED" && attackerLabel && defenderLabel ? (
         <p className="combat-card__action">
           <span className="combat-card__entity">{attackerLabel}</span>
-          <span className="combat-card__verb">{isHealing ? "cura a" : "ataca"}</span>
+          <span className="combat-card__verb">
+            {isHealing ? "cura a" : isSaveAttack ? "lanza contra" : "ataca"}
+          </span>
           <span className="combat-card__entity combat-card__entity--target">{defenderLabel}</span>
           {event.weapon_name && <span className="combat-card__weapon">({event.weapon_name})</span>}
         </p>

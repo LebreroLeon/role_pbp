@@ -173,10 +173,15 @@ export function formatAttackRollLine(attackRoll: CombatAttackRollSummary): strin
 
   let line = `1d20${modStr} = ${attackRoll.total}`;
 
-  if (attackRoll.target_ac != null) {
+  if (attackRoll.save_dc != null) {
+    line += ` vs CD ${attackRoll.save_dc}`;
+    if (attackRoll.save_succeeded != null) {
+      line += ` — ${attackRoll.save_succeeded ? "éxito" : "fallo"}`;
+    }
+  } else if (attackRoll.target_ac != null) {
     line += ` vs CA ${attackRoll.target_ac}`;
   }
-  if (attackRoll.hit != null) {
+  if (attackRoll.save_dc == null && attackRoll.hit != null) {
     line += ` — ${attackRoll.hit ? "Impacto" : "Fallo"}`;
   }
   return line;

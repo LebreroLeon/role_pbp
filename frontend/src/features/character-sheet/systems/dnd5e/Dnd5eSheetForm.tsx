@@ -674,6 +674,8 @@ export function Dnd5eSheetForm({
                 name: "",
                 ability: "str",
                 proficient: false,
+                resolution: "attack_roll",
+                half_damage_on_save: false,
                 effect_type: "damage",
                 damage: { dice: "1d8", type: "contundente" },
                 properties: [],
@@ -692,7 +694,18 @@ export function Dnd5eSheetForm({
               {...register(`attacks.${index}.name`)}
             />
             <label className="form-field">
-              <span>Atributo</span>
+              <span>Resolución</span>
+              <select disabled={disabled} {...register(`attacks.${index}.resolution`)}>
+                <option value="attack_roll">Tirada de ataque (vs CA)</option>
+                <option value="save">Salvación (vs CD)</option>
+              </select>
+            </label>
+            <label className="form-field">
+              <span>
+                {attacks?.[index]?.resolution === "save"
+                  ? "Atributo de salvación"
+                  : "Atributo de ataque"}
+              </span>
               <select disabled={disabled} {...register(`attacks.${index}.ability`)}>
                 {DND5E_ABILITIES.map((ability) => (
                   <option key={ability} value={ability}>
@@ -731,24 +744,44 @@ export function Dnd5eSheetForm({
                 <span className="form-field__error">{errors.attacks[index]?.damage?.type?.message}</span>
               ) : null}
             </label>
-            <Controller
-              control={control}
-              name={`attacks.${index}.proficient`}
-              render={({ field }) => (
-                <Switch
-                  className="sheet-switch sheet-switch--inline"
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                  disabled={disabled}
-                  label="Competente"
-                  tone="teal"
-                />
-              )}
-            />
+            {attacks?.[index]?.resolution !== "save" ? (
+              <Controller
+                control={control}
+                name={`attacks.${index}.proficient`}
+                render={({ field }) => (
+                  <Switch
+                    className="sheet-switch sheet-switch--inline"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    disabled={disabled}
+                    label="Competente"
+                    tone="teal"
+                  />
+                )}
+              />
+            ) : null}
+            {attacks?.[index]?.resolution === "save" && attacks?.[index]?.effect_type === "damage" ? (
+              <Controller
+                control={control}
+                name={`attacks.${index}.half_damage_on_save`}
+                render={({ field }) => (
+                  <Switch
+                    className="sheet-switch sheet-switch--inline"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    disabled={disabled}
+                    label="Mitad de daño si salva"
+                    tone="teal"
+                  />
+                )}
+              />
+            ) : null}
             <div className="sheet-attack__rolls">
-              <Button type="button" variant="secondary" disabled={rollDisabled} onClick={() => rollAttack(index)}>
-                Tirar ataque
-              </Button>
+              {attacks?.[index]?.resolution !== "save" && (
+                <Button type="button" variant="secondary" disabled={rollDisabled} onClick={() => rollAttack(index)}>
+                  Tirar ataque
+                </Button>
+              )}
               <Button type="button" variant="secondary" disabled={rollDisabled} onClick={() => rollDamage(index)}>
                 {attacks?.[index]?.effect_type === "healing" ? "Tirar curación" : "Tirar daño"}
               </Button>

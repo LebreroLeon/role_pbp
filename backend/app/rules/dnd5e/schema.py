@@ -164,8 +164,19 @@ def _normalize_attack_entry(
     abilities: dict[str, Any],
     proficiency_bonus: int,
 ) -> dict[str, Any]:
+    resolution_raw = str(attack.get("resolution", "attack_roll")).strip().lower()
+    resolution = "save" if resolution_raw == "save" else "attack_roll"
+    half_damage_on_save = bool(attack.get("half_damage_on_save", False))
+
     if "damage_dice" in attack and "damage_type" in attack:
-        return attack
+        normalized = dict(attack)
+        normalized["resolution"] = resolution
+        normalized["half_damage_on_save"] = half_damage_on_save
+        if resolution == "save":
+            save_ability = attack.get("save_ability") or attack.get("ability")
+            if isinstance(save_ability, str) and save_ability.strip():
+                normalized["save_ability"] = save_ability.strip().lower()
+        return normalized
 
     damage = attack.get("damage")
     damage_dice = attack.get("damage_dice")
@@ -188,12 +199,19 @@ def _normalize_attack_entry(
         effect_type_raw = damage.get("effect_type")
     effect_type = "healing" if str(effect_type_raw).strip().lower() == "healing" else "damage"
 
+    save_ability = attack.get("save_ability") or ability
+    if not isinstance(save_ability, str) or not save_ability.strip():
+        save_ability = ability
+
     return {
         "name": attack.get("name", "Attack"),
         "to_hit_bonus": to_hit_bonus,
         "damage_dice": damage_dice or "1d4",
         "damage_type": normalize_damage_type(str(damage_type) if damage_type is not None else None),
         "effect_type": effect_type,
+        "resolution": resolution,
+        "save_ability": save_ability.strip().lower() if resolution == "save" else None,
+        "half_damage_on_save": half_damage_on_save if resolution == "save" else False,
     }
 
 
@@ -287,6 +305,9 @@ class AttackEntry(BaseModel):
     damage_dice: str
     damage_type: str
     effect_type: Literal["damage", "healing"] = "damage"
+    resolution: Literal["attack_roll", "save"] = "attack_roll"
+    save_ability: str | None = None
+    half_damage_on_save: bool = False
 
     @field_validator("damage_type", mode="before")
     @classmethod

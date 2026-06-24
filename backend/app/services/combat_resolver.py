@@ -215,6 +215,9 @@ async def fetch_scene_combat_entities(
 
 
 def _format_d20_attack_roll_line(attack_roll: Any, *, hit: bool | None) -> str:
+    if attack_roll.details.get("resolution") == "save" and isinstance(getattr(attack_roll, "chat_summary", None), str):
+        return str(attack_roll.chat_summary)
+
     modifier = attack_roll.details.get("modifier", 0)
     if not isinstance(modifier, int):
         modifier = 0
@@ -233,11 +236,19 @@ def _format_d20_attack_roll_line(attack_roll: Any, *, hit: bool | None) -> str:
         dice_label = "1d20"
 
     line = f"{dice_label}{mod_str} = {attack_roll.total}"
+    save_dc = attack_roll.details.get("save_dc") or attack_roll.details.get("dc")
     target_ac = attack_roll.details.get("target_ac")
-    if target_ac is not None:
+    if save_dc is not None:
+        line += f" vs CD {save_dc}"
+        save_succeeded = attack_roll.details.get("save_succeeded")
+        if save_succeeded is None and attack_roll.success is not None:
+            save_succeeded = attack_roll.success
+        if save_succeeded is not None:
+            line += f" — {'éxito' if save_succeeded else 'fallo'}"
+    elif target_ac is not None:
         line += f" vs CA {target_ac}"
-    if hit is not None:
-        line += f" — {'Impacto' if hit else 'Fallo'}"
+        if hit is not None:
+            line += f" — {'Impacto' if hit else 'Fallo'}"
     return line
 
 
@@ -279,6 +290,7 @@ def _build_attack_roll_payload(attack_roll: Any, *, hit: bool) -> dict[str, Any]
     natural = attack_roll.rolls[-1] if attack_roll.rolls else None
     modifier = attack_roll.details.get("modifier")
     is_critical = bool(attack_roll.details.get("is_critical")) or natural == 20
+    save_dc = attack_roll.details.get("save_dc") or attack_roll.details.get("dc")
     payload: dict[str, Any] = {
         "total": attack_roll.total,
         "hit": hit,
@@ -288,6 +300,17 @@ def _build_attack_roll_payload(attack_roll: Any, *, hit: bool) -> dict[str, Any]
         "modifier": modifier if isinstance(modifier, int) else 0,
         "chat_summary": _format_d20_attack_roll_line(attack_roll, hit=hit),
     }
+    if save_dc is not None:
+        payload["save_dc"] = save_dc
+        save_succeeded = attack_roll.details.get("save_succeeded")
+        if save_succeeded is None and attack_roll.success is not None:
+            save_succeeded = attack_roll.success
+        if save_succeeded is not None:
+            payload["save_succeeded"] = save_succeeded
+        save_ability = attack_roll.details.get("save_ability") or attack_roll.details.get("ability")
+        if isinstance(save_ability, str) and save_ability.strip():
+            payload["save_ability"] = save_ability
+        payload["resolution"] = "save"
     if natural == 20:
         payload["natural_20"] = True
     if natural == 1:
@@ -380,6 +403,7 @@ def _build_attack_messages(
     attacker_name = entity_display_name(attacker)
     defender_name = entity_display_name(defender)
     attack_roll = attack_result.attack_roll
+    is_save_attack = attack_roll.details.get("resolution") == "save"
     roll_line = _format_d20_attack_roll_line(attack_roll, hit=attack_result.hit)
     resolved_weapon = weapon_name or attack_roll.details.get("attack_name")
     if isinstance(resolved_weapon, str) and not resolved_weapon.strip():
@@ -392,7 +416,7 @@ def _build_attack_messages(
             attack_result.damage,
             is_healing=is_healing,
         )
-        verb = "cura a" if is_healing else "ataca a"
+        verb = "cura a" if is_healing else ("lanza contra" if is_save_attack else "ataca a")
         summary = (
             f"{attacker_name} {verb} {defender_name}: "
         )
@@ -405,6 +429,9 @@ def _build_attack_messages(
                 summary += " Muerte instantánea."
             elif damage_application.death_save_failures_added:
                 summary += f" +{damage_application.death_save_failures_added} fallo(s) de salvación."
+    elif is_save_attack:
+        verb = "lanza contra"
+        summary = f"{attacker_name} {verb} {defender_name}: {roll_line}."
     else:
         summary = f"{attacker_name} ataca a {defender_name}: {roll_line}."
 

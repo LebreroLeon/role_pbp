@@ -66,6 +66,8 @@ const attackSchema = z.object({
   name: z.string().min(1, "Nombre requerido"),
   ability: z.enum(DND5E_ABILITIES),
   proficient: z.boolean(),
+  resolution: z.enum(["attack_roll", "save"]),
+  half_damage_on_save: z.boolean(),
   effect_type: z.enum(["damage", "healing"]),
   damage: z.object({
     dice: z.string().min(1, "Dados requeridos"),
@@ -331,6 +333,8 @@ export function defaultDnd5eSheet(): Dnd5eSheet {
         name: "Ataque desarmado",
         ability: "str",
         proficient: true,
+        resolution: "attack_roll",
+        half_damage_on_save: false,
         effect_type: "damage",
         damage: { dice: "1d4", type: "contundente" },
         properties: [],
@@ -427,6 +431,36 @@ function normalizeAttackDamageType(raw: string | undefined): Dnd5eDamageType {
   return normalizeDamageType(raw);
 }
 
+export function normalizeAttackEntry(raw: unknown): Dnd5eSheet["attacks"][number] {
+  const defaults = defaultDnd5eSheet().attacks[0];
+  if (!raw || typeof raw !== "object") return defaults;
+  const entry = raw as Record<string, unknown>;
+  const damageRaw = entry.damage;
+  const damage =
+    damageRaw && typeof damageRaw === "object"
+      ? (damageRaw as { dice?: string; type?: string })
+      : undefined;
+  const abilityRaw = typeof entry.ability === "string" ? entry.ability : defaults.ability;
+  const ability = DND5E_ABILITIES.includes(abilityRaw as Dnd5eAbility)
+    ? (abilityRaw as Dnd5eAbility)
+    : defaults.ability;
+  return {
+    name: typeof entry.name === "string" ? entry.name : defaults.name,
+    ability,
+    proficient: entry.proficient === true,
+    resolution: entry.resolution === "save" ? "save" : "attack_roll",
+    half_damage_on_save: entry.half_damage_on_save === true,
+    effect_type: entry.effect_type === "healing" ? "healing" : "damage",
+    damage: {
+      dice: damage?.dice?.trim() || defaults.damage.dice,
+      type: normalizeAttackDamageType(damage?.type),
+    },
+    properties: Array.isArray(entry.properties)
+      ? entry.properties.filter((item): item is string => typeof item === "string")
+      : [],
+  };
+}
+
 /** Map backend canonical sheet (flat) to frontend nested editor shape. */
 export function convertBackendDnd5eSheet(raw: Record<string, unknown>): Dnd5eSheet {
   const defaults = defaultDnd5eSheet();
@@ -515,17 +549,17 @@ export function convertBackendDnd5eSheet(raw: Record<string, unknown>): Dnd5eShe
             damage_type?: string;
             properties?: string[];
           };
-          return {
-            name: entry.name?.trim() || "Ataque",
-            ability: entry.ability ?? "str",
-            proficient: entry.proficient ?? false,
-            effect_type: (entry.effect_type === "healing" ? "healing" : "damage") as "damage" | "healing",
-            damage: {
-              dice: entry.damage_dice?.trim() || "1d4",
-              type: normalizeAttackDamageType(entry.damage_type),
-            },
-            properties: entry.properties ?? [],
+          const legacy = entry as {
+            resolution?: "attack_roll" | "save";
+            half_damage_on_save?: boolean;
+            save_ability?: Dnd5eAbility;
           };
+          return normalizeAttackEntry({
+            ...entry,
+            resolution: legacy.resolution,
+            half_damage_on_save: legacy.half_damage_on_save,
+            ability: legacy.save_ability ?? entry.ability,
+          });
         })
       : defaults.attacks;
 
@@ -623,7 +657,9 @@ export function mergeDnd5eSheetDefaults(raw: unknown): Dnd5eSheet {
     features_traits: readString(entry.features_traits, defaults.features_traits),
     other_proficiencies: readString(entry.other_proficiencies, defaults.other_proficiencies),
     equipment: readString(entry.equipment, defaults.equipment),
-    attacks: Array.isArray(entry.attacks) && entry.attacks.length > 0 ? (entry.attacks as Dnd5eSheet["attacks"]) : defaults.attacks,
+    attacks: Array.isArray(entry.attacks) && entry.attacks.length > 0
+      ? entry.attacks.map((attack) => normalizeAttackEntry(attack))
+      : defaults.attacks,
     conditions: Array.isArray(entry.conditions)
       ? entry.conditions.filter((item): item is string => typeof item === "string")
       : defaults.conditions,

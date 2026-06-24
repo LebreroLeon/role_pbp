@@ -152,6 +152,22 @@ def _find_attack(sheet: Dnd5eSheet, context: RollContext | AttackContext) -> tup
     raise ValueError("No attacks defined on sheet")
 
 
+def _spell_save_dc(sheet: Dnd5eSheet) -> int:
+    if sheet.spellcasting.save_dc is not None:
+        return sheet.spellcasting.save_dc
+    ability = _normalize_key(sheet.spellcasting.ability)
+    if ability not in {"str", "dex", "con", "int", "wis", "cha"}:
+        ability = "int"
+    return 8 + sheet.proficiency_bonus + ability_modifier(sheet.abilities.score(ability))
+
+
+def _attack_save_ability(attack: object) -> str:
+    save_ability = getattr(attack, "save_ability", None)
+    if isinstance(save_ability, str) and save_ability.strip():
+        return _normalize_key(save_ability)
+    return "dex"
+
+
 class Dnd5ePlugin(GameSystemPlugin):
     system_id = "dnd5e"
     dice_mode = "d20"
@@ -576,6 +592,17 @@ class Dnd5ePlugin(GameSystemPlugin):
                 chat_summary=summary,
             )
 
+        if getattr(attack, "resolution", "attack_roll") == "save":
+            return self._resolve_save_attack(
+                attacker,
+                attacker_sheet,
+                defender_sheet,
+                attack,
+                context,
+                weapon_or_attack_id=weapon_or_attack_id,
+                attacker_name=attacker_name,
+            )
+
         roll_ctx = RollContext(
             attack_name=weapon_or_attack_id or context.attack_name,
             attack_index=context.attack_index,
@@ -619,6 +646,93 @@ class Dnd5ePlugin(GameSystemPlugin):
         return AttackResult(
             attack_roll=attack_roll,
             hit=hit,
+            damage=damage_result,
+            chat_summary=summary,
+        )
+
+    def _resolve_save_attack(
+        self,
+        attacker: Dnd5eSheet,
+        attacker_sheet: dict,
+        defender_sheet: dict,
+        attack: object,
+        context: AttackContext,
+        *,
+        weapon_or_attack_id: str | None,
+        attacker_name: str,
+    ) -> AttackResult:
+        save_ability = _attack_save_ability(attack)
+        spell_dc = _spell_save_dc(attacker)
+        half_on_save = bool(getattr(attack, "half_damage_on_save", False))
+        attack_name = getattr(attack, "name", None) or weapon_or_attack_id or attacker_name
+
+        save_roll = self.resolve_roll(
+            "saving_throw",
+            defender_sheet,
+            RollContext(
+                ability=save_ability,
+                dc=spell_dc,
+                advantage=context.advantage,
+                disadvantage=context.disadvantage,
+            ),
+        )
+        save_succeeded = bool(save_roll.success)
+        spell_affects = not save_succeeded
+
+        save_roll.details["save_dc"] = spell_dc
+        save_roll.details["save_ability"] = save_ability
+        save_roll.details["save_succeeded"] = save_succeeded
+        save_roll.details["resolution"] = "save"
+        save_roll.details["attack_name"] = attack_name
+        save_roll.details["hit"] = spell_affects
+
+        ability_label = ability_label_es(save_ability)
+        outcome = "éxito" if save_succeeded else "fallo"
+        save_roll.chat_summary = (
+            f"Salvación de {ability_label}: {save_roll.chat_summary.split(': ', 1)[-1]}"
+            if ": " in save_roll.chat_summary
+            else f"Salvación de {ability_label}: 1d20 = {save_roll.total} vs CD {spell_dc} — {outcome}"
+        )
+
+        damage_result = None
+        if attack.effect_type == "damage":
+            should_apply_damage = spell_affects or (save_succeeded and half_on_save)
+            if should_apply_damage:
+                damage_ctx = RollContext(
+                    attack_name=weapon_or_attack_id or context.attack_name,
+                    attack_index=context.attack_index,
+                )
+                damage_roll = self.resolve_roll("damage", attacker_sheet, damage_ctx)
+                amount = damage_roll.total or 0
+                if save_succeeded and half_on_save:
+                    amount = amount // 2
+                damage_type = str(damage_roll.details.get("damage_type", "untyped"))
+                damage_result = DamageResult(
+                    amount=amount,
+                    expression=damage_roll.expression,
+                    rolls=damage_roll.rolls,
+                    damage_type=damage_type,
+                    modifier=int(damage_roll.details.get("modifier", 0)),
+                    is_healing=False,
+                    is_critical=False,
+                )
+
+        if damage_result is not None:
+            damage_note = ""
+            if save_succeeded and half_on_save:
+                damage_note = " (mitad por salvación)"
+            summary = (
+                f"{attacker_name}: CD {spell_dc}, salvación {save_roll.total} — {outcome}{damage_note}. "
+                f"{damage_result.amount} {damage_result.damage_type}."
+            )
+        else:
+            summary = (
+                f"{attacker_name}: CD {spell_dc}, salvación {save_roll.total} — {outcome}."
+            )
+
+        return AttackResult(
+            attack_roll=save_roll,
+            hit=spell_affects or damage_result is not None,
             damage=damage_result,
             chat_summary=summary,
         )

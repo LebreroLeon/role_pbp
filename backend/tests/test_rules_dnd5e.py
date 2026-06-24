@@ -293,6 +293,128 @@ class TestDnd5eCombat:
         assert updated["hp"]["current"] == 20
         assert "Curación" in application.chat_summary
 
+    def test_spell_save_dc_override(self, plugin: Dnd5ePlugin):
+        sheet = {
+            "proficiency_bonus": 3,
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 18, "wis": 10, "cha": 10},
+            "spellcasting": {"ability": "int", "save_dc": 16},
+        }
+        validated = plugin.validate_pc_sheet(sheet)
+        from app.rules.dnd5e.plugin import _spell_save_dc
+
+        assert _spell_save_dc(validated) == 16
+
+    def test_spell_save_dc_computed(self, plugin: Dnd5ePlugin):
+        sheet = {
+            "proficiency_bonus": 3,
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 18, "wis": 10, "cha": 10},
+            "spellcasting": {"ability": "int", "save_dc": None},
+        }
+        validated = plugin.validate_pc_sheet(sheet)
+        from app.rules.dnd5e.plugin import _spell_save_dc
+
+        # 8 + 3 prof + 4 INT mod
+        assert _spell_save_dc(validated) == 15
+
+    def test_save_attack_fail_applies_full_damage(self, plugin: Dnd5ePlugin, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda a, b: 5 if b == 20 else (6 if b == 8 else 4))
+
+        caster = {
+            "proficiency_bonus": 3,
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 18, "wis": 10, "cha": 10},
+            "spellcasting": {"ability": "int", "save_dc": 16},
+            "attacks": [
+                {
+                    "name": "Bola de fuego",
+                    "damage_dice": "8d6",
+                    "damage_type": "fuego",
+                    "effect_type": "damage",
+                    "resolution": "save",
+                    "save_ability": "dex",
+                    "half_damage_on_save": True,
+                }
+            ],
+        }
+        defender = {
+            "ac": 12,
+            "hp": {"max": 40, "current": 40},
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+            "proficiency_bonus": 2,
+            "saving_throws": [],
+        }
+
+        attack = plugin.resolve_attack(caster, defender, "Bola de fuego", AttackContext())
+        # DEX save: 5 + 0 = 5 vs CD 16 — fallo
+        assert attack.attack_roll.details.get("save_succeeded") is False
+        assert attack.hit is True
+        assert attack.damage is not None
+        assert attack.damage.amount == 32  # 8d6 con dados simulados (4 cada uno)
+
+    def test_save_attack_success_half_damage(self, plugin: Dnd5ePlugin, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda a, b: 18 if b == 20 else (6 if b == 8 else 4))
+
+        caster = {
+            "proficiency_bonus": 3,
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 18, "wis": 10, "cha": 10},
+            "spellcasting": {"ability": "int", "save_dc": 16},
+            "attacks": [
+                {
+                    "name": "Bola de fuego",
+                    "damage_dice": "8d6",
+                    "damage_type": "fuego",
+                    "effect_type": "damage",
+                    "resolution": "save",
+                    "save_ability": "dex",
+                    "half_damage_on_save": True,
+                }
+            ],
+        }
+        defender = {
+            "ac": 12,
+            "hp": {"max": 40, "current": 40},
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+            "proficiency_bonus": 2,
+            "saving_throws": [],
+        }
+
+        attack = plugin.resolve_attack(caster, defender, "Bola de fuego", AttackContext())
+        assert attack.attack_roll.details.get("save_succeeded") is True
+        assert attack.damage is not None
+        assert attack.damage.amount == 16  # mitad de 32
+
+    def test_save_attack_success_no_damage(self, plugin: Dnd5ePlugin, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda a, b: 18 if b == 20 else 4)
+
+        caster = {
+            "proficiency_bonus": 3,
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 18, "wis": 10, "cha": 10},
+            "spellcasting": {"ability": "int", "save_dc": 16},
+            "attacks": [
+                {
+                    "name": "Risa histérica de Tasha",
+                    "damage_dice": "0",
+                    "damage_type": "psíquico",
+                    "effect_type": "damage",
+                    "resolution": "save",
+                    "save_ability": "wis",
+                    "half_damage_on_save": False,
+                }
+            ],
+        }
+        defender = {
+            "ac": 12,
+            "hp": {"max": 40, "current": 40},
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+            "proficiency_bonus": 2,
+            "saving_throws": [],
+        }
+
+        attack = plugin.resolve_attack(caster, defender, "Risa histérica de Tasha", AttackContext())
+        assert attack.attack_roll.details.get("save_succeeded") is True
+        assert attack.damage is None
+        assert attack.hit is False
+        assert "éxito" in attack.chat_summary
+
     def test_damage_consumes_temp_hp_first(self, plugin: Dnd5ePlugin):
         from app.rules.base import DamageResult
 

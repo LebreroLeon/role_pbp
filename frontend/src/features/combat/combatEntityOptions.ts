@@ -80,12 +80,17 @@ type SheetAttack = {
   name?: string;
   ability?: string;
   proficient?: boolean;
+  resolution?: "attack_roll" | "save";
+  half_damage_on_save?: boolean;
+  effect_type?: "damage" | "healing";
   damage?: { dice?: string; type?: string };
 };
 
 type EntitySheet = {
   abilities?: Record<string, number>;
   proficiency?: { bonus?: number };
+  proficiency_bonus?: number;
+  spellcasting?: { ability?: string; save_dc?: number | null };
   attacks?: SheetAttack[];
 };
 
@@ -102,22 +107,47 @@ function abilityModifier(score: number): number {
   return Math.floor((score - 10) / 2);
 }
 
+function computedSpellSaveDc(sheet: EntitySheet | undefined): number | null {
+  const spellcasting = sheet?.spellcasting;
+  if (!spellcasting) return null;
+  if (typeof spellcasting.save_dc === "number") return spellcasting.save_dc;
+  const ability = spellcasting.ability;
+  const abilityScore = ability ? sheet?.abilities?.[ability] : undefined;
+  const proficiencyBonus = sheet?.proficiency?.bonus ?? sheet?.proficiency_bonus ?? 0;
+  if (typeof abilityScore !== "number") return null;
+  return 8 + proficiencyBonus + abilityModifier(abilityScore);
+}
+
 function buildAttackStatsLabel(attack: SheetAttack, sheet: EntitySheet | undefined): string | null {
   const parts: string[] = [];
 
-  const ability = attack.ability;
-  const abilityScore = ability ? sheet?.abilities?.[ability] : undefined;
-  if (typeof abilityScore === "number") {
-    const modifier = abilityModifier(abilityScore);
-    const proficiencyBonus = sheet?.proficiency?.bonus ?? 0;
-    const toHit = modifier + (attack.proficient ? proficiencyBonus : 0);
-    parts.push(formatSigned(toHit));
+  if (attack.resolution === "save") {
+    const ability = attack.ability;
+    if (ability) {
+      parts.push(`Salv. ${ability.toUpperCase()}`);
+    }
+    const saveDc = computedSpellSaveDc(sheet);
+    if (saveDc != null) {
+      parts.push(`CD ${saveDc}`);
+    }
+  } else {
+    const ability = attack.ability;
+    const abilityScore = ability ? sheet?.abilities?.[ability] : undefined;
+    if (typeof abilityScore === "number") {
+      const modifier = abilityModifier(abilityScore);
+      const proficiencyBonus = sheet?.proficiency?.bonus ?? sheet?.proficiency_bonus ?? 0;
+      const toHit = modifier + (attack.proficient ? proficiencyBonus : 0);
+      parts.push(formatSigned(toHit));
+    }
   }
 
   const dice = attack.damage?.dice?.trim();
   const damageType = attack.damage?.type?.trim();
   if (dice) {
     parts.push(damageType ? `${dice} ${damageType}` : dice);
+  }
+  if (attack.resolution === "save" && attack.half_damage_on_save) {
+    parts.push("½ si salva");
   }
 
   return parts.length > 0 ? parts.join(" · ") : null;

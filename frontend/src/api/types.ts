@@ -133,6 +133,14 @@ export type CombatAttackRollSummary = {
 
   target_ac?: number;
 
+  save_dc?: number;
+
+  save_ability?: string;
+
+  save_succeeded?: boolean;
+
+  resolution?: "attack_roll" | "save";
+
   modifier?: number;
 
   expression?: string;
