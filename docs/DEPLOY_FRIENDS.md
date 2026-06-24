@@ -83,7 +83,12 @@ Con Docker (recomendado) el `CMD` del Dockerfile ya hace migrate + uvicorn en `$
 | `JWT_SECRET` | string aleatorio largo (`openssl rand -hex 32`) | sí |
 | `OPENAI_API_KEY` | `sk-...` | sí (para IA/RAG) |
 | `CORS_ORIGINS` | `https://TU-APP.vercel.app` (sin barra final) | sí |
-| `UPLOAD_DIR` | `/tmp/campaign_uploads` | sí |
+| `UPLOAD_DIR` | `/tmp/campaign_uploads` (solo usado si `STORAGE_BACKEND=local`) | sí en local |
+| `STORAGE_BACKEND` | `r2` en producción; `local` en desarrollo | sí |
+| `R2_ACCOUNT_ID` | ID de cuenta Cloudflare (Dashboard → R2 → Overview) | sí con `r2` |
+| `R2_ACCESS_KEY_ID` | Access Key del token S3 API de R2 | sí con `r2` |
+| `R2_SECRET_ACCESS_KEY` | Secret Key del token (solo visible al crear el token) | sí con `r2` |
+| `R2_BUCKET_NAME` | `rolepbp` | sí con `r2` |
 | `SYSTEM_MANUALS_DIR` | `/tmp/manuals` | sí |
 | `SEED_MANUALS` | `false` (por defecto; no indexa en Render sin PDFs en la imagen) | opcional |
 | `SEED_MONSTERS` | `true` en Render (catálogo SRD ~325 criaturas en la imagen; upsert idempotente tras migraciones) | recomendado en producción |
@@ -95,10 +100,39 @@ Con Docker (recomendado) el `CMD` del Dockerfile ya hace migrate + uvicorn en `$
 5. Deploy. Cuando termine, anota la URL: `https://rolepbp-api.onrender.com`.
 6. Comprueba: `https://rolepbp-api.onrender.com/api/v1/health` → `{"status":"ok",...}`.
 
+### Cloudflare R2 (almacenamiento persistente)
+
+Los avatares, ilustraciones y documentos de campaña se guardan en R2 cuando `STORAGE_BACKEND=r2` (recomendado en Render). El bucket es privado: el frontend sigue usando las rutas `/api/v1/entities/{id}/avatar` y el backend hace de proxy con autenticación JWT.
+
+1. En [Cloudflare Dashboard](https://dash.cloudflare.com) → **R2** → crea el bucket `rolepbp` (si no existe).
+2. En **R2** → **Manage R2 API Tokens** → **Create API token**.
+3. Permisos: **Object Read & Write** sobre el bucket `rolepbp`.
+4. Copia **Access Key ID** y **Secret Access Key** al crear el token. El secret **solo se muestra una vez**; si lo pierdes, crea un token nuevo.
+5. Anota tu **Account ID** (R2 → Overview, o en la URL del dashboard).
+6. En Render, configura:
+
+| Variable | Valor |
+|---|---|
+| `STORAGE_BACKEND` | `r2` |
+| `R2_ACCOUNT_ID` | tu Account ID |
+| `R2_ACCESS_KEY_ID` | Access Key del token |
+| `R2_SECRET_ACCESS_KEY` | Secret Key del token |
+| `R2_BUCKET_NAME` | `rolepbp` |
+
+Estructura de claves en el bucket:
+
+```
+{campaign_id}/avatars/{entity_id}.{ext}
+{campaign_id}/illustrations/{entity_id}.{ext}
+{campaign_id}/documents/{document_id}.{ext}
+```
+
+En desarrollo local deja `STORAGE_BACKEND=local` y `UPLOAD_DIR=./campaign_uploads` (sin credenciales R2).
+
 ### Caveats Render Free
 
 - **Duerme** tras ~15 min sin tráfico. El primer request tarda **~50 s** en despertar.
-- Disco **efímero**: avatares y PDFs subidos en la app **se pierden** al redeploy/restart. Para pruebas con amigos suele bastar; producción seria = disco persistente (de pago) o S3.
+- Disco **efímero** en Render Free: con `STORAGE_BACKEND=r2` los uploads de campaña persisten en Cloudflare. Sin R2, avatares y PDFs subidos **se pierden** al redeploy/restart.
 - WebSockets funcionan en Render; la primera conexión tras dormir también sufre el cold start.
 
 ---

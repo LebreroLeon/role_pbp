@@ -160,8 +160,8 @@ async def test_player_cannot_get_hidden_npc_illustration(override_db, mock_db):
 
     with patch("app.api.deps.get_user_campaign_role", new_callable=AsyncMock, return_value="PLAYER"):
         with patch(
-            "app.api.routes.entities.resolve_entity_illustration_path",
-            return_value=__import__("pathlib").Path("/tmp/fake.png"),
+            "app.api.routes.entities.resolve_entity_illustration_storage",
+            return_value=("camp/illustrations/fake.png", "image/png"),
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -180,11 +180,12 @@ async def test_player_can_get_location_illustration(override_db, mock_db):
 
     with patch("app.api.deps.get_user_campaign_role", new_callable=AsyncMock, return_value="PLAYER"):
         with patch(
-            "app.api.routes.entities.resolve_entity_illustration_path",
-            return_value=__import__("pathlib").Path("/tmp/fake.png"),
+            "app.api.routes.entities.resolve_entity_illustration_storage",
+            return_value=("camp/illustrations/fake.png", "image/png"),
         ):
-            with patch("app.api.routes.entities.FileResponse") as mock_file_response:
-                mock_file_response.return_value = __import__("fastapi").Response(content=b"img")
+            with patch("app.api.routes.entities.get_storage_backend") as mock_storage_factory:
+                mock_storage = mock_storage_factory.return_value
+                mock_storage.get_object.return_value = b"img"
                 transport = ASGITransport(app=app)
                 async with AsyncClient(transport=transport, base_url="http://test") as client:
                     response = await client.get(f"/api/v1/entities/{entity.id}/illustration")
@@ -255,13 +256,14 @@ async def test_avatar_upload_preserves_illustration_url(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_resolve_illustration_path_finds_uploaded_file(tmp_path):
+async def test_resolve_illustration_storage_finds_uploaded_file(tmp_path):
     from app.core.config import settings
     from app.services.entity_illustrations import (
         illustration_api_path,
-        resolve_entity_illustration_path,
+        resolve_entity_illustration_storage,
         save_entity_illustration_file,
     )
+    from app.services.object_storage import get_storage_backend
     from unittest.mock import AsyncMock
 
     original_upload_dir = settings.upload_dir
@@ -278,10 +280,12 @@ async def test_resolve_illustration_path_finds_uploaded_file(tmp_path):
         )
 
         assert read_entity_illustration_url(entity) == illustration_api_path(entity.id)
-        resolved = resolve_entity_illustration_path(entity)
+        resolved = resolve_entity_illustration_storage(entity)
         assert resolved is not None
-        assert resolved.exists()
-        assert resolved.read_bytes() == b"fake-png"
+        key, media_type = resolved
+        assert media_type == "image/png"
+        storage = get_storage_backend()
+        assert storage.get_object(key) == b"fake-png"
     finally:
         settings.upload_dir = original_upload_dir
 

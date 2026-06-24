@@ -2,7 +2,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,16 +38,17 @@ from app.services.entities import (
 from app.services.entity_avatars import (
     EntityAvatarError,
     clear_entity_avatar_file,
-    resolve_entity_avatar_path,
+    resolve_entity_avatar_storage,
     save_entity_avatar_file,
 )
 from app.services.entity_illustrations import (
     EntityIllustrationError,
     clear_entity_illustration_file,
     player_can_view_entity_illustration,
-    resolve_entity_illustration_path,
+    resolve_entity_illustration_storage,
     save_entity_illustration_file,
 )
+from app.services.object_storage import StorageNotFoundError, get_storage_backend
 
 router = APIRouter(prefix="/entities", tags=["entities"])
 
@@ -378,21 +379,21 @@ async def get_entity_avatar(
     entity_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
-) -> FileResponse:
+) -> Response:
     entity = await _get_entity_or_404(entity_id, db)
     await require_campaign_member(db, current_user, entity.campaign_id)
 
-    path = resolve_entity_avatar_path(entity)
-    if path is None:
+    resolved = resolve_entity_avatar_storage(entity)
+    if resolved is None:
         raise HTTPException(status_code=404, detail="Avatar not found")
 
-    media_types = {
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".png": "image/png",
-        ".webp": "image/webp",
-    }
-    return FileResponse(path, media_type=media_types.get(path.suffix.lower(), "application/octet-stream"))
+    key, media_type = resolved
+    try:
+        content = get_storage_backend().get_object(key)
+    except StorageNotFoundError:
+        raise HTTPException(status_code=404, detail="Avatar not found") from None
+
+    return Response(content=content, media_type=media_type)
 
 
 @router.delete("/{entity_id}/avatar", status_code=204)
@@ -439,24 +440,24 @@ async def get_entity_illustration(
     entity_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
-) -> FileResponse:
+) -> Response:
     entity = await _get_entity_or_404(entity_id, db)
     role = await require_campaign_member(db, current_user, entity.campaign_id)
 
     if role != "MASTER" and not player_can_view_entity_illustration(entity):
         raise HTTPException(status_code=404, detail="Illustration not found")
 
-    path = resolve_entity_illustration_path(entity)
-    if path is None:
+    resolved = resolve_entity_illustration_storage(entity)
+    if resolved is None:
         raise HTTPException(status_code=404, detail="Illustration not found")
 
-    media_types = {
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".png": "image/png",
-        ".webp": "image/webp",
-    }
-    return FileResponse(path, media_type=media_types.get(path.suffix.lower(), "application/octet-stream"))
+    key, media_type = resolved
+    try:
+        content = get_storage_backend().get_object(key)
+    except StorageNotFoundError:
+        raise HTTPException(status_code=404, detail="Illustration not found") from None
+
+    return Response(content=content, media_type=media_type)
 
 
 @router.delete("/{entity_id}/illustration", status_code=204)

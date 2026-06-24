@@ -1,13 +1,18 @@
 import uuid
-from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.campaign import CampaignEntity
 from app.schemas.entities import EntityType
+from app.services.object_storage import (
+    ALLOWED_EXTENSIONS,
+    avatar_storage_key,
+    find_existing_image_key,
+    get_storage_backend,
+    media_type_for_extension,
+)
 
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MIME_SUFFIX_MAP = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
@@ -19,17 +24,13 @@ class EntityAvatarError(ValueError):
     pass
 
 
-def _upload_root() -> Path:
-    root = Path(settings.upload_dir)
-    root.mkdir(parents=True, exist_ok=True)
-    return root
-
-
 def avatar_api_path(entity_id: uuid.UUID) -> str:
     return f"/api/v1/entities/{entity_id}/avatar"
 
 
 def _safe_image_extension(filename: str, mime_type: str | None) -> str:
+    from pathlib import Path
+
     suffix = Path(filename).suffix.lower()
     if suffix == ".jpeg":
         suffix = ".jpg"
@@ -44,25 +45,20 @@ def _safe_image_extension(filename: str, mime_type: str | None) -> str:
     )
 
 
-def _avatar_dir(campaign_id: uuid.UUID) -> Path:
-    return _upload_root() / str(campaign_id) / "avatars"
-
-
-def resolve_entity_avatar_path(entity: CampaignEntity) -> Path | None:
+def resolve_entity_avatar_storage(entity: CampaignEntity) -> tuple[str, str] | None:
+    """Return (storage_key, media_type) when the entity has a stored avatar."""
     avatar_url = read_entity_avatar_url(entity)
     if not avatar_url or not avatar_url.endswith("/avatar"):
         return None
 
-    directory = _avatar_dir(entity.campaign_id)
-    if not directory.exists():
-        return None
-
-    for suffix in ALLOWED_EXTENSIONS:
-        normalized = ".jpg" if suffix == ".jpeg" else suffix
-        path = directory / f"{entity.id}{normalized}"
-        if path.exists():
-            return path
-    return None
+    storage = get_storage_backend()
+    return find_existing_image_key(
+        storage,
+        campaign_id=entity.campaign_id,
+        entity_id=entity.id,
+        category="avatars",
+        allowed_extensions=ALLOWED_EXTENSIONS,
+    )
 
 
 def read_entity_avatar_url(entity: CampaignEntity) -> str | None:
@@ -101,15 +97,13 @@ def write_entity_avatar_url(entity: CampaignEntity, url: str | None) -> None:
     entity.document = document
 
 
-def _delete_existing_avatar_files(entity: CampaignEntity) -> None:
-    directory = _avatar_dir(entity.campaign_id)
-    if not directory.exists():
-        return
+def _delete_existing_avatar_objects(entity: CampaignEntity) -> None:
+    storage = get_storage_backend()
     for suffix in ALLOWED_EXTENSIONS:
         normalized = ".jpg" if suffix == ".jpeg" else suffix
-        path = directory / f"{entity.id}{normalized}"
-        if path.exists():
-            path.unlink()
+        key = avatar_storage_key(entity.campaign_id, entity.id, normalized)
+        if storage.exists(key):
+            storage.delete_object(key)
 
 
 async def save_entity_avatar_file(
@@ -128,12 +122,12 @@ async def save_entity_avatar_file(
         )
 
     suffix = _safe_image_extension(original_name, mime_type)
-    avatar_dir = _avatar_dir(entity.campaign_id)
-    avatar_dir.mkdir(parents=True, exist_ok=True)
+    storage = get_storage_backend()
+    _delete_existing_avatar_objects(entity)
 
-    _delete_existing_avatar_files(entity)
-    file_path = avatar_dir / f"{entity.id}{suffix}"
-    file_path.write_bytes(content)
+    key = avatar_storage_key(entity.campaign_id, entity.id, suffix)
+    content_type = mime_type or media_type_for_extension(suffix)
+    storage.put_object(key, content, content_type=content_type)
 
     url = avatar_api_path(entity.id)
     write_entity_avatar_url(entity, url)
@@ -143,7 +137,7 @@ async def save_entity_avatar_file(
 
 
 async def clear_entity_avatar_file(db: AsyncSession, entity: CampaignEntity) -> None:
-    _delete_existing_avatar_files(entity)
+    _delete_existing_avatar_objects(entity)
     write_entity_avatar_url(entity, None)
     await db.commit()
     await db.refresh(entity)

@@ -1,5 +1,4 @@
 import uuid
-from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,8 +6,14 @@ from app.core.config import settings
 from app.models.campaign import CampaignEntity
 from app.schemas.entities import EntityType
 from app.services.entities import npc_player_visibility
+from app.services.object_storage import (
+    ALLOWED_EXTENSIONS,
+    find_existing_image_key,
+    get_storage_backend,
+    illustration_storage_key,
+    media_type_for_extension,
+)
 
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MIME_SUFFIX_MAP = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
@@ -28,12 +33,6 @@ class EntityIllustrationError(ValueError):
     pass
 
 
-def _upload_root() -> Path:
-    root = Path(settings.upload_dir)
-    root.mkdir(parents=True, exist_ok=True)
-    return root
-
-
 def illustration_api_path(entity_id: uuid.UUID) -> str:
     return f"/api/v1/entities/{entity_id}/illustration"
 
@@ -51,6 +50,8 @@ def _profile_key(entity_type: str) -> str:
 
 
 def _safe_image_extension(filename: str, mime_type: str | None) -> str:
+    from pathlib import Path
+
     suffix = Path(filename).suffix.lower()
     if suffix == ".jpeg":
         suffix = ".jpg"
@@ -65,25 +66,20 @@ def _safe_image_extension(filename: str, mime_type: str | None) -> str:
     )
 
 
-def _illustration_dir(campaign_id: uuid.UUID) -> Path:
-    return _upload_root() / str(campaign_id) / "illustrations"
-
-
-def resolve_entity_illustration_path(entity: CampaignEntity) -> Path | None:
+def resolve_entity_illustration_storage(entity: CampaignEntity) -> tuple[str, str] | None:
+    """Return (storage_key, media_type) when the entity has a stored illustration."""
     illustration_url = read_entity_illustration_url(entity)
     if not illustration_url or not illustration_url.endswith("/illustration"):
         return None
 
-    directory = _illustration_dir(entity.campaign_id)
-    if not directory.exists():
-        return None
-
-    for suffix in ALLOWED_EXTENSIONS:
-        normalized = ".jpg" if suffix == ".jpeg" else suffix
-        path = directory / f"{entity.id}{normalized}"
-        if path.exists():
-            return path
-    return None
+    storage = get_storage_backend()
+    return find_existing_image_key(
+        storage,
+        campaign_id=entity.campaign_id,
+        entity_id=entity.id,
+        category="illustrations",
+        allowed_extensions=ALLOWED_EXTENSIONS,
+    )
 
 
 def read_entity_illustration_url(entity: CampaignEntity) -> str | None:
@@ -124,15 +120,13 @@ def player_can_view_entity_illustration(entity: CampaignEntity) -> bool:
     return entity.entity_type in ILLUSTRATION_ENTITY_TYPES
 
 
-def _delete_existing_illustration_files(entity: CampaignEntity) -> None:
-    directory = _illustration_dir(entity.campaign_id)
-    if not directory.exists():
-        return
+def _delete_existing_illustration_objects(entity: CampaignEntity) -> None:
+    storage = get_storage_backend()
     for suffix in ALLOWED_EXTENSIONS:
         normalized = ".jpg" if suffix == ".jpeg" else suffix
-        path = directory / f"{entity.id}{normalized}"
-        if path.exists():
-            path.unlink()
+        key = illustration_storage_key(entity.campaign_id, entity.id, normalized)
+        if storage.exists(key):
+            storage.delete_object(key)
 
 
 async def save_entity_illustration_file(
@@ -151,12 +145,12 @@ async def save_entity_illustration_file(
         )
 
     suffix = _safe_image_extension(original_name, mime_type)
-    illustration_dir = _illustration_dir(entity.campaign_id)
-    illustration_dir.mkdir(parents=True, exist_ok=True)
+    storage = get_storage_backend()
+    _delete_existing_illustration_objects(entity)
 
-    _delete_existing_illustration_files(entity)
-    file_path = illustration_dir / f"{entity.id}{suffix}"
-    file_path.write_bytes(content)
+    key = illustration_storage_key(entity.campaign_id, entity.id, suffix)
+    content_type = mime_type or media_type_for_extension(suffix)
+    storage.put_object(key, content, content_type=content_type)
 
     url = illustration_api_path(entity.id)
     write_entity_illustration_url(entity, url)
@@ -166,7 +160,7 @@ async def save_entity_illustration_file(
 
 
 async def clear_entity_illustration_file(db: AsyncSession, entity: CampaignEntity) -> None:
-    _delete_existing_illustration_files(entity)
+    _delete_existing_illustration_objects(entity)
     write_entity_illustration_url(entity, None)
     await db.commit()
     await db.refresh(entity)

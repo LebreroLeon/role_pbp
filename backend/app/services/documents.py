@@ -1,3 +1,4 @@
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from app.core.config import settings
 from app.models.campaign import CampaignDocument
 from app.schemas.documents import DocumentResponse, DocumentType
 from app.services.document_indexer import chunk_text, extract_document_text
+from app.services.object_storage import document_storage_key, get_storage_backend
 from app.services.rag import rag_service
 
 ALLOWED_EXTENSIONS = {".pdf", ".md", ".txt", ".json", ".docx", ".zip"}
@@ -16,12 +18,6 @@ INDEXABLE_TYPES = {DocumentType.RULES, DocumentType.ADVENTURE}
 
 class DocumentServiceError(ValueError):
     pass
-
-
-def _upload_root() -> Path:
-    root = Path(settings.upload_dir)
-    root.mkdir(parents=True, exist_ok=True)
-    return root
 
 
 def _safe_extension(filename: str) -> str:
@@ -72,10 +68,9 @@ async def save_campaign_document(
     suffix = _safe_extension(original_name)
     doc_id = uuid.uuid4()
     stored_name = f"{doc_id}{suffix}"
-    campaign_dir = _upload_root() / str(campaign_id)
-    campaign_dir.mkdir(parents=True, exist_ok=True)
-    file_path = campaign_dir / stored_name
-    file_path.write_bytes(content)
+    storage = get_storage_backend()
+    key = document_storage_key(campaign_id, doc_id, suffix)
+    storage.put_object(key, content, content_type=mime_type)
 
     record = CampaignDocument(
         id=doc_id,
@@ -99,8 +94,7 @@ async def save_campaign_document(
 async def index_campaign_document_content(db: AsyncSession, doc: CampaignDocument) -> int:
     from app.models.campaign import MemoryDocumentType
 
-    path = resolve_document_path(doc)
-    text = extract_document_text(path)
+    text = _extract_document_text(doc)
     if not text:
         return 0
 
@@ -129,14 +123,46 @@ async def get_campaign_document(
     return await db.scalar(select(CampaignDocument).where(CampaignDocument.id == document_id))
 
 
+def resolve_document_storage_key(doc: CampaignDocument) -> str:
+    suffix = Path(doc.filename).suffix.lower()
+    return document_storage_key(doc.campaign_id, doc.id, suffix)
+
+
 def resolve_document_path(doc: CampaignDocument) -> Path:
-    return _upload_root() / str(doc.campaign_id) / doc.filename
+    """Local filesystem path for a stored document (local backend only)."""
+    if settings.storage_backend.strip().lower() != "local":
+        raise DocumentServiceError("resolve_document_path is only valid with STORAGE_BACKEND=local")
+    return Path(settings.upload_dir) / resolve_document_storage_key(doc)
+
+
+def get_document_bytes(doc: CampaignDocument) -> bytes:
+    storage = get_storage_backend()
+    return storage.get_object(resolve_document_storage_key(doc))
+
+
+def _extract_document_text(doc: CampaignDocument) -> str:
+    suffix = Path(doc.filename).suffix.lower()
+    if settings.storage_backend.strip().lower() == "local":
+        path = resolve_document_path(doc)
+        if path.is_file():
+            return extract_document_text(path)
+        return ""
+
+    content = get_document_bytes(doc)
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+    try:
+        return extract_document_text(tmp_path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 async def delete_campaign_document(db: AsyncSession, doc: CampaignDocument) -> None:
-    path = resolve_document_path(doc)
-    if path.exists():
-        path.unlink()
+    storage = get_storage_backend()
+    key = resolve_document_storage_key(doc)
+    if storage.exists(key):
+        storage.delete_object(key)
     await rag_service.delete_chunks_by_document_id(
         db,
         campaign_id=str(doc.campaign_id),

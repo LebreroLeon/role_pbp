@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     app_debug: bool = True
     database_url: str = "postgresql+asyncpg://rolepbp:rolepbp@localhost:5432/rolepbp"
     upload_dir: str = str(PROJECT_ROOT / "campaign_uploads")
+    storage_backend: str = "local"
+    r2_account_id: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_bucket_name: str = "rolepbp"
     system_manuals_dir: str = str(PROJECT_ROOT / "data" / "manuals")
     max_upload_bytes: int = 20 * 1024 * 1024
     openai_api_key: str = ""
@@ -31,6 +36,13 @@ class Settings(BaseSettings):
     seed_manuals: str = "false"
     seed_manuals_systems: str = ""
     seed_monsters: str = "false"
+
+    @property
+    def r2_endpoint_url(self) -> str:
+        account_id = self.r2_account_id.strip()
+        if not account_id:
+            return ""
+        return f"https://{account_id}.r2.cloudflarestorage.com"
 
     @property
     def cors_origin_list(self) -> list[str]:

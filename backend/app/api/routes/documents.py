@@ -2,7 +2,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, parse_uuid, require_campaign_master, require_campaign_member
@@ -13,10 +13,12 @@ from app.services.documents import (
     DocumentServiceError,
     delete_campaign_document,
     get_campaign_document,
+    get_document_bytes,
     list_campaign_documents,
-    resolve_document_path,
+    resolve_document_storage_key,
     save_campaign_document,
 )
+from app.services.object_storage import StorageNotFoundError, get_storage_backend
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -65,18 +67,27 @@ async def download_document(
     document_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
-) -> FileResponse:
+) -> Response:
     doc_uuid = parse_uuid(document_id, "document_id")
     doc = await get_campaign_document(db, doc_uuid)
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
     await require_campaign_member(db, current_user, doc.campaign_id)
-    path = resolve_document_path(doc)
-    if not path.exists():
-        raise HTTPException(status_code=404, detail="File missing on disk")
+    key = resolve_document_storage_key(doc)
+    if not get_storage_backend().exists(key):
+        raise HTTPException(status_code=404, detail="File missing in storage")
 
-    return FileResponse(path, filename=doc.original_name, media_type=doc.mime_type or "application/octet-stream")
+    try:
+        content = get_document_bytes(doc)
+    except StorageNotFoundError:
+        raise HTTPException(status_code=404, detail="File missing in storage") from None
+
+    return Response(
+        content=content,
+        media_type=doc.mime_type or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{doc.original_name}"'},
+    )
 
 
 @router.delete("/{document_id}", status_code=204)
