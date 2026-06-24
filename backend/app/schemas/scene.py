@@ -87,6 +87,8 @@ class InitiativeEntry(BaseModel):
     display_name: str | None = None
     initiative_score: int | None = None
     is_active: bool = True
+    hp_current: int | None = None
+    hp_max: int | None = None
 
 
 class CombatState(BaseModel):

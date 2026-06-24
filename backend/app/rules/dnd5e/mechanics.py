@@ -189,7 +189,7 @@ def apply_damage_modifiers(amount: int, damage_type: str, sheet: dict[str, Any])
     return amount, None
 
 
-def _read_hp_block(sheet: dict[str, Any]) -> dict[str, int]:
+def read_hp_block(sheet: dict[str, Any]) -> dict[str, int]:
     defense = sheet.get("defense")
     if isinstance(defense, dict) and isinstance(defense.get("hp"), dict):
         hp = defense["hp"]
@@ -275,7 +275,7 @@ def apply_damage_pipeline(
         raise ValueError("apply_damage_pipeline does not handle healing")
 
     updated = deepcopy(sheet_data)
-    hp = _read_hp_block(updated)
+    hp = read_hp_block(updated)
     death_saves = _read_death_saves(updated)
 
     hp_before = hp["current"]

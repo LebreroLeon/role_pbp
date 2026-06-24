@@ -2,12 +2,13 @@ import re
 import uuid
 import unicodedata
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.campaign import Campaign, CampaignEntity
 from app.rules.base import AttackContext, DamageResult, GameSystemPlugin, RollContext
@@ -31,6 +32,7 @@ class CombatResolverError(ValueError):
 class CombatExecutionResult:
     messages: list[dict[str, Any]]
     state: SceneState
+    modified_entities: list[CampaignEntity] = field(default_factory=list)
 
 
 _COMBAT_SUPPORTED_SYSTEMS = frozenset({"dnd5e", "cyberpunk_red"})
@@ -387,6 +389,24 @@ def _persist_entity_sheet(
         document["state_flags"] = flags
 
     entity.document = document
+    flag_modified(entity, "document")
+
+
+def _sync_initiative_hp(state: SceneState, entity: CampaignEntity, sheet: dict[str, Any]) -> None:
+    from app.rules.dnd5e.mechanics import read_hp_block
+
+    hp = read_hp_block(sheet)
+    flags = entity.document.get("state_flags", {})
+    is_active = True
+    if isinstance(flags, dict):
+        is_active = not bool(flags.get("is_dead") or flags.get("is_incapacitated"))
+
+    for entry in state.combat.initiative_order:
+        if entry.entity_id == str(entity.id):
+            entry.hp_current = hp["current"]
+            entry.hp_max = hp["max"]
+            entry.is_active = is_active
+            return
 
 
 def _build_attack_messages(
@@ -425,6 +445,12 @@ def _build_attack_messages(
         summary += f"{effect_line}."
         if damage_application is not None:
             summary += f" PV {damage_application.hp_before} → {damage_application.hp_after}."
+            if not is_healing and is_save_attack:
+                save_succeeded = attack_roll.details.get("save_succeeded")
+                if save_succeeded is False:
+                    summary += " Daño completo (fallo en salvación)."
+                elif save_succeeded is True:
+                    summary += " Mitad de daño (éxito en salvación)."
             if damage_application.is_instant_death:
                 summary += " Muerte instantánea."
             elif damage_application.death_save_failures_added:
@@ -514,12 +540,8 @@ def _build_attack_messages(
 
 
 def _sync_initiative_hp_flags(state: SceneState, entity: CampaignEntity) -> None:
-    flags = entity.document.get("state_flags", {})
-    if not isinstance(flags, dict):
-        return
-    for entry in state.combat.initiative_order:
-        if entry.entity_id == str(entity.id):
-            entry.is_active = not bool(flags.get("is_dead") or flags.get("is_incapacitated"))
+    sheet = get_entity_sheet(entity)
+    _sync_initiative_hp(state, entity, sheet)
 
 
 async def execute_attack(
@@ -566,11 +588,13 @@ async def execute_attack(
     )
 
     damage_application = None
+    modified_entities: list[CampaignEntity] = []
     if attack_result.hit and attack_result.damage is not None:
         updated_sheet, damage_application = plugin.apply_damage(defender_sheet, attack_result.damage)
         flag_updates = _damage_flag_updates(defender, damage_application)
         _persist_entity_sheet(defender, updated_sheet, state_flag_updates=flag_updates or None)
-        _sync_initiative_hp_flags(state, defender)
+        _sync_initiative_hp(state, defender, updated_sheet)
+        modified_entities.append(defender)
 
     messages = _build_attack_messages(
         sender_id=sender_id,
@@ -581,7 +605,7 @@ async def execute_attack(
         weapon_name=weapon_name,
         hidden_npc_ids=hidden_npc_ids,
     )
-    return CombatExecutionResult(messages=messages, state=state)
+    return CombatExecutionResult(messages=messages, state=state, modified_entities=modified_entities)
 
 
 async def execute_manual_damage(
@@ -610,7 +634,7 @@ async def execute_manual_damage(
     updated_sheet, damage_application = plugin.apply_damage(defender_sheet, damage)
     flag_updates = _damage_flag_updates(target, damage_application)
     _persist_entity_sheet(target, updated_sheet, state_flag_updates=flag_updates or None)
-    _sync_initiative_hp_flags(state, target)
+    _sync_initiative_hp(state, target, updated_sheet)
 
     target_name = entity_display_name(target)
     effect_line = _format_damage_application_line(damage_application, damage)
@@ -656,7 +680,7 @@ async def execute_manual_damage(
             "read_by": [sender_id],
         }
     ]
-    return CombatExecutionResult(messages=messages, state=state)
+    return CombatExecutionResult(messages=messages, state=state, modified_entities=[target])
 
 
 async def execute_initiative(

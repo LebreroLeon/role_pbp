@@ -70,17 +70,37 @@ function isNpcInScene(
   return normalized.context.active_npc_ids.includes(entity.id) || initiativeIds.has(entity.id);
 }
 
+function readEntityHp(entity: CampaignEntity): { current: number; max: number } | null {
+  const mechanics = entity.document.system_mechanics as {
+    sheet?: {
+      hp?: { current?: number; max?: number };
+      defense?: { hp?: { current?: number; max?: number } };
+    };
+  } | undefined;
+  const sheet = mechanics?.sheet;
+  if (!sheet) return null;
+
+  const nested = sheet.defense?.hp;
+  if (nested?.current != null && nested?.max != null) {
+    return { current: nested.current, max: nested.max };
+  }
+
+  const flat = sheet.hp;
+  if (flat?.current != null && flat?.max != null) {
+    return { current: flat.current, max: flat.max };
+  }
+
+  return null;
+}
+
 function readHpLabel(entity: CampaignEntity, initiativeIds: Set<string>, combatHp?: { current?: number; max?: number }): string | null {
   if (combatHp?.current != null && combatHp?.max != null) {
     return `${combatHp.current}/${combatHp.max}`;
   }
 
-  const mechanics = entity.document.system_mechanics as {
-    sheet?: { defense?: { hp_current?: number; hp_max?: number } };
-  } | undefined;
-  const hp = mechanics?.sheet?.defense;
-  if (hp?.hp_current != null && hp?.hp_max != null) {
-    return `${hp.hp_current}/${hp.hp_max}`;
+  const hp = readEntityHp(entity);
+  if (hp) {
+    return `${hp.current}/${hp.max}`;
   }
 
   if (initiativeIds.has(entity.id)) return null;

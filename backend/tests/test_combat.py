@@ -364,6 +364,92 @@ class TestExecuteSaveAttack:
         assert "Daño" not in result.messages[0]["chat_summary"]
 
 
+class TestSaveAttackHpPersistence:
+    def test_save_fail_persists_hp_and_initiative_sync(self, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda a, b: 7 if b == 20 else 1)
+
+        caster_sheet = {
+            "proficiency_bonus": 2,
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 14, "cha": 10},
+            "spellcasting": {"ability": "wis", "save_dc": 11},
+            "ac": 12,
+            "hp": {"max": 20, "current": 20},
+            "attacks": [
+                {
+                    "name": "Cosas Frias",
+                    "damage_dice": "1d4",
+                    "damage_type": "frio",
+                    "effect_type": "damage",
+                    "resolution": "save",
+                    "save_ability": "wis",
+                    "half_damage_on_save": False,
+                    "to_hit_bonus": 0,
+                }
+            ],
+        }
+        attacker = _make_entity(name="Niolez", sheet=caster_sheet)
+        defender = _make_entity(
+            name="Glavenus",
+            entity_type="NPC",
+            user_id=None,
+            sheet={
+                "ac": 14,
+                "hp": {"max": 10, "current": 4},
+                "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+                "proficiency_bonus": 2,
+                "saving_throws": [],
+            },
+        )
+        entities = [attacker, defender]
+
+        db = AsyncMock()
+        db.scalars = AsyncMock(
+            side_effect=[
+                MagicMock(all=lambda: [entity for entity in entities if entity.entity_type == "PC"]),
+                MagicMock(all=lambda: [defender]),
+                MagicMock(all=lambda: []),
+            ]
+        )
+        db.scalar = AsyncMock(return_value=None)
+
+        campaign = Campaign(id=uuid.uuid4(), name="Test", game_system="dnd5e")
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id=str(campaign.id), status="ACTIVE"),
+            context=SceneContext(active_npc_ids=[str(defender.id)]),
+            state_flags=StateFlags(),
+        )
+        from app.schemas.scene import InitiativeEntry
+
+        state.combat.initiative_order = [
+            InitiativeEntry(entity_id=str(defender.id), entity_type="NPC", display_name="Glavenus")
+        ]
+
+        result = asyncio.run(
+            execute_attack(
+                db,
+                campaign,
+                state,
+                sender_id="player-1",
+                sender_role="MASTER",
+                attacker_ref="Niolez",
+                defender_ref="Glavenus",
+                weapon_name="Cosas Frias",
+                attack_index=0,
+            )
+        )
+
+        sheet = defender.document["system_mechanics"]["sheet"]
+        assert sheet["hp"]["current"] == 3
+        assert result.modified_entities == [defender]
+        initiative = state.combat.initiative_order[0]
+        assert initiative.hp_current == 3
+        assert initiative.hp_max == 10
+        combat = result.messages[0]
+        assert "PV 4 → 3" in combat["text"]
+        assert "Daño completo (fallo en salvación)" in combat["text"]
+        assert combat["combat_event"]["hp"]["after"] == 3
+
+
 class TestExecuteInitiative:
     def test_rolls_only_track_entities_and_sorts_descending(self, monkeypatch):
         monkeypatch.setattr("random.randint", lambda _a, _b: 10)

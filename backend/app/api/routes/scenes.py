@@ -361,6 +361,8 @@ async def _append_combat_messages_and_save(
     for combat_message in combat_result.messages:
         state.chat_buffer.append(ChatMessage.model_validate(combat_message))
     state.chat_buffer = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
+    for entity in combat_result.modified_entities:
+        db.add(entity)
     save_scene_state(scene, state)
     await db.commit()
     await db.refresh(scene)

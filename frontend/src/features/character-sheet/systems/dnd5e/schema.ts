@@ -607,6 +607,18 @@ export function mergeDnd5eSheetDefaults(raw: unknown): Dnd5eSheet {
   const defaults = defaultDnd5eSheet();
   if (!raw || typeof raw !== "object") return defaults;
   const entry = raw as Record<string, unknown>;
+  const flatHp =
+    typeof entry.hp === "object" && entry.hp
+      ? (entry.hp as { max?: number; current?: number; temp?: number })
+      : undefined;
+  const nestedHp =
+    typeof entry.defense === "object" &&
+    entry.defense &&
+    typeof (entry.defense as Dnd5eSheet["defense"]).hp === "object"
+      ? (entry.defense as Dnd5eSheet["defense"]).hp
+      : undefined;
+  const hpSource = nestedHp ?? flatHp;
+
   return {
     ...defaults,
     ...(entry as Partial<Dnd5eSheet>),
@@ -633,10 +645,12 @@ export function mergeDnd5eSheetDefaults(raw: unknown): Dnd5eSheet {
       ...(typeof entry.defense === "object" && entry.defense ? (entry.defense as Dnd5eSheet["defense"]) : {}),
       hp: {
         ...defaults.defense.hp,
-        ...(typeof entry.defense === "object" &&
-        entry.defense &&
-        typeof (entry.defense as Dnd5eSheet["defense"]).hp === "object"
-          ? (entry.defense as Dnd5eSheet["defense"]).hp
+        ...(hpSource
+          ? {
+              max: hpSource.max ?? defaults.defense.hp.max,
+              current: hpSource.current ?? defaults.defense.hp.current,
+              temp: hpSource.temp ?? defaults.defense.hp.temp,
+            }
           : {}),
       },
       death_saves: {
@@ -680,6 +694,12 @@ export function mergeDnd5eSheetDefaults(raw: unknown): Dnd5eSheet {
 }
 
 export function parseDnd5eSheet(raw: unknown): Dnd5eSheet {
+  if (isBackendFlatSheet(raw)) {
+    const converted = convertBackendDnd5eSheet(raw);
+    const revalidated = dnd5eSheetSchema.safeParse(converted);
+    if (revalidated.success) return revalidated.data;
+  }
+
   const merged = mergeDnd5eSheetDefaults(raw);
   const result = dnd5eSheetSchema.safeParse(merged);
   if (result.success) return result.data;
