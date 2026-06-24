@@ -227,6 +227,67 @@ class TestPcSheetValidation:
         assert stored["abilities"]["str"] == 16
         assert stored["attacks"][0]["damage_dice"] == "1d4"
 
+    def test_put_entity_attack_damage_dice_and_type_persist(self):
+        """Frontend nested attack payload must survive entity PUT normalization."""
+        frontend = _frontend_dnd5e_sheet()
+        frontend["attacks"] = [
+            {
+                "name": "Espada helada",
+                "ability": "str",
+                "proficient": True,
+                "resolution": "attack_roll",
+                "half_damage_on_save": False,
+                "effect_type": "damage",
+                "damage": {"dice": "2d6+3", "type": "frío"},
+                "properties": [],
+            }
+        ]
+
+        document = _pc_document_with_typed_sheet(frontend)
+        normalized = normalize_entity_document_for_campaign(
+            campaign_game_system="dnd5e",
+            entity_type=EntityType.PC,
+            document=document,
+        )
+        validated = validate_entity_document(EntityType.PC, normalized)
+        stored = validated.model_dump(mode="json")["system_mechanics"]["sheet"]
+
+        attack = stored["attacks"][0]
+        assert attack["name"] == "Espada helada"
+        assert attack["damage_dice"] == "2d6+3"
+        assert attack["damage_type"] == "frio"
+        assert attack["resolution"] == "attack_roll"
+        assert attack["effect_type"] == "damage"
+
+    def test_put_npc_attack_damage_dice_and_type_persist(self):
+        frontend = _frontend_dnd5e_sheet()
+        frontend["attacks"] = [
+            {
+                "name": "Aliento gélido",
+                "ability": "con",
+                "proficient": False,
+                "resolution": "save",
+                "half_damage_on_save": True,
+                "effect_type": "damage",
+                "damage": {"dice": "8d6", "type": "cold"},
+                "properties": [],
+            }
+        ]
+
+        document = _npc_document_with_typed_sheet(frontend)
+        normalized = normalize_entity_document_for_campaign(
+            campaign_game_system="dnd5e",
+            entity_type=EntityType.NPC,
+            document=document,
+        )
+        validated = validate_entity_document(EntityType.NPC, normalized)
+        attack = validated.model_dump(mode="json")["system_mechanics"]["sheet"]["attacks"][0]
+
+        assert attack["damage_dice"] == "8d6"
+        assert attack["damage_type"] == "frio"
+        assert attack["resolution"] == "save"
+        assert attack["half_damage_on_save"] is True
+
     def test_pc_public_profile_accepts_avatar_url(self):
         document = _pc_document_with_typed_sheet()
         document["public_profile"]["avatar_url"] = "https://example.com/portrait.png"

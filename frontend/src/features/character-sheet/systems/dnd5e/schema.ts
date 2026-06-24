@@ -450,12 +450,20 @@ export function normalizeAttackEntry(raw: unknown): Dnd5eSheet["attacks"][number
     damageRaw && typeof damageRaw === "object"
       ? (damageRaw as { dice?: string; type?: string })
       : undefined;
-  const abilityRaw = typeof entry.ability === "string" ? entry.ability : defaults.ability;
+  const flatDice = typeof entry.damage_dice === "string" ? entry.damage_dice.trim() : "";
+  const flatType = typeof entry.damage_type === "string" ? entry.damage_type : undefined;
+  const abilityRaw =
+    typeof entry.ability === "string"
+      ? entry.ability
+      : typeof entry.save_ability === "string"
+        ? entry.save_ability
+        : defaults.ability;
   const ability = DND5E_ABILITIES.includes(abilityRaw as Dnd5eAbility)
     ? (abilityRaw as Dnd5eAbility)
     : defaults.ability;
   const resolution = entry.resolution === "save" ? "save" : "attack_roll";
-  const diceRaw = damage?.dice?.trim() ?? "";
+  const diceRaw = (damage?.dice?.trim() ?? flatDice) || "";
+  const typeRaw = damage?.type ?? flatType;
   return {
     name: typeof entry.name === "string" ? entry.name : defaults.name,
     ability,
@@ -465,7 +473,7 @@ export function normalizeAttackEntry(raw: unknown): Dnd5eSheet["attacks"][number
     effect_type: entry.effect_type === "healing" ? "healing" : "damage",
     damage: {
       dice: resolution === "save" ? diceRaw : diceRaw || defaults.damage.dice,
-      type: normalizeAttackDamageType(damage?.type),
+      type: normalizeAttackDamageType(typeRaw),
     },
     properties: Array.isArray(entry.properties)
       ? entry.properties.filter((item): item is string => typeof item === "string")
