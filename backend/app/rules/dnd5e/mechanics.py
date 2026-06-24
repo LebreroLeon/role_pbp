@@ -7,6 +7,7 @@ from copy import deepcopy
 from typing import Any
 
 from app.rules.dnd5e.damage_types import DND5E_DAMAGE_TYPE_SLUGS, normalize_damage_type
+from app.rules.dnd5e.save_attack_format import damage_type_label_es
 
 
 def ability_modifier(score: int) -> int:
@@ -248,7 +249,7 @@ def _format_damage_chat_summary(
     is_instant_death: bool,
     death_save_failures_added: int,
 ) -> str:
-    type_label = damage_type.replace("_", " ")
+    type_label = damage_type_label_es(damage_type) or "daño"
     if modifier_label and raw_amount != modified_amount:
         damage_line = f"{raw_amount} {type_label} → {modified_amount} ({modifier_label})"
     else:

@@ -13,6 +13,7 @@ from app.rules.base import (
     RollContext,
     RollResult,
 )
+from app.rules.dnd5e.damage_types import normalize_damage_type
 from app.rules.dnd5e.mechanics import (
     apply_damage_pipeline,
     apply_death_save_roll,
@@ -20,6 +21,7 @@ from app.rules.dnd5e.mechanics import (
     has_meaningful_damage_dice,
     passive_perception_from_sheet,
 )
+from app.rules.dnd5e.save_attack_format import damage_type_label_es, format_save_damage_taken_line
 from app.rules.dnd5e.rolls import roll_d20 as _roll_d20
 from app.rules.dnd5e.schema import (
     Dnd5eSheet,
@@ -344,7 +346,7 @@ class Dnd5ePlugin(GameSystemPlugin):
     ) -> RollResult:
         if context.expression:
             expression = context.expression
-            damage_type = "sin tipo"
+            damage_type = ""
             is_healing = healing
         else:
             _, attack = _find_attack(sheet, context)
@@ -372,9 +374,9 @@ class Dnd5ePlugin(GameSystemPlugin):
         if flat_modifier:
             modifier_breakdown.append(_modifier_breakdown_entry("Modificador", flat_modifier))
 
-        type_label = damage_type.replace("_", " ")
+        type_label = damage_type_label_es(damage_type) or "daño"
         effect_label = "Curación" if is_healing else "Daño"
-        roll_label = f"{effect_label} ({type_label})"
+        roll_label = f"{effect_label} ({type_label})" if type_label != "daño" or is_healing else "Daño"
         dice_part = _format_dice_rolls(rolls, dice_sides)
         summary = f"{roll_label}: {dice_part}"
         if flat_modifier:
@@ -684,15 +686,14 @@ class Dnd5ePlugin(GameSystemPlugin):
         save_roll.details["save_ability"] = save_ability
         save_roll.details["save_succeeded"] = save_succeeded
         save_roll.details["resolution"] = "save"
+        save_roll.details["half_damage_on_save"] = half_on_save
         save_roll.details["attack_name"] = attack_name
         save_roll.details["hit"] = spell_affects
 
         ability_label = ability_label_es(save_ability)
-        outcome = "éxito" if save_succeeded else "fallo"
         save_roll.chat_summary = (
-            f"Salvación de {ability_label}: {save_roll.chat_summary.split(': ', 1)[-1]}"
-            if ": " in save_roll.chat_summary
-            else f"Salvación de {ability_label}: 1d20 = {save_roll.total} vs CD {spell_dc} — {outcome}"
+            f"Salvación de {ability_label}: {save_roll.total} vs CD {spell_dc} — "
+            f"{'superada' if save_succeeded else 'fallida'}"
         )
 
         damage_result = None
@@ -709,7 +710,10 @@ class Dnd5ePlugin(GameSystemPlugin):
                 amount = damage_roll.total or 0
                 if save_succeeded and half_on_save:
                     amount = amount // 2
-                damage_type = str(damage_roll.details.get("damage_type", "untyped"))
+                damage_type = normalize_damage_type(
+                    str(getattr(attack, "damage_type", "") or damage_roll.details.get("damage_type", "") or ""),
+                    default="",
+                )
                 damage_result = DamageResult(
                     amount=amount,
                     expression=damage_roll.expression,
@@ -722,17 +726,21 @@ class Dnd5ePlugin(GameSystemPlugin):
                 save_roll.details["damage_roll_summary"] = damage_roll.chat_summary
 
         if damage_result is not None:
-            damage_note = ""
+            damage_line = format_save_damage_taken_line(
+                defender_name="el objetivo",
+                amount=damage_result.amount,
+                damage_type=damage_result.damage_type,
+            )
             if save_succeeded and half_on_save:
-                damage_note = " (mitad por salvación)"
-            summary = (
-                f"{attacker_name}: CD {spell_dc}, salvación {save_roll.total} — {outcome}{damage_note}. "
-                f"{damage_result.amount} {damage_result.damage_type}."
-            )
+                summary = (
+                    f"{attacker_name}: CD {spell_dc} — salvación superada, mitad de daño. {damage_line}."
+                )
+            else:
+                summary = f"{attacker_name}: CD {spell_dc} — salvación fallida. {damage_line}."
+        elif save_succeeded:
+            summary = f"{attacker_name}: CD {spell_dc} — salvación superada, el hechizo no afecta."
         else:
-            summary = (
-                f"{attacker_name}: CD {spell_dc}, salvación {save_roll.total} — {outcome}."
-            )
+            summary = f"{attacker_name}: CD {spell_dc} — salvación fallida, el objetivo queda afectado."
 
         return AttackResult(
             attack_roll=save_roll,

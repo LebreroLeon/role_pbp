@@ -447,7 +447,7 @@ class TestDnd5eCombat:
         assert attack.attack_roll.details.get("save_succeeded") is True
         assert attack.damage is None
         assert attack.hit is False
-        assert "éxito" in attack.chat_summary
+        assert "superada" in attack.chat_summary or "no le afecta" in attack.chat_summary
 
     def test_save_attack_fail_without_damage_dice(self, plugin: Dnd5ePlugin, monkeypatch):
         monkeypatch.setattr("random.randint", lambda a, b: 5 if b == 20 else 4)
@@ -480,7 +480,7 @@ class TestDnd5eCombat:
         assert attack.attack_roll.details.get("save_succeeded") is False
         assert attack.damage is None
         assert attack.hit is True
-        assert "fallo" in attack.chat_summary
+        assert "fallida" in attack.chat_summary or "falla" in attack.chat_summary
         assert "damage_roll_summary" not in attack.attack_roll.details
 
     def test_save_attack_nested_empty_damage_dice(self, plugin: Dnd5ePlugin, monkeypatch):

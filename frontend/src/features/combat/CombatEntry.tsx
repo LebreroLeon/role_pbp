@@ -7,7 +7,7 @@ import { ChatAvatar } from "../scene/ChatAvatar";
 import { MessageLikeBadge } from "../scene/MessageLikeBadge";
 import { formatChatTimestamp } from "../scene/messageTypes";
 import type { SceneStateInput } from "../scene/sceneState";
-import { formatAttackRollLine, formatDamageLine } from "../scene/rollFormat";
+import { formatAttackRollLine, formatDamageLine, formatSaveDamageTakenLine } from "../scene/rollFormat";
 import {
   resolveCombatEntityName,
   resolveCombatEvent,
@@ -204,7 +204,9 @@ export function CombatEntry({
         <p className="combat-card__roll-line combat-card__damage-line">
           {isHealing
             ? formatDamageLine({ ...damage, is_healing: true })
-            : `Daño ${formatDamageLine(damage)}`}
+            : isSaveAttack
+              ? formatSaveDamageTakenLine(defenderLabel, damage)
+              : `Daño ${formatDamageLine(damage)}`}
           {isCritical && !isHealing && <span className="combat-card__crit"> — Crítico</span>}
         </p>
       )}

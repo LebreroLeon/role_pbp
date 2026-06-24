@@ -285,8 +285,8 @@ class TestExecuteSaveAttack:
         combat = result.messages[0]["combat_event"]
         assert combat["attack_roll"]["resolution"] == "save"
         assert combat["damage"]["amount"] == 32
-        assert "Daño" in result.messages[0]["chat_summary"]
-        assert "8d6" in combat["damage"]["chat_summary"] or "[4, 4, 4, 4, 4, 4, 4, 4]" in combat["damage"]["chat_summary"]
+        assert "pierde" in result.messages[0]["chat_summary"]
+        assert "32 PV" in result.messages[0]["chat_summary"] or "pierde 32" in result.messages[0]["chat_summary"]
 
     def test_save_without_damage_dice_emits_only_save_result(self, monkeypatch):
         monkeypatch.setattr("random.randint", lambda a, b: 18 if b == 20 else 4)
@@ -360,8 +360,9 @@ class TestExecuteSaveAttack:
         combat = result.messages[0]["combat_event"]
         assert combat["attack_roll"]["resolution"] == "save"
         assert "damage" not in combat
-        assert "éxito" in result.messages[0]["chat_summary"]
+        assert "no le afecta" in result.messages[0]["chat_summary"]
         assert "Daño" not in result.messages[0]["chat_summary"]
+        assert "pierde" not in result.messages[0]["chat_summary"]
 
 
 class TestSaveAttackHpPersistence:
@@ -446,7 +447,8 @@ class TestSaveAttackHpPersistence:
         assert initiative.hp_max == 10
         combat = result.messages[0]
         assert "PV 4 → 3" in combat["text"]
-        assert "Daño completo (fallo en salvación)" in combat["text"]
+        assert "sufre el efecto completo" in combat["text"]
+        assert "pierde 1 PV de frío" in combat["text"]
         assert combat["combat_event"]["hp"]["after"] == 3
 
 

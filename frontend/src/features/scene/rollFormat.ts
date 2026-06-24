@@ -1,4 +1,5 @@
 import type { ChatMessage, CombatAttackRollSummary, CombatDamageSummary } from "../../api/types";
+import { damageTypeLabel } from "../character-sheet/systems/dnd5e/damageTypes";
 
 export type ModifierBreakdownEntry = {
   label: string;
@@ -81,6 +82,27 @@ export function formatModifierBreakdownLine(entries: ModifierBreakdownEntry[]): 
       return `${entry.label} ${formatModifierValue(entry.value)}`;
     });
   return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+const PLACEHOLDER_DAMAGE_TYPES = new Set(["sin tipo", "untyped", "sintype", "unknown"]);
+
+function resolveDamageTypeLabel(type?: string): string | null {
+  if (!type?.trim()) return null;
+  if (PLACEHOLDER_DAMAGE_TYPES.has(type.trim().toLowerCase())) return null;
+  const label = damageTypeLabel(type);
+  return label === type ? null : label;
+}
+
+export function formatSaveDamageTakenLine(
+  defenderName: string,
+  damage: CombatDamageSummary,
+): string {
+  const amount = damage.modified_amount ?? damage.amount;
+  const typeLabel = resolveDamageTypeLabel(damage.type);
+  if (typeLabel) {
+    return `${defenderName} pierde ${amount} PV de ${typeLabel}`;
+  }
+  return `${defenderName} pierde ${amount} PV`;
 }
 
 const D20_ROLL_TYPES = new Set([
@@ -176,7 +198,7 @@ export function formatAttackRollLine(attackRoll: CombatAttackRollSummary): strin
   if (attackRoll.save_dc != null) {
     line += ` vs CD ${attackRoll.save_dc}`;
     if (attackRoll.save_succeeded != null) {
-      line += ` — ${attackRoll.save_succeeded ? "éxito" : "fallo"}`;
+      line += attackRoll.save_succeeded ? " — salvación superada" : " — salvación fallida";
     }
   } else if (attackRoll.target_ac != null) {
     line += ` vs CA ${attackRoll.target_ac}`;
@@ -195,7 +217,7 @@ export function formatDamageLine(damage: CombatDamageSummary): string {
   const rawAmount = damage.raw_amount;
   const modifiedAmount = damage.modified_amount ?? damage.amount;
   const modifierLabel = damage.damage_modifier;
-  const typeLabel = damage.type?.replace(/_/g, " ");
+  const typeLabel = resolveDamageTypeLabel(damage.type);
 
   if (
     rawAmount != null &&
@@ -222,8 +244,8 @@ export function formatDamageLine(damage: CombatDamageSummary): string {
     line += modifier > 0 ? ` + ${modifier}` : ` - ${Math.abs(modifier)}`;
   }
   line += ` = ${modifiedAmount}`;
-  if (damage.type) {
-    line += ` ${damage.type.replace(/_/g, " ")}`;
+  if (typeLabel) {
+    line += ` ${typeLabel}`;
   }
   if (damage.is_healing) {
     return `Curación ${line}`;
@@ -232,6 +254,5 @@ export function formatDamageLine(damage: CombatDamageSummary): string {
 }
 
 export function formatDamageType(type?: string): string {
-  if (!type) return "";
-  return type.replace(/_/g, " ");
+  return resolveDamageTypeLabel(type) ?? "";
 }

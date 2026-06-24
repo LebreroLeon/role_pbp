@@ -12,6 +12,12 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.campaign import Campaign, CampaignEntity
 from app.rules.base import AttackContext, DamageResult, GameSystemPlugin, RollContext
+from app.rules.dnd5e.save_attack_format import (
+    damage_type_label_es,
+    format_save_attack_roll_line,
+    format_save_damage_taken_line,
+)
+from app.rules.dnd5e.schema import ability_label_es
 from app.rules.registry import get_plugin
 from app.schemas.scene import InitiativeEntry, SceneState
 
@@ -216,10 +222,37 @@ async def fetch_scene_combat_entities(
     return entities
 
 
-def _format_d20_attack_roll_line(attack_roll: Any, *, hit: bool | None) -> str:
-    if attack_roll.details.get("resolution") == "save" and isinstance(getattr(attack_roll, "chat_summary", None), str):
-        return str(attack_roll.chat_summary)
+def _format_save_attack_roll_line(
+    attack_roll: Any,
+    *,
+    defender_name: str,
+    attacker_name: str,
+    half_on_save: bool = False,
+    applies_damage: bool = False,
+) -> str:
+    save_dc = attack_roll.details.get("save_dc") or attack_roll.details.get("dc")
+    save_ability = attack_roll.details.get("save_ability") or attack_roll.details.get("ability")
+    save_succeeded = attack_roll.details.get("save_succeeded")
+    if save_succeeded is None and attack_roll.success is not None:
+        save_succeeded = attack_roll.success
+    ability_label = (
+        ability_label_es(str(save_ability))
+        if isinstance(save_ability, str) and save_ability.strip()
+        else "atributo"
+    )
+    return format_save_attack_roll_line(
+        defender_name=defender_name,
+        ability_label=ability_label,
+        total=attack_roll.total,
+        save_dc=int(save_dc) if save_dc is not None else 0,
+        save_succeeded=bool(save_succeeded),
+        attacker_name=attacker_name,
+        half_on_save=half_on_save,
+        applies_damage=applies_damage,
+    )
 
+
+def _format_d20_attack_roll_line(attack_roll: Any, *, hit: bool | None) -> str:
     modifier = attack_roll.details.get("modifier", 0)
     if not isinstance(modifier, int):
         modifier = 0
@@ -281,8 +314,9 @@ def _format_damage_line(damage: Any, *, is_healing: bool = False) -> str:
     if isinstance(modifier, int) and modifier:
         line += f" {modifier:+d}"
     line += f" = {amount}"
-    if isinstance(damage_type, str) and damage_type.strip():
-        line += f" {damage_type.replace('_', ' ')}"
+    type_label = damage_type_label_es(damage_type if isinstance(damage_type, str) else None)
+    if type_label:
+        line += f" {type_label}"
     if is_healing:
         return f"Curación {line}"
     return line
@@ -358,7 +392,7 @@ def _format_damage_application_line(damage_application: Any, damage: Any, *, is_
         and modifier_label
         and raw_amount != modified_amount
     ):
-        type_label = str(damage_type).replace("_", " ")
+        type_label = damage_type_label_es(str(damage_type) if damage_type else None) or "daño"
         line = f"{raw_amount} {type_label} → {modified_amount} ({modifier_label})"
     else:
         line = _format_damage_line(damage, is_healing=False)
@@ -424,33 +458,54 @@ def _build_attack_messages(
     defender_name = entity_display_name(defender)
     attack_roll = attack_result.attack_roll
     is_save_attack = attack_roll.details.get("resolution") == "save"
-    roll_line = _format_d20_attack_roll_line(attack_roll, hit=attack_result.hit)
+    half_on_save = bool(attack_roll.details.get("half_damage_on_save"))
+    applies_damage = attack_result.damage is not None
+    if is_save_attack:
+        roll_line = _format_save_attack_roll_line(
+            attack_roll,
+            defender_name=defender_name,
+            attacker_name=attacker_name,
+            half_on_save=half_on_save,
+            applies_damage=applies_damage,
+        )
+    else:
+        roll_line = _format_d20_attack_roll_line(attack_roll, hit=attack_result.hit)
     resolved_weapon = weapon_name or attack_roll.details.get("attack_name")
     if isinstance(resolved_weapon, str) and not resolved_weapon.strip():
         resolved_weapon = None
 
+    save_damage_line = None
+    if is_save_attack and attack_result.damage is not None:
+        save_damage_line = format_save_damage_taken_line(
+            defender_name=defender_name,
+            amount=attack_result.damage.amount,
+            damage_type=getattr(attack_result.damage, "damage_type", None),
+        )
+
     if attack_result.hit and attack_result.damage is not None:
         is_healing = bool(getattr(attack_result.damage, "is_healing", False))
-        effect_line = _format_damage_application_line(
-            damage_application,
-            attack_result.damage,
-            is_healing=is_healing,
-        )
+        if is_save_attack and save_damage_line:
+            effect_line = save_damage_line
+        else:
+            effect_line = _format_damage_application_line(
+                damage_application,
+                attack_result.damage,
+                is_healing=is_healing,
+            )
         verb = "cura a" if is_healing else ("lanza contra" if is_save_attack else "ataca a")
         summary = (
             f"{attacker_name} {verb} {defender_name}: "
         )
         if not is_healing:
-            summary += f"{roll_line}. "
-        summary += f"{effect_line}."
+            if roll_line.endswith("."):
+                summary += f"{roll_line} "
+            else:
+                summary += f"{roll_line}. "
+        summary += f"{effect_line}"
+        if not effect_line.endswith("."):
+            summary += "."
         if damage_application is not None:
             summary += f" PV {damage_application.hp_before} → {damage_application.hp_after}."
-            if not is_healing and is_save_attack:
-                save_succeeded = attack_roll.details.get("save_succeeded")
-                if save_succeeded is False:
-                    summary += " Daño completo (fallo en salvación)."
-                elif save_succeeded is True:
-                    summary += " Mitad de daño (éxito en salvación)."
             if damage_application.is_instant_death:
                 summary += " Muerte instantánea."
             elif damage_application.death_save_failures_added:
@@ -462,12 +517,8 @@ def _build_attack_messages(
         summary = f"{attacker_name} ataca a {defender_name}: {roll_line}."
 
     chat_summary = roll_line
-    if is_save_attack and attack_result.damage is not None:
-        damage_roll_summary = attack_roll.details.get("damage_roll_summary")
-        if isinstance(damage_roll_summary, str) and damage_roll_summary.strip():
-            chat_summary = f"{roll_line}. {damage_roll_summary}"
-        else:
-            chat_summary = f"{roll_line}. {_format_damage_line(attack_result.damage)}"
+    if save_damage_line:
+        chat_summary = f"{roll_line} {save_damage_line}."
 
     combat_event: dict[str, Any] = {
         "kind": "ATTACK_RESOLVED",
@@ -477,11 +528,26 @@ def _build_attack_messages(
         "defender_name": defender_name,
         "attack_roll": _build_attack_roll_payload(attack_roll, hit=attack_result.hit),
     }
+    if is_save_attack:
+        combat_event["attack_roll"]["chat_summary"] = roll_line
     if isinstance(resolved_weapon, str):
         combat_event["weapon_name"] = resolved_weapon
     if attack_result.damage is not None:
         damage = attack_result.damage
         is_healing = bool(getattr(damage, "is_healing", False))
+        damage_chat_summary = (
+            save_damage_line
+            if is_save_attack and save_damage_line
+            else (
+                _format_damage_application_line(
+                    damage_application,
+                    damage,
+                    is_healing=is_healing,
+                )
+                if damage_application is not None
+                else _format_damage_line(damage, is_healing=is_healing)
+            )
+        )
         combat_event["damage"] = {
             "amount": damage.amount,
             "type": damage.damage_type,
@@ -490,13 +556,7 @@ def _build_attack_messages(
             "modifier": damage.modifier,
             "is_healing": is_healing,
             "is_critical": bool(getattr(damage, "is_critical", False)),
-            "chat_summary": _format_damage_application_line(
-                damage_application,
-                damage,
-                is_healing=is_healing,
-            )
-            if damage_application is not None
-            else _format_damage_line(damage, is_healing=is_healing),
+            "chat_summary": damage_chat_summary,
         }
         if damage_application is not None:
             if damage_application.raw_amount is not None:
