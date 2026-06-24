@@ -484,14 +484,16 @@ def _build_attack_messages(
 
     if attack_result.hit and attack_result.damage is not None:
         is_healing = bool(getattr(attack_result.damage, "is_healing", False))
-        if is_save_attack and save_damage_line:
-            effect_line = save_damage_line
-        else:
+        if damage_application is not None:
             effect_line = _format_damage_application_line(
                 damage_application,
                 attack_result.damage,
                 is_healing=is_healing,
             )
+        elif is_save_attack and save_damage_line:
+            effect_line = save_damage_line
+        else:
+            effect_line = _format_damage_line(attack_result.damage, is_healing=is_healing)
         verb = "cura a" if is_healing else ("lanza contra" if is_save_attack else "ataca a")
         summary = (
             f"{attacker_name} {verb} {defender_name}: "
@@ -517,7 +519,14 @@ def _build_attack_messages(
         summary = f"{attacker_name} ataca a {defender_name}: {roll_line}."
 
     chat_summary = roll_line
-    if save_damage_line:
+    if attack_result.damage is not None and damage_application is not None:
+        damage_chat = _format_damage_application_line(
+            damage_application,
+            attack_result.damage,
+            is_healing=bool(getattr(attack_result.damage, "is_healing", False)),
+        )
+        chat_summary = f"{roll_line} {damage_chat}."
+    elif save_damage_line:
         chat_summary = f"{roll_line} {save_damage_line}."
 
     combat_event: dict[str, Any] = {

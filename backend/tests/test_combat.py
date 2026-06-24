@@ -285,8 +285,8 @@ class TestExecuteSaveAttack:
         combat = result.messages[0]["combat_event"]
         assert combat["attack_roll"]["resolution"] == "save"
         assert combat["damage"]["amount"] == 32
-        assert "pierde" in result.messages[0]["chat_summary"]
-        assert "32 PV" in result.messages[0]["chat_summary"] or "pierde 32" in result.messages[0]["chat_summary"]
+        assert "fuego" in result.messages[0]["chat_summary"]
+        assert "= 32" in result.messages[0]["chat_summary"]
 
     def test_save_without_damage_dice_emits_only_save_result(self, monkeypatch):
         monkeypatch.setattr("random.randint", lambda a, b: 18 if b == 20 else 4)
@@ -448,8 +448,84 @@ class TestSaveAttackHpPersistence:
         combat = result.messages[0]
         assert "PV 4 → 3" in combat["text"]
         assert "sufre el efecto completo" in combat["text"]
-        assert "pierde 1 PV de frío" in combat["text"]
+        assert "1d4=1 = 1" in combat["text"]
+        assert "frío" in combat["text"]
         assert combat["combat_event"]["hp"]["after"] == 3
+
+    def test_save_attack_applies_resistance_in_chat(self, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda a, b: 7 if b == 20 else 1)
+
+        caster_sheet = {
+            "proficiency_bonus": 2,
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 14, "cha": 10},
+            "spellcasting": {"ability": "wis", "save_dc": 11},
+            "ac": 12,
+            "hp": {"max": 20, "current": 20},
+            "attacks": [
+                {
+                    "name": "Chispa",
+                    "damage_dice": "1d4",
+                    "damage_type": "fuego",
+                    "effect_type": "damage",
+                    "resolution": "save",
+                    "save_ability": "wis",
+                    "half_damage_on_save": False,
+                    "to_hit_bonus": 0,
+                }
+            ],
+        }
+        attacker = _make_entity(name="Piromante", sheet=caster_sheet)
+        defender = _make_entity(
+            name="Salamandra",
+            entity_type="NPC",
+            user_id=None,
+            sheet={
+                "ac": 14,
+                "hp": {"max": 20, "current": 20},
+                "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+                "proficiency_bonus": 2,
+                "saving_throws": [],
+                "damage_modifiers": {"resistances": ["fuego"], "vulnerabilities": [], "immunities": []},
+            },
+        )
+        entities = [attacker, defender]
+
+        db = AsyncMock()
+        db.scalars = AsyncMock(
+            side_effect=[
+                MagicMock(all=lambda: [entity for entity in entities if entity.entity_type == "PC"]),
+                MagicMock(all=lambda: [defender]),
+                MagicMock(all=lambda: []),
+            ]
+        )
+        db.scalar = AsyncMock(return_value=None)
+
+        campaign = Campaign(id=uuid.uuid4(), name="Test", game_system="dnd5e")
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id=str(campaign.id), status="ACTIVE"),
+            context=SceneContext(active_npc_ids=[str(defender.id)]),
+            state_flags=StateFlags(),
+        )
+
+        result = asyncio.run(
+            execute_attack(
+                db,
+                campaign,
+                state,
+                sender_id="player-1",
+                sender_role="MASTER",
+                attacker_ref="Piromante",
+                defender_ref="Salamandra",
+                weapon_name="Chispa",
+                attack_index=0,
+            )
+        )
+
+        assert defender.document["system_mechanics"]["sheet"]["hp"]["current"] == 20
+        combat = result.messages[0]
+        assert "resistencia" in combat["text"]
+        assert combat["combat_event"]["damage"]["modified_amount"] == 0
+        assert combat["combat_event"]["damage"]["raw_amount"] == 1
 
 
 class TestExecuteInitiative:

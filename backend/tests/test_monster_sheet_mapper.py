@@ -57,3 +57,25 @@ class TestMonsterSheetMapper:
         assert format_challenge_rating_display(0.25) == "1/4"
         assert format_challenge_rating_display(0.25, raw="1/4 (50 PX)") == "1/4"
         assert format_challenge_rating_display(2) == "2"
+
+    def test_maps_damage_resistances_from_srd(self):
+        monsters = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        fire_elemental = next(
+            (creature for creature in monsters if "fire" in str(creature.get("key", "")).lower()),
+            None,
+        )
+        if fire_elemental is None:
+            fire_elemental = next(
+                (
+                    creature
+                    for creature in monsters
+                    if isinstance(creature.get("resistances_and_immunities"), dict)
+                    and "fire" in (creature["resistances_and_immunities"].get("damage_immunities") or [])
+                ),
+                None,
+            )
+        assert fire_elemental is not None, "Need a fire-immune SRD creature for this test"
+
+        sheet = MonsterSheetMapper.map_creature(fire_elemental)
+        validated = Dnd5eSheet.model_validate(sheet)
+        assert "fuego" in validated.damage_modifiers.immunities

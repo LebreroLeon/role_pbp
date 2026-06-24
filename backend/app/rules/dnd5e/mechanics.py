@@ -6,7 +6,7 @@ import re
 from copy import deepcopy
 from typing import Any
 
-from app.rules.dnd5e.damage_types import DND5E_DAMAGE_TYPE_SLUGS, normalize_damage_type
+from app.rules.dnd5e.damage_types import DND5E_DAMAGE_TYPE_SLUGS, normalize_damage_type, resolve_damage_type_slug
 from app.rules.dnd5e.save_attack_format import damage_type_label_es
 
 
@@ -179,14 +179,22 @@ def get_damage_modifiers(sheet: dict[str, Any]) -> dict[str, list[str]]:
 
 def apply_damage_modifiers(amount: int, damage_type: str, sheet: dict[str, Any]) -> tuple[int, str | None]:
     """Apply resistances, vulnerabilities, and immunities. Returns (final_amount, label)."""
-    dtype = normalize_damage_type(damage_type)
+    dtype = resolve_damage_type_slug(damage_type)
+    if dtype is None:
+        return amount, None
+
     mods = get_damage_modifiers(sheet)
     if dtype in mods["immunities"]:
         return 0, "inmunidad"
-    if dtype in mods["vulnerabilities"]:
-        return amount * 2, "vulnerabilidad"
-    if dtype in mods["resistances"]:
+
+    has_resistance = dtype in mods["resistances"]
+    has_vulnerability = dtype in mods["vulnerabilities"]
+    if has_resistance and has_vulnerability:
+        return amount, None
+    if has_resistance:
         return amount // 2, "resistencia"
+    if has_vulnerability:
+        return amount * 2, "vulnerabilidad"
     return amount, None
 
 

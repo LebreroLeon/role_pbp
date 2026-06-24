@@ -42,6 +42,12 @@ class TestDamageModifiers:
         assert amount == 7
         assert label == "resistencia"
 
+    def test_resistance_one_damage_rounds_to_zero(self):
+        sheet = {"damage_modifiers": {"resistances": ["fuego"], "vulnerabilities": [], "immunities": []}}
+        amount, label = apply_damage_modifiers(1, "fuego", sheet)
+        assert amount == 0
+        assert label == "resistencia"
+
     def test_vulnerability_doubles(self):
         sheet = {"damage_modifiers": {"resistances": [], "vulnerabilities": ["fuego"], "immunities": []}}
         amount, label = apply_damage_modifiers(14, "fuego", sheet)
@@ -53,6 +59,62 @@ class TestDamageModifiers:
         amount, label = apply_damage_modifiers(14, "fuego", sheet)
         assert amount == 0
         assert label == "inmunidad"
+
+    def test_unknown_type_full_damage(self):
+        sheet = {"damage_modifiers": {"resistances": ["fuego"], "vulnerabilities": [], "immunities": []}}
+        amount, label = apply_damage_modifiers(10, "untyped", sheet)
+        assert amount == 10
+        assert label is None
+
+    def test_english_attack_type_matches_spanish_resistance(self):
+        sheet = {"damage_modifiers": {"resistances": ["fuego"], "vulnerabilities": [], "immunities": []}}
+        amount, label = apply_damage_modifiers(10, "fire", sheet)
+        assert amount == 5
+        assert label == "resistencia"
+
+    def test_nested_defense_damage_modifiers(self):
+        sheet = {
+            "defense": {
+                "damage_modifiers": {
+                    "resistances": ["frio"],
+                    "vulnerabilities": [],
+                    "immunities": [],
+                }
+            }
+        }
+        amount, label = apply_damage_modifiers(8, "cold", sheet)
+        assert amount == 4
+        assert label == "resistencia"
+
+    def test_immunity_over_resistance_and_vulnerability(self):
+        sheet = {
+            "damage_modifiers": {
+                "resistances": ["fuego"],
+                "vulnerabilities": ["fuego"],
+                "immunities": ["fuego"],
+            }
+        }
+        amount, label = apply_damage_modifiers(10, "fuego", sheet)
+        assert amount == 0
+        assert label == "inmunidad"
+
+    def test_resistance_and_vulnerability_cancel(self):
+        sheet = {
+            "damage_modifiers": {
+                "resistances": ["fuego"],
+                "vulnerabilities": ["fuego"],
+                "immunities": [],
+            }
+        }
+        amount, label = apply_damage_modifiers(10, "fuego", sheet)
+        assert amount == 10
+        assert label is None
+
+    def test_resistance_before_vulnerability_when_only_one(self):
+        sheet = {"damage_modifiers": {"resistances": [], "vulnerabilities": ["veneno"], "immunities": []}}
+        amount, label = apply_damage_modifiers(5, "poison", sheet)
+        assert amount == 10
+        assert label == "vulnerabilidad"
 
 
 class TestApplyDamagePipeline:
@@ -85,6 +147,29 @@ class TestApplyDamagePipeline:
         assert result["raw_amount"] == 14
         assert result["modified_amount"] == 7
         assert result["hp_after"] == 13
+        assert "resistencia" in result["chat_summary"]
+
+    def test_immunity_in_pipeline_chat_summary(self):
+        sheet = {
+            "hp": {"max": 20, "current": 20, "temp": 0},
+            "death_saves": {"successes": 0, "failures": 0},
+            "damage_modifiers": {"resistances": [], "vulnerabilities": [], "immunities": ["fuego"]},
+        }
+        result = apply_damage_pipeline(sheet, amount=14, damage_type="fuego")
+        assert result["modified_amount"] == 0
+        assert result["hp_after"] == 20
+        assert "inmunidad" in result["chat_summary"]
+
+    def test_vulnerability_in_pipeline(self):
+        sheet = {
+            "hp": {"max": 30, "current": 30, "temp": 0},
+            "death_saves": {"successes": 0, "failures": 0},
+            "damage_modifiers": {"resistances": [], "vulnerabilities": ["fuego"], "immunities": []},
+        }
+        result = apply_damage_pipeline(sheet, amount=7, damage_type="fuego")
+        assert result["modified_amount"] == 14
+        assert result["hp_after"] == 16
+        assert "vulnerabilidad" in result["chat_summary"]
 
 
 class TestCriticalAttack:
@@ -126,3 +211,44 @@ class TestCriticalAttack:
         )
         assert application.hp_after == 11
         assert updated["hp"]["current"] == 11
+
+
+class TestApplyDamageViaPlugin:
+    def test_resistant_creature_via_plugin(self, plugin: Dnd5ePlugin):
+        defender = {
+            "hp": {"max": 40, "current": 40, "temp": 0},
+            "damage_modifiers": {"resistances": ["fuego"], "vulnerabilities": [], "immunities": []},
+        }
+        _, application = plugin.apply_damage(
+            defender,
+            DamageResult(amount=14, expression="2d6", rolls=[4, 4], damage_type="fuego", modifier=6),
+        )
+        assert application.raw_amount == 14
+        assert application.modified_amount == 7
+        assert application.hp_after == 33
+        assert application.damage_modifier == "resistencia"
+        assert "resistencia" in application.chat_summary
+
+    def test_vulnerable_creature_via_plugin(self, plugin: Dnd5ePlugin):
+        defender = {
+            "hp": {"max": 40, "current": 40, "temp": 0},
+            "damage_modifiers": {"resistances": [], "vulnerabilities": ["fuego"], "immunities": []},
+        }
+        _, application = plugin.apply_damage(
+            defender,
+            DamageResult(amount=7, expression="1d6", rolls=[4], damage_type="fire", modifier=3),
+        )
+        assert application.modified_amount == 14
+        assert application.hp_after == 26
+
+    def test_immune_creature_via_plugin(self, plugin: Dnd5ePlugin):
+        defender = {
+            "hp": {"max": 40, "current": 40, "temp": 0},
+            "damage_modifiers": {"resistances": [], "vulnerabilities": [], "immunities": ["fuego"]},
+        }
+        _, application = plugin.apply_damage(
+            defender,
+            DamageResult(amount=20, expression="20", rolls=[], damage_type="fuego"),
+        )
+        assert application.modified_amount == 0
+        assert application.hp_after == 40

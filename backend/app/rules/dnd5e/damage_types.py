@@ -62,12 +62,28 @@ def _slugify(value: str) -> str:
     return re.sub(r"[\s_-]+", "", without_accents)
 
 
-def normalize_damage_type(raw: str | None, *, default: str = "contundente") -> str:
+PLACEHOLDER_DAMAGE_TYPES: frozenset[str] = frozenset({"sin tipo", "untyped", "sintype", "unknown"})
+
+
+def resolve_damage_type_slug(raw: str | None) -> str | None:
+    """Map a damage type to a canonical slug, or None when unknown/untyped."""
     if not raw or not str(raw).strip():
-        return default
+        return None
+    normalized = str(raw).strip().lower()
+    if normalized in PLACEHOLDER_DAMAGE_TYPES:
+        return None
     key = _slugify(str(raw))
     if key in DAMAGE_TYPE_ALIASES:
         return DAMAGE_TYPE_ALIASES[key]
     if key in DND5E_DAMAGE_TYPE_SLUGS:
         return key
+    return None
+
+
+def normalize_damage_type(raw: str | None, *, default: str = "contundente") -> str:
+    slug = resolve_damage_type_slug(raw)
+    if slug is not None:
+        return slug
+    if not raw or not str(raw).strip():
+        return default
     return default

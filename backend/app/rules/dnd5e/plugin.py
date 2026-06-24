@@ -626,7 +626,10 @@ class Dnd5ePlugin(GameSystemPlugin):
             if is_critical:
                 damage_ctx.expression = double_damage_dice(attack.damage_dice)
             damage_roll = self.resolve_roll("damage", attacker_sheet, damage_ctx)
-            damage_type = str(damage_roll.details.get("damage_type", "untyped"))
+            damage_type = normalize_damage_type(
+                str(damage_roll.details.get("damage_type", "") or getattr(attack, "damage_type", "") or ""),
+                default="",
+            )
             damage_result = DamageResult(
                 amount=damage_roll.total or 0,
                 expression=damage_roll.expression,

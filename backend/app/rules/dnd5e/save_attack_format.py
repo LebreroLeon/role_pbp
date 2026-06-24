@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from app.rules.dnd5e.damage_types import DND5E_DAMAGE_TYPE_SLUGS, normalize_damage_type
+from app.rules.dnd5e.damage_types import (
+    DND5E_DAMAGE_TYPE_SLUGS,
+    PLACEHOLDER_DAMAGE_TYPES,
+    normalize_damage_type,
+    resolve_damage_type_slug,
+)
 
 DAMAGE_TYPE_LABELS_ES: dict[str, str] = {
     "contundente": "contundente",
@@ -18,17 +23,14 @@ DAMAGE_TYPE_LABELS_ES: dict[str, str] = {
     "radiante": "radiante",
 }
 
-_PLACEHOLDER_DAMAGE_TYPES = frozenset({"sin tipo", "untyped", "sintype", "unknown"})
-
-
 def damage_type_label_es(damage_type: str | None) -> str | None:
     if not damage_type or not str(damage_type).strip():
         return None
     normalized = str(damage_type).strip().lower()
-    if normalized in _PLACEHOLDER_DAMAGE_TYPES:
+    if normalized in PLACEHOLDER_DAMAGE_TYPES:
         return None
-    slug = normalize_damage_type(damage_type, default="")
-    if slug not in DND5E_DAMAGE_TYPE_SLUGS:
+    slug = resolve_damage_type_slug(damage_type)
+    if slug is None or slug not in DND5E_DAMAGE_TYPE_SLUGS:
         return None
     return DAMAGE_TYPE_LABELS_ES.get(slug)
 
