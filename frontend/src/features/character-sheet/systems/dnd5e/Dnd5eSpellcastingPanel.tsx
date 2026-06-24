@@ -1,6 +1,7 @@
+import { ChevronDown } from "lucide-react";
 import { Controller, useFieldArray, type Control, type UseFormRegister, type UseFormSetValue, type UseFormWatch } from "react-hook-form";
 
-import { Button, Input, Switch } from "../../../../components/ui";
+import { Button } from "../../../../components/ui";
 import {
   DND5E_ABILITIES,
   DND5E_ABILITY_LABELS,
@@ -39,8 +40,9 @@ export function Dnd5eSpellcastingPanel({
   const spells = spellcasting?.spells ?? [];
   const slots = spellcasting?.slots ?? [];
 
-  const computedSaveDc = computedSpellSaveDc(spellAbility, proficiencyBonus, abilities ?? { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
-  const computedAttack = computedSpellAttackBonus(spellAbility, proficiencyBonus, abilities ?? { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+  const abilityScores = abilities ?? { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+  const computedSaveDc = computedSpellSaveDc(spellAbility, proficiencyBonus, abilityScores);
+  const computedAttack = computedSpellAttackBonus(spellAbility, proficiencyBonus, abilityScores);
   const displaySaveDc = saveDcOverride ?? computedSaveDc;
   const displayAttack = attackBonusOverride ?? computedAttack;
 
@@ -64,54 +66,54 @@ export function Dnd5eSpellcastingPanel({
 
   return (
     <div className="sheet-spellcasting">
-      <section className="sheet-section">
+      <section className="sheet-section sheet-spellcasting__conjuration">
         <h3>Conjuración</h3>
-        <div className="sheet-grid sheet-grid--2">
-          <label className="form-field">
+        <p className="muted sheet-spellcasting__hint">
+          CD = 8 + competencia ({proficiencyBonus}) + mod. {DND5E_ABILITY_LABELS[spellAbility]} (
+          {formatMod(abilityModifier(abilityScores[spellAbility] ?? 10))})
+        </p>
+        <div className="sheet-spellcasting__stats-grid">
+          <label className="form-field form-field--compact sheet-spellcasting__ability">
             <span>Atributo de conjuro</span>
             <select disabled={disabled} {...register("spellcasting.ability")}>
               {DND5E_ABILITIES.map((ability) => (
                 <option key={ability} value={ability}>
-                  {DND5E_ABILITY_LABELS[ability]} ({formatMod(abilityModifier(abilities?.[ability] ?? 10))})
+                  {DND5E_ABILITY_LABELS[ability]} ({formatMod(abilityModifier(abilityScores[ability] ?? 10))})
                 </option>
               ))}
             </select>
           </label>
-          <div className="sheet-spellcasting__computed">
-            <p className="muted sheet-spellcasting__hint">
-              CD = 8 + competencia ({proficiencyBonus}) + mod. {DND5E_ABILITY_LABELS[spellAbility]} (
-              {formatMod(abilityModifier(abilities?.[spellAbility] ?? 10))})
-            </p>
-            <div className="sheet-spellcasting__stats">
-              <div className="sheet-spell-stat">
-                <span>CD de conjuro</span>
-                <strong>{displaySaveDc}</strong>
-              </div>
-              <div className="sheet-spell-stat">
-                <span>Bonificador de ataque</span>
-                <strong>{formatMod(displayAttack)}</strong>
-              </div>
-            </div>
+          <div className="sheet-spell-stat sheet-spell-stat--compact">
+            <span>CD de conjuro</span>
+            <strong>{displaySaveDc}</strong>
           </div>
-          <Input
-            label="CD manual (opcional)"
-            type="number"
-            min={0}
-            disabled={disabled}
-            placeholder={String(computedSaveDc)}
-            {...register("spellcasting.save_dc", {
-              setValueAs: (value) => (value === "" || value === null ? null : Number(value)),
-            })}
-          />
-          <Input
-            label="Ataque manual (opcional)"
-            type="number"
-            disabled={disabled}
-            placeholder={formatMod(computedAttack)}
-            {...register("spellcasting.attack_bonus", {
-              setValueAs: (value) => (value === "" || value === null ? null : Number(value)),
-            })}
-          />
+          <div className="sheet-spell-stat sheet-spell-stat--compact">
+            <span>Bonif. ataque</span>
+            <strong>{formatMod(displayAttack)}</strong>
+          </div>
+          <label className="form-field form-field--compact">
+            <span>CD manual</span>
+            <input
+              type="number"
+              min={0}
+              disabled={disabled}
+              placeholder={String(computedSaveDc)}
+              {...register("spellcasting.save_dc", {
+                setValueAs: (value) => (value === "" || value === null ? null : Number(value)),
+              })}
+            />
+          </label>
+          <label className="form-field form-field--compact">
+            <span>Ataque manual</span>
+            <input
+              type="number"
+              disabled={disabled}
+              placeholder={formatMod(computedAttack)}
+              {...register("spellcasting.attack_bonus", {
+                setValueAs: (value) => (value === "" || value === null ? null : Number(value)),
+              })}
+            />
+          </label>
         </div>
       </section>
 
@@ -121,23 +123,28 @@ export function Dnd5eSpellcastingPanel({
           {slots.map((slot, index) => (
             <div key={slot.level} className="sheet-spell-slot">
               <span className="sheet-spell-slot__label">{DND5E_SPELL_LEVEL_LABELS[slot.level]}</span>
-              <Input
-                label="Total"
-                type="number"
-                min={0}
-                disabled={disabled}
-                {...register(`spellcasting.slots.${index}.total`, { valueAsNumber: true })}
-              />
-              <Input
-                label="Usados"
-                type="number"
-                min={0}
-                disabled={disabled}
-                {...register(`spellcasting.slots.${index}.used`, { valueAsNumber: true })}
-              />
+              <label className="form-field form-field--compact">
+                <span>Total</span>
+                <input
+                  type="number"
+                  min={0}
+                  disabled={disabled}
+                  {...register(`spellcasting.slots.${index}.total`, { valueAsNumber: true })}
+                />
+              </label>
+              <label className="form-field form-field--compact">
+                <span>Usados</span>
+                <input
+                  type="number"
+                  min={0}
+                  disabled={disabled}
+                  {...register(`spellcasting.slots.${index}.used`, { valueAsNumber: true })}
+                />
+              </label>
               <Button
                 type="button"
                 variant="secondary"
+                className="sheet-spell-slot__reset"
                 disabled={disabled}
                 onClick={() => resetSlotUsed(slot.level)}
               >
@@ -151,62 +158,96 @@ export function Dnd5eSpellcastingPanel({
       {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((level) => {
         const levelSpells = spellsForLevel(level);
         return (
-          <section key={level} className="sheet-section">
+          <section key={level} className="sheet-section sheet-spell-level">
             <div className="sheet-section__header">
               <h3>{DND5E_SPELL_LEVEL_LABELS[level]}</h3>
-              <Button type="button" variant="secondary" disabled={disabled} onClick={() => addSpell(level)}>
-                Añadir conjuro
+              <Button
+                type="button"
+                variant="secondary"
+                className="sheet-spell-level__add"
+                disabled={disabled}
+                onClick={() => addSpell(level)}
+              >
+                Añadir
               </Button>
             </div>
             {levelSpells.length === 0 ? (
-              <p className="muted">Sin conjuros de {level === 0 ? "truco" : `nivel ${level}`}.</p>
+              <p className="muted sheet-spell-level__empty">
+                Sin conjuros de {level === 0 ? "truco" : `nivel ${level}`}.
+              </p>
             ) : (
-              levelSpells.map(({ field, index }) => (
-                <div key={field.id} className="sheet-spell-entry">
-                  <Input
-                    label="Nombre"
-                    disabled={disabled}
-                    {...register(`spellcasting.spells.${index}.name`)}
-                  />
-                  {level > 0 && (
-                    <Controller
-                      control={control}
-                      name={`spellcasting.spells.${index}.prepared`}
-                      render={({ field: preparedField }) => (
-                        <Switch
-                          className="sheet-switch sheet-switch--inline"
-                          checked={preparedField.value}
-                          onCheckedChange={preparedField.onChange}
+              <div className="sheet-spell-list">
+                {levelSpells.map(({ field, index, spell }) => (
+                  <div key={field.id} className="sheet-spell-entry">
+                    <div className="sheet-spell-entry__main">
+                      <label className="sheet-spell-entry__name">
+                        <span className="sr-only">Nombre del conjuro</span>
+                        <input
+                          type="text"
                           disabled={disabled}
-                          label="Preparado"
-                          tone="teal"
+                          placeholder="Nombre del conjuro"
+                          {...register(`spellcasting.spells.${index}.name`)}
                         />
-                      )}
-                    />
-                  )}
-                  <Controller
-                    control={control}
-                    name={`spellcasting.spells.${index}.ritual`}
-                    render={({ field: ritualField }) => (
-                      <Switch
-                        className="sheet-switch sheet-switch--inline"
-                        checked={ritualField.value}
-                        onCheckedChange={ritualField.onChange}
+                      </label>
+                      <div className="sheet-spell-entry__toggles">
+                        {level > 0 && (
+                          <Controller
+                            control={control}
+                            name={`spellcasting.spells.${index}.prepared`}
+                            render={({ field: preparedField }) => (
+                              <label className="sheet-spell-toggle">
+                                <input
+                                  type="checkbox"
+                                  checked={preparedField.value}
+                                  onChange={(event) => preparedField.onChange(event.target.checked)}
+                                  disabled={disabled}
+                                />
+                                <span>Prep.</span>
+                              </label>
+                            )}
+                          />
+                        )}
+                        <Controller
+                          control={control}
+                          name={`spellcasting.spells.${index}.ritual`}
+                          render={({ field: ritualField }) => (
+                            <label className="sheet-spell-toggle sheet-spell-toggle--ritual">
+                              <input
+                                type="checkbox"
+                                checked={ritualField.value}
+                                onChange={(event) => ritualField.onChange(event.target.checked)}
+                                disabled={disabled}
+                              />
+                              <span>Ritual</span>
+                            </label>
+                          )}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="sheet-spell-entry__remove"
                         disabled={disabled}
-                        label="Ritual"
-                        tone="rose"
+                        onClick={() => remove(index)}
+                      >
+                        Quitar
+                      </Button>
+                    </div>
+                    <details className="sheet-spell-entry__notes" {...(spell?.notes ? { open: true } : {})}>
+                      <summary>
+                        <span>Notas</span>
+                        <ChevronDown size={14} aria-hidden />
+                      </summary>
+                      <textarea
+                        disabled={disabled}
+                        rows={2}
+                        placeholder="Opcional"
+                        {...register(`spellcasting.spells.${index}.notes`)}
                       />
-                    )}
-                  />
-                  <label className="form-field">
-                    <span>Notas</span>
-                    <textarea disabled={disabled} rows={2} {...register(`spellcasting.spells.${index}.notes`)} />
-                  </label>
-                  <Button type="button" variant="secondary" disabled={disabled} onClick={() => remove(index)}>
-                    Quitar
-                  </Button>
-                </div>
-              ))
+                    </details>
+                  </div>
+                ))}
+              </div>
             )}
           </section>
         );

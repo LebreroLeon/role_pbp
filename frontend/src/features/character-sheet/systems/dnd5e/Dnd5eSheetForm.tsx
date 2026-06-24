@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronDown, Dices } from "lucide-react";
+import { ChevronDown, ClipboardList, Dices, Sparkles } from "lucide-react";
 
 import type { SheetRollRequest, SheetRollResponse } from "../../../../api/types";
-import { Button, Input, Switch, Tooltip } from "../../../../components/ui";
+import { Button, CollapsibleSection, Input, Switch, Tooltip } from "../../../../components/ui";
 import { mergeAdvantageIntoContext, type AdvantageMode } from "../../../systems";
 import { AdvantageToggle } from "../../../systems/dnd5e/AdvantageToggle";
 import { dnd5eSkillModifier } from "../../../systems/dnd5e/rolls";
@@ -23,8 +23,6 @@ import { DND5E_DAMAGE_TYPE_GROUPS, DND5E_DAMAGE_TYPE_VALUES, damageTypeLabel } f
 import type { Dnd5eDamageType } from "./damageTypes";
 import { InspirationBox, InspirationSpendToggle } from "./InspirationBox";
 import { Dnd5eSpellcastingPanel } from "./Dnd5eSpellcastingPanel";
-
-type SheetFormTab = "general" | "spells";
 
 type Dnd5eSheetFormProps = {
   defaultValues: Dnd5eSheet;
@@ -120,7 +118,6 @@ export function Dnd5eSheetForm({
   isRolling,
 }: Dnd5eSheetFormProps) {
   const rollDisabled = disabled || isRolling || !onRoll;
-  const [activeTab, setActiveTab] = useState<SheetFormTab>("general");
   const [advantageMode, setAdvantageMode] = useState<AdvantageMode>("normal");
   const [spendInspiration, setSpendInspiration] = useState(false);
 
@@ -298,29 +295,14 @@ export function Dnd5eSheetForm({
 
   return (
     <form className="sheet-form" onSubmit={handleSubmit(onSubmit)}>
-      <nav className="sheet-form-tabs" role="tablist" aria-label="Secciones de la ficha">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "general"}
-          className={`sheet-form-tabs__tab${activeTab === "general" ? " is-active" : ""}`}
-          onClick={() => setActiveTab("general")}
-        >
-          General
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "spells"}
-          className={`sheet-form-tabs__tab${activeTab === "spells" ? " is-active" : ""}`}
-          onClick={() => setActiveTab("spells")}
-        >
-          Conjuros
-        </button>
-      </nav>
-
-      {activeTab === "general" && (
-        <>
+      <CollapsibleSection
+        icon={ClipboardList}
+        iconTone="teal"
+        title="Ficha mecánica"
+        description="Atributos, defensa, habilidades, equipo y ataques."
+        defaultOpen
+        className="sheet-mechanics-collapsible"
+      >
       <div className="sheet-form__roll-toolbar">
         <AdvantageToggle value={advantageMode} onChange={setAdvantageMode} disabled={rollDisabled} />
         {hasInspiration && (
@@ -794,10 +776,15 @@ export function Dnd5eSheetForm({
           </div>
         ))}
       </section>
-        </>
-      )}
+      </CollapsibleSection>
 
-      {activeTab === "spells" && (
+      <CollapsibleSection
+        icon={Sparkles}
+        iconTone="violet"
+        title="Conjuros"
+        description="CD, espacios de conjuro y lista de hechizos."
+        className="sheet-spellcasting-collapsible"
+      >
         <Dnd5eSpellcastingPanel
           control={control}
           register={register}
@@ -805,7 +792,7 @@ export function Dnd5eSheetForm({
           setValue={setValue}
           disabled={disabled}
         />
-      )}
+      </CollapsibleSection>
 
       <div className="actions">
         <Button type="submit" disabled={disabled || isSaving}>
