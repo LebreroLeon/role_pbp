@@ -534,7 +534,7 @@ export type SceneState = {
 export type Scene = {
   id: string;
   campaign_id: string;
-  scene_number: number;
+  scene_number: number | null;
   display_name?: string | null;
   status: string;
   summary?: string | null;
@@ -568,9 +568,18 @@ export type MasterBriefingLocation = {
   name: string;
 };
 
+export type MasterBriefingOpenScene = {
+  id: string;
+  scene_number: number | null;
+  display_name?: string | null;
+  status: string;
+};
+
 export type MasterBriefingResponse = {
   scene_id: string;
   display_name?: string | null;
+  next_scene_number: number;
+  open_scene?: MasterBriefingOpenScene | null;
   scene_objective?: string | null;
   location?: MasterBriefingLocation | null;
   opening_narration?: string | null;
@@ -583,7 +592,7 @@ export type MasterBriefingResponse = {
 
 export type ScenePickerItem = {
   id: string;
-  scene_number: number;
+  scene_number: number | null;
   display_name?: string | null;
   scene_objective?: string | null;
   status: string;

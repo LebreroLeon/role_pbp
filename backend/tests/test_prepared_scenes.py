@@ -24,7 +24,7 @@ from app.services.scenes import (
 )
 
 
-def _make_scene(*, status: str = "PREPARED", scene_number: int = 1, campaign_id: uuid.UUID | None = None) -> Scene:
+def _make_scene(*, status: str = "PREPARED", scene_number: int | None = 1, campaign_id: uuid.UUID | None = None) -> Scene:
     cid = campaign_id or uuid.uuid4()
     return Scene(
         id=uuid.uuid4(),
@@ -111,12 +111,7 @@ class TestPreparedSceneCrud:
         creator_id = uuid.uuid4()
 
         db = AsyncMock()
-        db.scalar = AsyncMock(
-            side_effect=[
-                Campaign(id=campaign_id, name="Test"),
-                0,
-            ]
-        )
+        db.scalar = AsyncMock(return_value=Campaign(id=campaign_id, name="Test"))
         db.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
         db.add = MagicMock()
         db.commit = AsyncMock()
@@ -138,6 +133,7 @@ class TestPreparedSceneCrud:
 
         assert existing.status == "ACTIVE"
         assert response.status == "PREPARED"
+        assert response.scene_number is None
         db.add.assert_called_once()
 
     def test_update_scene_prep_persists_fields(self):
@@ -286,23 +282,50 @@ class TestMasterBriefing:
         closed.scene_state["metadata"]["closure_summary"] = "Resumen anterior"
 
         db = AsyncMock()
-        db.scalar = AsyncMock(side_effect=[closed, None])
+        db.scalar = AsyncMock(side_effect=[1, None, closed, None])
         db.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[npc])))
 
         briefing = asyncio.run(get_master_briefing(db, scene))
 
         assert briefing.scene_objective == "Explorar el pasillo"
+        assert briefing.next_scene_number == 2
         assert briefing.last_scene_summary == "Resumen anterior"
         assert len(briefing.npcs) == 1
         assert briefing.npcs[0].secret_lore_master == "Sirve al jefe orco"
         assert briefing.npcs[0].voice_and_tone == "Gruñón"
 
 
+class TestActivateSceneNumbering:
+    def test_activate_assigns_next_sequential_scene_number(self):
+        campaign_id = uuid.uuid4()
+        scene = _make_scene(status="PREPARED", scene_number=None, campaign_id=campaign_id)
+        scene.scene_number = None
+
+        db = AsyncMock()
+        db.scalar = AsyncMock(return_value=1)
+        db.scalars = AsyncMock(
+            side_effect=[
+                MagicMock(all=MagicMock(return_value=[])),
+                MagicMock(all=MagicMock(return_value=[])),
+                MagicMock(all=MagicMock(return_value=[])),
+            ]
+        )
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock(side_effect=lambda obj: obj)
+
+        with patch("app.services.scenes.mark_all_campaign_pcs_present_for_scene", new=AsyncMock()):
+            response = asyncio.run(activate_scene(db, scene, activator_user_id=str(uuid.uuid4())))
+
+        assert scene.scene_number == 2
+        assert response.scene_number == 2
+        assert scene.status == "ACTIVE"
+
+
 class TestCloseScenePicker:
     def test_close_scene_returns_prepared_scenes(self):
         campaign_id = uuid.uuid4()
         scene = _make_scene(status="ACTIVE", campaign_id=campaign_id)
-        prepared = _make_scene(status="PREPARED", scene_number=2, campaign_id=campaign_id)
+        prepared = _make_scene(status="PREPARED", scene_number=None, campaign_id=campaign_id)
         prepared.display_name = "Puerta B"
 
         db = AsyncMock()

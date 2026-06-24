@@ -10,7 +10,11 @@ function pickOpenScene(activeScene: Scene | undefined, scenes: Scene[] | undefin
   if (activeScene) return activeScene;
   const open = (scenes ?? []).filter((scene) => scene.status === "ACTIVE" || scene.status === "PAUSED");
   if (open.length === 0) return null;
-  return open.reduce((latest, scene) => (scene.scene_number > latest.scene_number ? scene : latest));
+  return open.reduce((latest, scene) => {
+    const latestNum = latest.scene_number ?? -1;
+    const sceneNum = scene.scene_number ?? -1;
+    return sceneNum > latestNum ? scene : latest;
+  });
 }
 
 export function useActiveSceneQuery(campaignId: string) {

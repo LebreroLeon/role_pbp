@@ -39,9 +39,11 @@ export function CampaignStatusBadges({
         label="Escena"
         value={
           openScene
-            ? openScene.display_name
-              ? `#${openScene.scene_number} · ${openScene.display_name}`
-              : `#${openScene.scene_number}`
+            ? openScene.scene_number == null
+              ? openScene.display_name ?? "Preparada"
+              : openScene.display_name
+                ? `#${openScene.scene_number} · ${openScene.display_name}`
+                : `#${openScene.scene_number}`
             : "sin iniciar"
         }
         ok={openScene?.status === "ACTIVE"}

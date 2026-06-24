@@ -13,6 +13,7 @@ import {
   PanelHeader,
   SlideOver,
   StatusBadge,
+  Toast,
 } from "../../components/ui";
 import { formatSceneLabel } from "../campaign";
 import { useCampaignScenesQuery, useOpenSceneQuery } from "../../hooks/queries/useSceneQueries";
@@ -20,6 +21,7 @@ import { useEntitiesQuery } from "../../hooks/queries/useEntityQueries";
 import { getChatBuffer } from "./sceneState";
 import { ScenePrepEditor } from "./ScenePrepEditor";
 import { MasterBriefingModal } from "./MasterBriefingModal";
+import { NextSceneModal } from "./NextSceneModal";
 
 type PreparedScenesPanelProps = {
   campaignId: string;
@@ -44,6 +46,15 @@ function isCurrentScene(scene: Scene, openScene: Scene | null | undefined): bool
   return Boolean(openScene && openScene.id === scene.id);
 }
 
+function compareScenes(a: Scene, b: Scene): number {
+  const orderDiff = (STATUS_SORT_ORDER[a.status] ?? 99) - (STATUS_SORT_ORDER[b.status] ?? 99);
+  if (orderDiff !== 0) return orderDiff;
+  const aNumber = a.scene_number ?? -1;
+  const bNumber = b.scene_number ?? -1;
+  if (aNumber !== bNumber) return bNumber - aNumber;
+  return a.display_name?.localeCompare(b.display_name ?? "", "es") ?? 0;
+}
+
 export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScenesPanelProps) {
   const queryClient = useQueryClient();
   const { data: scenes = [], refetch } = useCampaignScenesQuery(campaignId);
@@ -51,25 +62,24 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
   const { data: entities = [] } = useEntitiesQuery(campaignId);
 
   const [error, setError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [editingScene, setEditingScene] = useState<Scene | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loadingBriefingId, setLoadingBriefingId] = useState<string | null>(null);
   const [activatingId, setActivatingId] = useState<string | null>(null);
   const [briefing, setBriefing] = useState<MasterBriefingResponse | null>(null);
   const [sendOpening, setSendOpening] = useState(true);
   const [freezing, setFreezing] = useState(false);
   const [closing, setClosing] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [nextSceneOpen, setNextSceneOpen] = useState(false);
+  const [preparedScenes, setPreparedScenes] = useState<ScenePickerItem[]>([]);
+  const [closedSceneSummary, setClosedSceneSummary] = useState<string | null>(null);
+  const [nextSceneLoading, setNextSceneLoading] = useState(false);
 
-  const sortedScenes = useMemo(
-    () =>
-      [...scenes].sort((a, b) => {
-        const orderDiff = (STATUS_SORT_ORDER[a.status] ?? 99) - (STATUS_SORT_ORDER[b.status] ?? 99);
-        if (orderDiff !== 0) return orderDiff;
-        return b.scene_number - a.scene_number;
-      }),
-    [scenes],
-  );
+  const sortedScenes = useMemo(() => [...scenes].sort(compareScenes), [scenes]);
+  const preparedCount = useMemo(() => scenes.filter((scene) => scene.status === "PREPARED").length, [scenes]);
 
   async function invalidate() {
     await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
@@ -81,7 +91,7 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
     setError(null);
     try {
       const created = await api.createScene(campaignId, {
-        displayName: `Escena ${scenes.length + 1}`,
+        displayName: `Preparada ${preparedCount + 1}`,
         status: "PREPARED",
       });
       await invalidate();
@@ -109,7 +119,7 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
   }
 
   async function handleRequestActivate(scene: Scene) {
-    setActivatingId(scene.id);
+    setLoadingBriefingId(scene.id);
     setError(null);
     try {
       const data = await api.getMasterBriefing(campaignId, scene.id);
@@ -117,7 +127,8 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
       setSendOpening(Boolean(data.opening_narration?.trim()));
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cargar el briefing");
-      setActivatingId(null);
+    } finally {
+      setLoadingBriefingId(null);
     }
   }
 
@@ -131,11 +142,12 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
       });
       queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), activated);
       setBriefing(null);
-      setActivatingId(null);
       setEditingScene(null);
       await invalidate();
+      setToastMessage(`Escena ${activated.scene_number} activada.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo activar la escena");
+    } finally {
       setActivatingId(null);
     }
   }
@@ -165,7 +177,11 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
       queryClient.removeQueries({ queryKey: queryKeys.campaigns.activeScene(campaignId) });
       await invalidate();
       setCloseDialogOpen(false);
+      setPreparedScenes(result.prepared_scenes);
+      setClosedSceneSummary(result.closed_scene.summary ?? null);
+      setNextSceneOpen(true);
       onSceneClosed?.(result.prepared_scenes);
+      setToastMessage("Escena cerrada y resumen generado.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cerrar la escena");
     } finally {
@@ -173,10 +189,46 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
     }
   }
 
+  async function handlePickPreparedScene(sceneId: string) {
+    setNextSceneLoading(true);
+    setError(null);
+    try {
+      const data = await api.getMasterBriefing(campaignId, sceneId);
+      setNextSceneOpen(false);
+      setBriefing(data);
+      setSendOpening(Boolean(data.opening_narration?.trim()));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cargar el briefing");
+    } finally {
+      setNextSceneLoading(false);
+    }
+  }
+
+  async function handleCreateNextScene(displayName: string, objective: string) {
+    setNextSceneLoading(true);
+    setError(null);
+    try {
+      const created = await api.createScene(campaignId, {
+        displayName: displayName || undefined,
+        sceneObjective: objective,
+      });
+      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), created);
+      await invalidate();
+      setNextSceneOpen(false);
+      setPreparedScenes([]);
+      setToastMessage(`Escena ${created.scene_number} creada y activada.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo crear la escena");
+    } finally {
+      setNextSceneLoading(false);
+    }
+  }
+
   function renderSceneRow(scene: Scene) {
     const current = isCurrentScene(scene, openScene);
     const showMessages = current && (scene.status === "ACTIVE" || scene.status === "PAUSED");
     const messageCount = getChatBuffer(scene.scene_state).length;
+    const loadingBriefing = loadingBriefingId === scene.id;
 
     let quickActions: ReactNode = null;
     if (current && (scene.status === "ACTIVE" || scene.status === "PAUSED")) {
@@ -205,6 +257,9 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
               value={STATUS_LABELS[scene.status] ?? scene.status}
               ok={scene.status === "ACTIVE"}
             />
+            {scene.status === "PREPARED" && scene.scene_number == null && (
+              <StatusBadge label="Número" value="—" ok={false} />
+            )}
             {showMessages && <StatusBadge label="Mensajes" value={String(messageCount)} ok />}
           </div>
           {quickActions}
@@ -213,9 +268,9 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
           <Button variant="secondary" onClick={() => setEditingScene(scene)}>
             Editar
           </Button>
-          {!current && (
-            <Button onClick={() => handleRequestActivate(scene)} disabled={activatingId === scene.id}>
-              Activar
+          {!current && scene.status === "PREPARED" && (
+            <Button onClick={() => handleRequestActivate(scene)} disabled={loadingBriefing || activatingId === scene.id}>
+              {loadingBriefing ? "Cargando…" : "Activar"}
             </Button>
           )}
         </div>
@@ -284,6 +339,11 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
               <p>
                 Se enviará todo el chat de la escena a la IA para generar un resumen narrativo en español (WorldLog).
               </p>
+              {openScene && (
+                <p>
+                  Se cerrará <strong>{formatSceneLabel(openScene)}</strong> de forma permanente.
+                </p>
+              )}
               <p className="muted">
                 El resumen quedará en el historial de escenas y en la memoria de campaña. Esta acción no se puede
                 deshacer.
@@ -296,6 +356,28 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
           confirming={closing}
         />
       )}
+
+      {nextSceneOpen && (
+        <NextSceneModal
+          preparedScenes={preparedScenes}
+          loading={nextSceneLoading}
+          closedSceneSummary={closedSceneSummary}
+          onPickPrepared={handlePickPreparedScene}
+          onCreateNew={handleCreateNextScene}
+          onCancel={() => {
+            setNextSceneOpen(false);
+            setPreparedScenes([]);
+            setClosedSceneSummary(null);
+          }}
+          onCloseOnly={() => {
+            setNextSceneOpen(false);
+            setPreparedScenes([]);
+            setClosedSceneSummary(null);
+          }}
+        />
+      )}
+
+      <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
     </section>
   );
 }

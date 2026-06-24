@@ -145,7 +145,7 @@ class ActivateSceneRequest(BaseModel):
 class SceneResponse(BaseModel):
     id: str
     campaign_id: str
-    scene_number: int
+    scene_number: int | None = None
     display_name: str | None = None
     status: str
     summary: str | None = None
@@ -244,9 +244,18 @@ class MasterBriefingLocation(BaseModel):
     name: str
 
 
+class MasterBriefingOpenScene(BaseModel):
+    id: str
+    scene_number: int | None = None
+    display_name: str | None = None
+    status: str
+
+
 class MasterBriefingResponse(BaseModel):
     scene_id: str
     display_name: str | None = None
+    next_scene_number: int
+    open_scene: MasterBriefingOpenScene | None = None
     scene_objective: str | None = None
     location: MasterBriefingLocation | None = None
     opening_narration: str | None = None
@@ -259,7 +268,7 @@ class MasterBriefingResponse(BaseModel):
 
 class ScenePickerItem(BaseModel):
     id: str
-    scene_number: int
+    scene_number: int | None = None
     display_name: str | None = None
     scene_objective: str | None = None
     status: str

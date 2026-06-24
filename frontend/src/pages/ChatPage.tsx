@@ -65,6 +65,7 @@ export function ChatPage() {
   const [closing, setClosing] = useState(false);
   const [preparedScenes, setPreparedScenes] = useState<ScenePickerItem[]>([]);
   const [nextSceneOpen, setNextSceneOpen] = useState(false);
+  const [closedSceneSummary, setClosedSceneSummary] = useState<string | null>(null);
   const [nextSceneLoading, setNextSceneLoading] = useState(false);
   const [activateBriefing, setActivateBriefing] = useState<MasterBriefingResponse | null>(null);
   const [sendOpeningOnActivate, setSendOpeningOnActivate] = useState(true);
@@ -340,7 +341,9 @@ export function ChatPage() {
       setScene(null);
       setCloseDialogOpen(false);
       setPreparedScenes(result.prepared_scenes);
+      setClosedSceneSummary(result.closed_scene.summary ?? null);
       setNextSceneOpen(true);
+      setToastMessage("Escena cerrada y resumen generado.");
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "No se pudo cerrar la escena");
     } finally {
@@ -647,11 +650,19 @@ export function ChatPage() {
         <NextSceneModal
           preparedScenes={preparedScenes}
           loading={nextSceneLoading}
+          closedSceneSummary={closedSceneSummary}
           onPickPrepared={handlePickPreparedScene}
           onCreateNew={handleCreateNextScene}
           onCancel={() => {
             setNextSceneOpen(false);
+            setPreparedScenes([]);
+            setClosedSceneSummary(null);
             navigate(campaignDefaultPath(campaignId, "MASTER", null));
+          }}
+          onCloseOnly={() => {
+            setNextSceneOpen(false);
+            setPreparedScenes([]);
+            setClosedSceneSummary(null);
           }}
         />
       )}

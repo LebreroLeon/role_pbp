@@ -13,6 +13,7 @@ from app.schemas.scene import (
     InitiativeEntry,
     MasterBriefingLocation,
     MasterBriefingNpcEntry,
+    MasterBriefingOpenScene,
     MasterBriefingResponse,
     MemorySettings,
     NpcPresenceEntry,
@@ -450,11 +451,25 @@ async def toggle_scene_message_like(
     return await scene_to_response_with_likes(db, scene)
 
 
-async def _next_scene_number(db: AsyncSession, campaign_id: uuid.UUID) -> int:
+async def _next_assigned_scene_number(db: AsyncSession, campaign_id: uuid.UUID) -> int:
     current_max = await db.scalar(
-        select(func.coalesce(func.max(Scene.scene_number), 0)).where(Scene.campaign_id == campaign_id)
+        select(func.coalesce(func.max(Scene.scene_number), 0)).where(
+            Scene.campaign_id == campaign_id,
+            Scene.status.in_(("ACTIVE", "PAUSED", "CLOSED")),
+            Scene.scene_number.is_not(None),
+        )
     )
     return int(current_max or 0) + 1
+
+
+def _parse_entity_uuid_set(values: set[str]) -> list[uuid.UUID]:
+    parsed: list[uuid.UUID] = []
+    for value in values:
+        try:
+            parsed.append(uuid.UUID(str(value).strip()))
+        except ValueError:
+            continue
+    return parsed
 
 
 def _normalize_display_name(display_name: str | None) -> str | None:
@@ -579,7 +594,7 @@ async def list_campaign_scenes(
         await db.scalars(
             select(Scene)
             .where(Scene.campaign_id == campaign_id)
-            .order_by(Scene.scene_number.asc())
+            .order_by(Scene.scene_number.asc().nulls_last(), Scene.created_at.asc())
         )
     ).all()
     if viewer_role != "MASTER":
@@ -592,7 +607,7 @@ async def list_prepared_scenes(db: AsyncSession, campaign_id: uuid.UUID) -> list
         await db.scalars(
             select(Scene)
             .where(Scene.campaign_id == campaign_id, Scene.status == "PREPARED")
-            .order_by(Scene.scene_number.asc())
+            .order_by(Scene.created_at.asc())
         )
     ).all()
     items: list[ScenePickerItem] = []
@@ -682,8 +697,12 @@ async def create_scene(
         prepared_entity_refs=payload.prepared_entity_refs,
         status=target_status,
     )
-    scene_number = await _next_scene_number(db, campaign_id)
     display_name = _normalize_display_name(payload.display_name)
+    scene_number: int | None
+    if target_status == "PREPARED":
+        scene_number = None
+    else:
+        scene_number = await _next_assigned_scene_number(db, campaign_id)
 
     scene = Scene(
         campaign_id=campaign_id,
@@ -1057,6 +1076,9 @@ async def activate_scene(
 
     await pause_other_active_scenes(db, scene.campaign_id, except_scene_id=scene.id)
 
+    if scene.scene_number is None:
+        scene.scene_number = await _next_assigned_scene_number(db, scene.campaign_id)
+
     state = load_scene_state(scene)
     refs = await _normalize_prepared_entity_refs(
         db,
@@ -1114,9 +1136,14 @@ async def close_scene(db: AsyncSession, scene: Scene) -> CloseSceneResponse:
         raise SceneServiceError("Scene is already closed")
 
     state = load_scene_state(scene)
+    scene_number = scene.scene_number
+    if scene_number is None:
+        scene_number = await _next_assigned_scene_number(db, scene.campaign_id)
+        scene.scene_number = scene_number
+
     summary = await generate_scene_closure_summary(
         state,
-        scene_number=scene.scene_number,
+        scene_number=scene_number,
         display_name=scene.display_name,
     )
     state.metadata.closure_summary = summary
@@ -1151,6 +1178,16 @@ async def close_scene(db: AsyncSession, scene: Scene) -> CloseSceneResponse:
 
 async def get_master_briefing(db: AsyncSession, scene: Scene) -> MasterBriefingResponse:
     state = load_scene_state(scene)
+    next_scene_number = await _next_assigned_scene_number(db, scene.campaign_id)
+    open_scene_row = await get_open_scene(db, scene.campaign_id)
+    open_scene = None
+    if open_scene_row is not None and open_scene_row.id != scene.id:
+        open_scene = MasterBriefingOpenScene(
+            id=str(open_scene_row.id),
+            scene_number=open_scene_row.scene_number,
+            display_name=open_scene_row.display_name,
+            status=open_scene_row.status,
+        )
 
     last_summary: str | None = None
     last_closed = await db.scalar(
@@ -1192,15 +1229,16 @@ async def get_master_briefing(db: AsyncSession, scene: Scene) -> MasterBriefingR
     refs = list(state.context.prepared_entity_refs)
     ref_entity_ids = {str(ref.entity_id) for ref in refs}
     npc_ids = set(state.context.active_npc_ids) | ref_entity_ids
+    npc_uuid_ids = _parse_entity_uuid_set(npc_ids)
 
     npc_entries: list[MasterBriefingNpcEntry] = []
-    if npc_ids:
+    if npc_uuid_ids:
         npcs = (
             await db.scalars(
                 select(CampaignEntity).where(
                     CampaignEntity.campaign_id == scene.campaign_id,
                     CampaignEntity.entity_type == "NPC",
-                    CampaignEntity.id.in_([uuid.UUID(value) for value in npc_ids]),
+                    CampaignEntity.id.in_(npc_uuid_ids),
                 )
             )
         ).all()
@@ -1228,6 +1266,8 @@ async def get_master_briefing(db: AsyncSession, scene: Scene) -> MasterBriefingR
     return MasterBriefingResponse(
         scene_id=str(scene.id),
         display_name=scene.display_name,
+        next_scene_number=next_scene_number,
+        open_scene=open_scene,
         scene_objective=state.context.scene_objective,
         location=location,
         opening_narration=state.context.opening_narration,

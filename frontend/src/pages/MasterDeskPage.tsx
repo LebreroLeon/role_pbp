@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Send } from "lucide-react";
 
@@ -9,8 +9,8 @@ import { queryKeys } from "../api/queryKeys";
 import { RoleGate } from "../components/auth/RoleGate";
 import { DESK_TAB_ICONS, SECTION_ICONS } from "../components/icons";
 import { Button, ErrorBanner, Panel, PanelHeader, Toast, Tooltip } from "../components/ui";
-import { CampaignSettingsForm, campaignDefaultPath } from "../features/campaign";
-import { PreparedScenesPanel, NextSceneModal } from "../features/scene";
+import { CampaignSettingsForm } from "../features/campaign";
+import { PreparedScenesPanel } from "../features/scene";
 import { useCampaignQuery } from "../hooks/queries/useCampaignQueries";
 import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
 
@@ -84,7 +84,6 @@ const TABS: { id: DeskTab; label: string; hint: string }[] = [
 
 export function MasterDeskPage() {
   const { campaignId = "" } = useParams();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<DeskTab>("escenas");
   const [assistMode, setAssistMode] = useState<ShadowMasterMode>("campaign");
@@ -92,8 +91,6 @@ export function MasterDeskPage() {
   const [response, setResponse] = useState<MasterAssistResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [nextSceneOpen, setNextSceneOpen] = useState(false);
-  const [preparedScenes, setPreparedScenes] = useState<import("../api/types").ScenePickerItem[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [sendingSuggestionKey, setSendingSuggestionKey] = useState<string | null>(null);
   const [narrativeDrafts, setNarrativeDrafts] = useState<string[]>([]);
@@ -111,11 +108,6 @@ export function MasterDeskPage() {
 
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: openScene } = useOpenSceneQuery(campaignId);
-
-  async function invalidateSceneQueries() {
-    await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
-    await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.activeScene(campaignId) });
-  }
 
   async function handleAssist(event: FormEvent) {
     event.preventDefault();
@@ -192,13 +184,7 @@ export function MasterDeskPage() {
 
           {tab === "escenas" && (
             <section className="master-tab-panel master-scenes-panel">
-              <PreparedScenesPanel
-                campaignId={campaignId}
-                onSceneClosed={(scenes) => {
-                  setPreparedScenes(scenes);
-                  setNextSceneOpen(true);
-                }}
-              />
+              <PreparedScenesPanel campaignId={campaignId} />
             </section>
           )}
 
@@ -331,30 +317,6 @@ export function MasterDeskPage() {
           )}
         </Panel>
       </div>
-
-      {nextSceneOpen && (
-        <NextSceneModal
-          preparedScenes={preparedScenes}
-          onPickPrepared={(sceneId) => {
-            setNextSceneOpen(false);
-            navigate(`/campaigns/${campaignId}/chat`);
-            void api.activateScene(campaignId, sceneId).then(() => invalidateSceneQueries());
-          }}
-          onCreateNew={(displayName, objective) => {
-            setNextSceneOpen(false);
-            void api
-              .createScene(campaignId, { displayName: displayName || undefined, sceneObjective: objective })
-              .then(() => {
-                invalidateSceneQueries();
-                navigate(`/campaigns/${campaignId}/chat`);
-              });
-          }}
-          onCancel={() => {
-            setNextSceneOpen(false);
-            navigate(campaignDefaultPath(campaignId, "MASTER", null));
-          }}
-        />
-      )}
 
       <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
     </RoleGate>

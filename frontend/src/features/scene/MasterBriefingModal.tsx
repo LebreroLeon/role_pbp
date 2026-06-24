@@ -1,5 +1,6 @@
 import type { MasterBriefingResponse } from "../../api/types";
 import { Button, Modal } from "../../components/ui";
+import { formatSceneLabel } from "../campaign";
 
 type MasterBriefingModalProps = {
   briefing: MasterBriefingResponse;
@@ -9,6 +10,15 @@ type MasterBriefingModalProps = {
   onActivate: () => void;
   onCancel: () => void;
 };
+
+function formatOpenSceneLabel(briefing: MasterBriefingResponse): string | null {
+  const open = briefing.open_scene;
+  if (!open) return null;
+  return formatSceneLabel({
+    scene_number: open.scene_number,
+    display_name: open.display_name,
+  });
+}
 
 export function MasterBriefingModal({
   briefing,
@@ -20,10 +30,13 @@ export function MasterBriefingModal({
 }: MasterBriefingModalProps) {
   const plotLine = briefing.arc_manifest?.plot_line as { title?: string; global_summary?: string } | undefined;
   const activeQuests = (briefing.arc_manifest?.active_quests as Array<{ title?: string; description?: string }>) ?? [];
+  const sceneTitle =
+    briefing.display_name?.trim() || formatSceneLabel({ scene_number: null, display_name: briefing.display_name });
+  const openSceneLabel = formatOpenSceneLabel(briefing);
 
   return (
     <Modal
-      title={`Briefing — ${briefing.display_name ?? `Escena ${briefing.scene_id.slice(0, 8)}`}`}
+      title={`Confirmar activación — ${sceneTitle}`}
       titleId="master-briefing-title"
       size="lg"
       onClose={onCancel}
@@ -39,6 +52,25 @@ export function MasterBriefingModal({
       }
     >
       <div className="master-briefing-modal__body">
+        <section className="master-briefing-modal__warning">
+          <p>
+            <strong>Esta acción es irreversible.</strong> La escena pasará a estado activo y recibirá el número{" "}
+            <strong>Escena {briefing.next_scene_number}</strong>.
+          </p>
+          {openSceneLabel && (
+            <p>
+              La escena abierta actual ({openSceneLabel}) se pausará automáticamente al activar esta.
+            </p>
+          )}
+          {briefing.opening_narration?.trim() && (
+            <p className="muted">
+              {sendOpening
+                ? "La apertura narrativa se publicará en el chat al activar."
+                : "La apertura narrativa no se enviará al chat (puedes cambiarlo abajo)."}
+            </p>
+          )}
+        </section>
+
         {briefing.last_scene_summary && (
           <section>
             <h3>Resumen anterior</h3>

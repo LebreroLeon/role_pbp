@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
-import type { Scene, SceneStatusType } from "../../api/types";
+import type { Scene, ScenePickerItem, SceneStatusType } from "../../api/types";
 import { Button, StatusBadge } from "../../components/ui";
 import { useCampaignScenesQuery } from "../../hooks/queries/useSceneQueries";
 
@@ -15,6 +15,17 @@ const STATUS_LABELS: Record<SceneStatusType, string> = {
 };
 
 export function formatSceneLabel(scene: Pick<Scene, "scene_number" | "display_name">): string {
+  if (scene.scene_number == null) {
+    return scene.display_name?.trim() || "Escena preparada";
+  }
+  const prefix = `Escena ${scene.scene_number}`;
+  return scene.display_name ? `${prefix}: ${scene.display_name}` : prefix;
+}
+
+export function formatPreparedScenePickerLabel(scene: Pick<ScenePickerItem, "scene_number" | "display_name">): string {
+  if (scene.scene_number == null) {
+    return scene.display_name?.trim() || "Escena preparada";
+  }
   const prefix = `Escena ${scene.scene_number}`;
   return scene.display_name ? `${prefix}: ${scene.display_name}` : prefix;
 }
@@ -33,11 +44,13 @@ export function CampaignSceneLog({ campaignId, activeSceneId, isMaster = false }
 
   const closedScenes = scenes.filter((scene) => scene.status === "CLOSED");
   const closedCount = closedScenes.length;
-  const orderedScenes = [...scenes].sort((a, b) => b.scene_number - a.scene_number);
-  const latestClosed = closedScenes.reduce<Scene | null>(
-    (latest, scene) => (!latest || scene.scene_number > latest.scene_number ? scene : latest),
-    null,
+  const orderedScenes = [...scenes].sort(
+    (a, b) => (b.scene_number ?? -1) - (a.scene_number ?? -1),
   );
+  const latestClosed = closedScenes.reduce<Scene | null>((latest, scene) => {
+    if (!latest) return scene;
+    return (scene.scene_number ?? -1) > (latest.scene_number ?? -1) ? scene : latest;
+  }, null);
 
   async function handleResume(sceneId: string) {
     setResumingId(sceneId);

@@ -47,7 +47,7 @@ class Scene(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     campaign_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    scene_number: Mapped[int] = mapped_column(nullable=False, default=1)
+    scene_number: Mapped[int | None] = mapped_column(nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="ACTIVE")
     scene_state: Mapped[dict] = mapped_column(JSONB, default=dict)
