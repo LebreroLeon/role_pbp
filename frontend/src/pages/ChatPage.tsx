@@ -401,7 +401,6 @@ export function ChatPage() {
             <MasterCheatSheet
               campaignId={campaignId}
               scene={currentScene}
-              entities={entities}
               onSceneUpdate={handleSceneUpdate}
             />
           )}
