@@ -21,7 +21,7 @@ import {
 } from "./schema";
 import { DND5E_DAMAGE_TYPE_GROUPS, DND5E_DAMAGE_TYPE_VALUES, damageTypeLabel } from "./damageTypes";
 import type { Dnd5eDamageType } from "./damageTypes";
-import { InspirationBox, InspirationSpendToggle } from "./InspirationBox";
+import { InspirationBox, InspirationSpendToggle, InspirationStatus } from "./InspirationBox";
 import { Dnd5eSpellcastingPanel } from "./Dnd5eSpellcastingPanel";
 
 type Dnd5eSheetFormProps = {
@@ -31,6 +31,8 @@ type Dnd5eSheetFormProps = {
   disabled?: boolean;
   isSaving?: boolean;
   isRolling?: boolean;
+  /** Master-only: grant or revoke inspiration on this sheet. */
+  canGrantInspiration?: boolean;
 };
 
 type RollButtonProps = {
@@ -116,6 +118,7 @@ export function Dnd5eSheetForm({
   disabled,
   isSaving,
   isRolling,
+  canGrantInspiration = false,
 }: Dnd5eSheetFormProps) {
   const rollDisabled = disabled || isRolling || !onRoll;
   const [advantageMode, setAdvantageMode] = useState<AdvantageMode>("normal");
@@ -315,11 +318,15 @@ export function Dnd5eSheetForm({
       </div>
 
       <div className="sheet-header-stats">
-        <InspirationBox
-          active={hasInspiration}
-          disabled={disabled}
-          onToggle={toggleInspiration}
-        />
+        {canGrantInspiration ? (
+          <InspirationBox
+            active={hasInspiration}
+            disabled={disabled}
+            onToggle={toggleInspiration}
+          />
+        ) : (
+          <InspirationStatus active={hasInspiration} />
+        )}
         <div className="sheet-passive-perception" aria-label="Percepción pasiva">
           <span className="sheet-passive-perception__label">Percepción pasiva (Sab)</span>
           <strong className="sheet-passive-perception__value">{passiveWisdom}</strong>

@@ -44,6 +44,8 @@ def _sheet_error_to_http(exc: CharacterSheetError | EntityValidationError) -> HT
         return HTTPException(status_code=404, detail=detail)
     if "multiple player characters" in detail.lower():
         return HTTPException(status_code=409, detail=detail)
+    if "only the master can grant inspiration" in detail.lower():
+        return HTTPException(status_code=403, detail=detail)
     return HTTPException(status_code=422, detail=detail)
 
 

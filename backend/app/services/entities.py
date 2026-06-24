@@ -507,6 +507,38 @@ async def get_campaign_or_error(db: AsyncSession, campaign_id: uuid.UUID) -> Cam
     return campaign
 
 
+INSPIRATION_GRANT_FORBIDDEN = "Only the master can grant inspiration"
+
+
+def _sheet_inspiration_flag(sheet: dict[str, Any]) -> bool:
+    roleplay = sheet.get("roleplay")
+    if isinstance(roleplay, dict) and isinstance(roleplay.get("inspiration"), bool):
+        return roleplay["inspiration"]
+    return False
+
+
+def assert_player_may_set_inspiration(
+    *,
+    existing: CampaignEntity | None,
+    new_sheet: dict[str, Any],
+) -> None:
+    """Players may spend inspiration (true -> false) but never grant it (false -> true)."""
+    new_inspiration = _sheet_inspiration_flag(new_sheet)
+    if existing is None:
+        if new_inspiration:
+            raise CharacterSheetError(INSPIRATION_GRANT_FORBIDDEN)
+        return
+
+    old_sheet = existing.document.get("system_mechanics", {})
+    if isinstance(old_sheet, dict):
+        old_sheet = old_sheet.get("sheet")
+    if not isinstance(old_sheet, dict):
+        old_sheet = {}
+
+    if not _sheet_inspiration_flag(old_sheet) and new_inspiration:
+        raise CharacterSheetError(INSPIRATION_GRANT_FORBIDDEN)
+
+
 async def upsert_player_character_sheet(
     db: AsyncSession,
     *,
@@ -517,6 +549,7 @@ async def upsert_player_character_sheet(
     campaign = await get_campaign_or_error(db, campaign_id)
     validated_sheet = validate_pc_sheet_for_campaign(campaign.game_system, payload.system_mechanics)
     existing = await find_pc_by_user(db, campaign_id, user_id)
+    assert_player_may_set_inspiration(existing=existing, new_sheet=validated_sheet)
 
     document = build_pc_document(
         user_id=str(user_id),

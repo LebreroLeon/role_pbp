@@ -356,6 +356,7 @@ export function EntitySheetEditor({
               onRoll={handleSheetRoll}
               isSaving={updateMutation.isPending}
               isRolling={rollMutation.isPending}
+              canGrantInspiration
             />
           )}
           {gameSystem === "cyberpunk_red" && (

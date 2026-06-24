@@ -4059,6 +4059,10 @@
   cursor: not-allowed;
 }
 
+.sheet-inspiration--readonly {
+  cursor: default;
+}
+
 .sheet-inspiration-spend {
   display: inline-flex;
   align-items: center;
@@ -4440,29 +4444,6 @@
   margin-top: 0.5rem;
 }
 
-.master-cheat-sheet section + section {
-  margin-top: 0.75rem;
-}
-
-.master-cheat-sheet h4 {
-  margin: 0 0 0.25rem;
-  font-size: 0.85rem;
-}
-
-.master-cheat-sheet__context {
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.master-cheat-sheet__tabs {
-  margin-bottom: 0.75rem;
-}
-
-.master-cheat-sheet__panel {
-  min-height: 4rem;
-}
-
 .master-cheat-sheet__scratchpad {
   width: 100%;
   min-height: 7rem;
@@ -4479,20 +4460,6 @@
 .master-cheat-sheet__save-hint {
   margin: 0.35rem 0 0;
   font-size: 0.8rem;
-}
-
-.master-cheat-sheet__lore-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.master-cheat-sheet__lore-text {
-  margin: 0.25rem 0 0;
-  white-space: pre-wrap;
 }
 
 .next-scene-modal__tabs {

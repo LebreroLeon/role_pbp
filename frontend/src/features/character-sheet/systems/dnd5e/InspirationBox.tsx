@@ -33,6 +33,29 @@ export function InspirationBox({ active, disabled, onToggle }: InspirationBoxPro
   );
 }
 
+type InspirationStatusProps = {
+  active: boolean;
+};
+
+export function InspirationStatus({ active }: InspirationStatusProps) {
+  if (!active) return null;
+
+  return (
+    <Tooltip content="Inspiración concedida por el Máster. Puedes gastarla en la barra de tiradas.">
+      <span
+        className="sheet-inspiration sheet-inspiration--readonly is-active"
+        aria-label="Inspiración disponible"
+      >
+        <span className="sheet-inspiration__symbol" aria-hidden>
+          ✦
+        </span>
+        <span className="sheet-inspiration__label">Inspiración</span>
+        <span className="sheet-inspiration__hint">Disponible</span>
+      </span>
+    </Tooltip>
+  );
+}
+
 type InspirationSpendToggleProps = {
   active: boolean;
   disabled?: boolean;
