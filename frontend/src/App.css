@@ -2881,15 +2881,46 @@
   margin-bottom: 1rem;
 }
 
+.entity-card__tier {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .entity-card__tier select {
+  width: auto;
+  max-width: 6.5rem;
   font-size: 0.72rem;
   font-weight: 600;
   padding: 0.25rem 0.4rem;
   border-radius: 6px;
   border: 1px solid var(--border-subtle);
-  background: rgba(15, 23, 42, 0.04);
-  color: inherit;
-  max-width: 6.5rem;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  color-scheme: dark;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+
+.entity-card__tier select:hover:not(:disabled) {
+  border-color: var(--border-default);
+  background: var(--bg-surface-hover);
+}
+
+.entity-card__tier select:focus {
+  outline: none;
+  border-color: rgba(139, 124, 248, 0.5);
+  box-shadow: 0 0 0 3px var(--accent-violet-soft);
+}
+
+.entity-card__tier select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.entity-card__tier select option {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
 }
 
 .form-actions {
