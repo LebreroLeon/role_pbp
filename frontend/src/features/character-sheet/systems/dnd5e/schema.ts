@@ -150,6 +150,7 @@ export const dnd5eSheetSchema = z.object({
       temp: z.number().int().min(0),
     }),
     hit_dice: z.string(),
+    speed: z.string(),
     death_saves: z.object({
       successes: z.number().int().min(0).max(3),
       failures: z.number().int().min(0).max(3),
@@ -321,6 +322,7 @@ export function defaultDnd5eSheet(): Dnd5eSheet {
       ac: 10,
       hp: { max: 10, current: 10, temp: 0 },
       hit_dice: "1d8",
+      speed: "9 m (30 pies)",
       death_saves: { successes: 0, failures: 0 },
       damage_modifiers: { resistances: [], vulnerabilities: [], immunities: [] },
     },
@@ -484,6 +486,7 @@ export function convertBackendDnd5eSheet(raw: Record<string, unknown>): Dnd5eShe
       temp: hpRaw?.temp ?? defaults.defense.hp.temp,
     },
     hit_dice: readString(raw.hit_dice, defaults.defense.hit_dice),
+    speed: readString(raw.speed, defaults.defense.speed),
     death_saves: {
       successes: deathSavesRaw?.successes ?? defaults.defense.death_saves.successes,
       failures: deathSavesRaw?.failures ?? defaults.defense.death_saves.failures,

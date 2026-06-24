@@ -33,6 +33,7 @@ class TestMonsterSheetMapper:
         assert validated.ac == 15
         assert validated.hp.max == 7
         assert validated.hp.current == 7
+        assert validated.speed == "9 m (30 pies)"
         assert validated.initiative_modifier == 2
         assert validated.proficiency_bonus == 2
         assert len(validated.attacks) == 2

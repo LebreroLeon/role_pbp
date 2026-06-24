@@ -88,3 +88,21 @@ class TestDnd5eSheetIdentityAndAttacks:
             }
         )
         assert sheet.attacks[0].effect_type == "healing"
+
+    def test_speed_defaults_for_pc(self):
+        sheet = Dnd5eSheet.model_validate({})
+        assert sheet.speed == "9 m (30 pies)"
+
+    def test_speed_from_nested_defense(self):
+        sheet = Dnd5eSheet.model_validate(
+            {
+                "defense": {
+                    "ac": 15,
+                    "hp": {"max": 20, "current": 20, "temp": 0},
+                    "hit_dice": "2d8",
+                    "speed": "12 m (40 pies), nadar 12 m (40 pies)",
+                    "death_saves": {"successes": 0, "failures": 0},
+                }
+            }
+        )
+        assert sheet.speed == "12 m (40 pies), nadar 12 m (40 pies)"

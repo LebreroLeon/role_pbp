@@ -247,6 +247,44 @@ def _format_features(creature: dict[str, Any]) -> str:
     return "\n\n".join(sections)
 
 
+_SPEED_MODE_LABELS_ES = {
+    "fly": "volar",
+    "swim": "nadar",
+    "climb": "escalar",
+    "burrow": "excavar",
+}
+
+
+def _feet_to_display(feet: int) -> str:
+    meters = round(feet * 0.3048)
+    return f"{meters} m ({feet} pies)"
+
+
+def format_creature_speed(creature: dict[str, Any]) -> str:
+    """Format Open5e speed block for Spanish sheet display."""
+    speed = creature.get("speed")
+    if not isinstance(speed, dict):
+        speed = creature.get("speed_all")
+    if not isinstance(speed, dict):
+        return ""
+
+    unit = str(speed.get("unit") or "feet").strip().lower()
+    parts: list[str] = []
+    for mode in ("walk", "fly", "swim", "climb", "burrow"):
+        value = speed.get(mode)
+        if not isinstance(value, int) or value <= 0:
+            continue
+        label = _SPEED_MODE_LABELS_ES.get(mode)
+        if unit in {"feet", "ft"}:
+            segment = _feet_to_display(value)
+        else:
+            segment = f"{value} {unit}"
+        if label:
+            segment = f"{label} {segment}"
+        parts.append(segment)
+    return ", ".join(parts)
+
+
 def _damage_modifiers(creature: dict[str, Any]) -> dict[str, list[str]]:
     resistances_block = creature.get("resistances_and_immunities")
     if not isinstance(resistances_block, dict):
@@ -397,6 +435,7 @@ class MonsterSheetMapper:
             "ac": int(creature.get("armor_class") or 10),
             "hp": {"max": hp, "current": hp, "temp": 0},
             "hit_dice": str(creature.get("hit_dice") or ""),
+            "speed": format_creature_speed(creature),
             "death_saves": {"successes": 0, "failures": 0},
             "damage_modifiers": _damage_modifiers(creature),
             "initiative_modifier": initiative,

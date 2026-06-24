@@ -439,6 +439,12 @@ export function Dnd5eSheetForm({
             disabled={disabled}
             {...register("proficiency.bonus", { valueAsNumber: true })}
           />
+          <Input
+            label="Velocidad"
+            placeholder="9 m (30 pies)"
+            disabled={disabled}
+            {...register("defense.speed")}
+          />
         </div>
 
         <div className="sheet-death-saves">

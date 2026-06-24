@@ -755,6 +755,7 @@ def parsed_to_open5e_creature(parsed: ParsedSpanishStatBlock) -> dict[str, Any]:
         "armor_detail": parsed.armor_detail,
         "hit_points": parsed.hit_points,
         "hit_dice": parsed.hit_dice,
+        "speed": {"walk": parsed.speed_walk, "unit": "feet"},
         "challenge_rating": parsed.challenge_rating,
         "challenge_rating_display": parsed.challenge_rating_raw,
         "ability_scores": parsed.ability_scores,

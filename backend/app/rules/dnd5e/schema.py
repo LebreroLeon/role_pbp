@@ -219,6 +219,7 @@ def normalize_dnd5e_sheet_input(data: object) -> object:
     ac = data.get("ac", 10)
     hp = data.get("hp", {"max": 10, "current": 10, "temp": 0})
     hit_dice = data.get("hit_dice", "1d8")
+    speed = data.get("speed", "9 m (30 pies)")
     death_saves = data.get("death_saves", {"successes": 0, "failures": 0})
     initiative_modifier = data.get("initiative_modifier", 0)
     damage_modifiers = data.get("damage_modifiers", {"resistances": [], "vulnerabilities": [], "immunities": []})
@@ -227,6 +228,7 @@ def normalize_dnd5e_sheet_input(data: object) -> object:
         ac = defense.get("ac", ac)
         hp = defense.get("hp", hp)
         hit_dice = defense.get("hit_dice", hit_dice)
+        speed = defense.get("speed", speed)
         death_saves = defense.get("death_saves", death_saves)
         if isinstance(defense.get("damage_modifiers"), dict):
             damage_modifiers = defense["damage_modifiers"]
@@ -263,6 +265,7 @@ def normalize_dnd5e_sheet_input(data: object) -> object:
         "ac": ac,
         "hp": hp,
         "hit_dice": hit_dice,
+        "speed": speed,
         "death_saves": death_saves,
         "damage_modifiers": damage_modifiers,
         "initiative_modifier": initiative_modifier,
@@ -326,6 +329,7 @@ class Dnd5eSheet(BaseModel):
     ac: int = Field(default=10, ge=0)
     hp: HpBlock = Field(default_factory=HpBlock)
     hit_dice: str = ""
+    speed: str = "9 m (30 pies)"
     death_saves: DeathSavesBlock = Field(default_factory=DeathSavesBlock)
     damage_modifiers: DamageModifiersBlock = Field(default_factory=DamageModifiersBlock)
     initiative_modifier: int = 0
