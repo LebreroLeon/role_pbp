@@ -17,6 +17,7 @@ from app.rules.dnd5e.mechanics import (
     apply_damage_pipeline,
     apply_death_save_roll,
     double_damage_dice,
+    has_meaningful_damage_dice,
     passive_perception_from_sheet,
 )
 from app.rules.dnd5e.rolls import roll_d20 as _roll_d20
@@ -695,12 +696,14 @@ class Dnd5ePlugin(GameSystemPlugin):
         )
 
         damage_result = None
-        if attack.effect_type == "damage":
+        damage_dice = str(getattr(attack, "damage_dice", "") or "")
+        if has_meaningful_damage_dice(damage_dice) and attack.effect_type == "damage":
             should_apply_damage = spell_affects or (save_succeeded and half_on_save)
             if should_apply_damage:
                 damage_ctx = RollContext(
                     attack_name=weapon_or_attack_id or context.attack_name,
                     attack_index=context.attack_index,
+                    expression=damage_dice,
                 )
                 damage_roll = self.resolve_roll("damage", attacker_sheet, damage_ctx)
                 amount = damage_roll.total or 0
@@ -716,6 +719,7 @@ class Dnd5ePlugin(GameSystemPlugin):
                     is_healing=False,
                     is_critical=False,
                 )
+                save_roll.details["damage_roll_summary"] = damage_roll.chat_summary
 
         if damage_result is not None:
             damage_note = ""

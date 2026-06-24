@@ -158,6 +158,15 @@ def _ability_modifier(score: int) -> int:
     return (score - 10) // 2
 
 
+def _normalize_attack_damage_dice(damage_dice: object | None, *, resolution: str) -> str:
+    if damage_dice is None:
+        return "" if resolution == "save" else "1d4"
+    text = str(damage_dice).strip()
+    if not text or text in {"0", "0d0"}:
+        return "" if resolution == "save" else "1d4"
+    return text
+
+
 def _normalize_attack_entry(
     attack: dict[str, Any],
     *,
@@ -172,6 +181,10 @@ def _normalize_attack_entry(
         normalized = dict(attack)
         normalized["resolution"] = resolution
         normalized["half_damage_on_save"] = half_damage_on_save
+        normalized["damage_dice"] = _normalize_attack_damage_dice(
+            attack.get("damage_dice"),
+            resolution=resolution,
+        )
         if resolution == "save":
             save_ability = attack.get("save_ability") or attack.get("ability")
             if isinstance(save_ability, str) and save_ability.strip():
@@ -182,7 +195,7 @@ def _normalize_attack_entry(
     damage_dice = attack.get("damage_dice")
     damage_type = attack.get("damage_type")
     if damage_dice is None and isinstance(damage, dict):
-        damage_dice = damage.get("dice", "1d4")
+        damage_dice = damage.get("dice")
     if damage_type is None and isinstance(damage, dict):
         damage_type = damage.get("type", "contundente")
 
@@ -206,7 +219,7 @@ def _normalize_attack_entry(
     return {
         "name": attack.get("name", "Attack"),
         "to_hit_bonus": to_hit_bonus,
-        "damage_dice": damage_dice or "1d4",
+        "damage_dice": _normalize_attack_damage_dice(damage_dice, resolution=resolution),
         "damage_type": normalize_damage_type(str(damage_type) if damage_type is not None else None),
         "effect_type": effect_type,
         "resolution": resolution,
@@ -326,10 +339,12 @@ class AttackEntry(BaseModel):
             }
         damage = data.get("damage")
         if isinstance(damage, dict):
+            resolution_raw = str(data.get("resolution", "attack_roll")).strip().lower()
+            resolution = "save" if resolution_raw == "save" else "attack_roll"
             return {
                 "name": data.get("name", "Attack"),
                 "to_hit_bonus": data.get("to_hit_bonus", 0),
-                "damage_dice": damage.get("dice", "1d4"),
+                "damage_dice": _normalize_attack_damage_dice(damage.get("dice"), resolution=resolution),
                 "damage_type": normalize_damage_type(str(damage.get("type", ""))),
             }
         return data

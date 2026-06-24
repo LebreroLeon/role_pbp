@@ -435,6 +435,14 @@ def _build_attack_messages(
     else:
         summary = f"{attacker_name} ataca a {defender_name}: {roll_line}."
 
+    chat_summary = roll_line
+    if is_save_attack and attack_result.damage is not None:
+        damage_roll_summary = attack_roll.details.get("damage_roll_summary")
+        if isinstance(damage_roll_summary, str) and damage_roll_summary.strip():
+            chat_summary = f"{roll_line}. {damage_roll_summary}"
+        else:
+            chat_summary = f"{roll_line}. {_format_damage_line(attack_result.damage)}"
+
     combat_event: dict[str, Any] = {
         "kind": "ATTACK_RESOLVED",
         "attacker_id": str(attacker.id),
@@ -495,7 +503,7 @@ def _build_attack_messages(
             "sender_id": sender_id,
             "type": "COMBAT",
             "text": summary,
-            "chat_summary": roll_line,
+            "chat_summary": chat_summary,
             "entity_id": str(attacker.id),
             "entity_name": attacker_name,
             "combat_event": combat_event,

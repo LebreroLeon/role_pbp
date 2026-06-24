@@ -349,6 +349,40 @@ class TestDnd5eCombat:
         assert attack.hit is True
         assert attack.damage is not None
         assert attack.damage.amount == 32  # 8d6 con dados simulados (4 cada uno)
+        assert attack.attack_roll.details.get("damage_roll_summary")
+
+    def test_save_attack_fail_rolls_1d4(self, plugin: Dnd5ePlugin, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda a, b: 5 if b == 20 else 3)
+
+        caster = {
+            "proficiency_bonus": 3,
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 18, "wis": 10, "cha": 10},
+            "spellcasting": {"ability": "int", "save_dc": 16},
+            "attacks": [
+                {
+                    "name": "Chispa",
+                    "damage_dice": "1d4",
+                    "damage_type": "fuego",
+                    "effect_type": "damage",
+                    "resolution": "save",
+                    "save_ability": "dex",
+                    "half_damage_on_save": False,
+                }
+            ],
+        }
+        defender = {
+            "ac": 12,
+            "hp": {"max": 40, "current": 40},
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+            "proficiency_bonus": 2,
+            "saving_throws": [],
+        }
+
+        attack = plugin.resolve_attack(caster, defender, "Chispa", AttackContext())
+        assert attack.attack_roll.details.get("save_succeeded") is False
+        assert attack.damage is not None
+        assert attack.damage.amount == 3
+        assert attack.damage.expression == "1d4"
 
     def test_save_attack_success_half_damage(self, plugin: Dnd5ePlugin, monkeypatch):
         monkeypatch.setattr("random.randint", lambda a, b: 18 if b == 20 else (6 if b == 8 else 4))
@@ -414,6 +448,71 @@ class TestDnd5eCombat:
         assert attack.damage is None
         assert attack.hit is False
         assert "éxito" in attack.chat_summary
+
+    def test_save_attack_fail_without_damage_dice(self, plugin: Dnd5ePlugin, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda a, b: 5 if b == 20 else 4)
+
+        caster = {
+            "proficiency_bonus": 3,
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 18, "wis": 10, "cha": 10},
+            "spellcasting": {"ability": "int", "save_dc": 16},
+            "attacks": [
+                {
+                    "name": "Hechizo de control",
+                    "damage_dice": "",
+                    "damage_type": "psiquico",
+                    "effect_type": "damage",
+                    "resolution": "save",
+                    "save_ability": "wis",
+                    "half_damage_on_save": False,
+                }
+            ],
+        }
+        defender = {
+            "ac": 12,
+            "hp": {"max": 40, "current": 40},
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+            "proficiency_bonus": 2,
+            "saving_throws": [],
+        }
+
+        attack = plugin.resolve_attack(caster, defender, "Hechizo de control", AttackContext())
+        assert attack.attack_roll.details.get("save_succeeded") is False
+        assert attack.damage is None
+        assert attack.hit is True
+        assert "fallo" in attack.chat_summary
+        assert "damage_roll_summary" not in attack.attack_roll.details
+
+    def test_save_attack_nested_empty_damage_dice(self, plugin: Dnd5ePlugin, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda a, b: 18 if b == 20 else 4)
+
+        caster = {
+            "proficiency_bonus": 3,
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 18, "wis": 10, "cha": 10},
+            "spellcasting": {"ability": "int", "save_dc": 16},
+            "attacks": [
+                {
+                    "name": "Sugerencia",
+                    "ability": "wis",
+                    "resolution": "save",
+                    "half_damage_on_save": False,
+                    "effect_type": "damage",
+                    "damage": {"dice": "", "type": "psiquico"},
+                }
+            ],
+        }
+        validated = plugin.validate_pc_sheet(caster)
+        assert validated.attacks[0].damage_dice == ""
+
+        attack = plugin.resolve_attack(caster, defender := {
+            "ac": 12,
+            "hp": {"max": 40, "current": 40},
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+            "proficiency_bonus": 2,
+            "saving_throws": [],
+        }, "Sugerencia", AttackContext())
+        assert attack.attack_roll.details.get("save_succeeded") is True
+        assert attack.damage is None
 
     def test_damage_consumes_temp_hp_first(self, plugin: Dnd5ePlugin):
         from app.rules.base import DamageResult

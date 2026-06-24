@@ -5,6 +5,7 @@ from app.rules.dnd5e.mechanics import (
     apply_damage_modifiers,
     apply_damage_pipeline,
     double_damage_dice,
+    has_meaningful_damage_dice,
 )
 from app.rules.dnd5e.plugin import Dnd5ePlugin
 
@@ -20,6 +21,18 @@ class TestDoubleDamageDice:
 
     def test_doubles_multiple_dice(self):
         assert double_damage_dice("2d6") == "4d6"
+
+
+class TestHasMeaningfulDamageDice:
+    def test_accepts_standard_expressions(self):
+        assert has_meaningful_damage_dice("1d4") is True
+        assert has_meaningful_damage_dice("8d6") is True
+
+    def test_rejects_empty_and_zero(self):
+        assert has_meaningful_damage_dice("") is False
+        assert has_meaningful_damage_dice("0") is False
+        assert has_meaningful_damage_dice("0d0") is False
+        assert has_meaningful_damage_dice(None) is False
 
 
 class TestDamageModifiers:

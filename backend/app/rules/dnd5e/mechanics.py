@@ -113,6 +113,22 @@ def double_damage_dice(expression: str) -> str:
     return f"{count}d{match.group(2)}{match.group(3)}"
 
 
+_DAMAGE_DICE_PATTERN = re.compile(r"(\d+)d(\d+)", re.IGNORECASE)
+
+
+def has_meaningful_damage_dice(expression: str | None) -> bool:
+    """True when a sheet attack has dice worth rolling (e.g. 1d4, 8d6), not empty/zero."""
+    if expression is None:
+        return False
+    text = str(expression).strip().lower()
+    if not text or text in {"0", "0d0"}:
+        return False
+    match = _DAMAGE_DICE_PATTERN.search(text)
+    if not match:
+        return False
+    return int(match.group(1)) > 0 and int(match.group(2)) > 0
+
+
 def _normalize_slug_list(values: Any) -> list[str]:
     if not isinstance(values, list):
         return []

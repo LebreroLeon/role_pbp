@@ -212,6 +212,158 @@ class TestExecuteAttack:
         assert "1d20" in combat["chat_summary"]
 
 
+class TestExecuteSaveAttack:
+    def test_save_fail_rolls_damage_and_updates_chat(self, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda a, b: 5 if b == 20 else (6 if b == 8 else 4))
+
+        save_sheet = {
+            "proficiency_bonus": 3,
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 18, "wis": 10, "cha": 10},
+            "spellcasting": {"ability": "int", "save_dc": 16},
+            "ac": 12,
+            "hp": {"max": 40, "current": 40},
+            "attacks": [
+                {
+                    "name": "Bola de fuego",
+                    "damage_dice": "8d6",
+                    "damage_type": "fuego",
+                    "effect_type": "damage",
+                    "resolution": "save",
+                    "save_ability": "dex",
+                    "half_damage_on_save": True,
+                    "to_hit_bonus": 0,
+                }
+            ],
+        }
+        attacker = _make_entity(name="Mago", sheet=save_sheet)
+        defender = _make_entity(
+            name="Goblin Skulk",
+            entity_type="NPC",
+            user_id=None,
+            sheet={
+                "ac": 12,
+                "hp": {"max": 40, "current": 40},
+                "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+                "proficiency_bonus": 2,
+                "saving_throws": [],
+            },
+        )
+        entities = [attacker, defender]
+
+        db = AsyncMock()
+        db.scalars = AsyncMock(
+            side_effect=[
+                MagicMock(all=lambda: [entity for entity in entities if entity.entity_type == "PC"]),
+                MagicMock(all=lambda: [defender]),
+                MagicMock(all=lambda: []),
+            ]
+        )
+        db.scalar = AsyncMock(return_value=None)
+
+        campaign = Campaign(id=uuid.uuid4(), name="Test", game_system="dnd5e")
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id=str(campaign.id), status="ACTIVE"),
+            context=SceneContext(active_npc_ids=[str(defender.id)]),
+            state_flags=StateFlags(),
+        )
+
+        result = asyncio.run(
+            execute_attack(
+                db,
+                campaign,
+                state,
+                sender_id="player-1",
+                sender_role="MASTER",
+                attacker_ref="Mago",
+                defender_ref="Goblin",
+                weapon_name="Bola de fuego",
+                attack_index=0,
+            )
+        )
+
+        assert defender.document["system_mechanics"]["sheet"]["hp"]["current"] == 8
+        combat = result.messages[0]["combat_event"]
+        assert combat["attack_roll"]["resolution"] == "save"
+        assert combat["damage"]["amount"] == 32
+        assert "Daño" in result.messages[0]["chat_summary"]
+        assert "8d6" in combat["damage"]["chat_summary"] or "[4, 4, 4, 4, 4, 4, 4, 4]" in combat["damage"]["chat_summary"]
+
+    def test_save_without_damage_dice_emits_only_save_result(self, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda a, b: 18 if b == 20 else 4)
+
+        save_sheet = {
+            "proficiency_bonus": 3,
+            "abilities": {"str": 10, "dex": 10, "con": 10, "int": 18, "wis": 10, "cha": 10},
+            "spellcasting": {"ability": "int", "save_dc": 16},
+            "ac": 12,
+            "hp": {"max": 40, "current": 40},
+            "attacks": [
+                {
+                    "name": "Sugerencia",
+                    "damage_dice": "",
+                    "damage_type": "psiquico",
+                    "effect_type": "damage",
+                    "resolution": "save",
+                    "save_ability": "wis",
+                    "half_damage_on_save": False,
+                    "to_hit_bonus": 0,
+                }
+            ],
+        }
+        attacker = _make_entity(name="Mago", sheet=save_sheet)
+        defender = _make_entity(
+            name="Goblin Skulk",
+            entity_type="NPC",
+            user_id=None,
+            sheet={
+                "ac": 12,
+                "hp": {"max": 40, "current": 40},
+                "abilities": {"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+                "proficiency_bonus": 2,
+                "saving_throws": [],
+            },
+        )
+        entities = [attacker, defender]
+
+        db = AsyncMock()
+        db.scalars = AsyncMock(
+            side_effect=[
+                MagicMock(all=lambda: [entity for entity in entities if entity.entity_type == "PC"]),
+                MagicMock(all=lambda: [defender]),
+                MagicMock(all=lambda: []),
+            ]
+        )
+        db.scalar = AsyncMock(return_value=None)
+
+        campaign = Campaign(id=uuid.uuid4(), name="Test", game_system="dnd5e")
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id=str(campaign.id), status="ACTIVE"),
+            context=SceneContext(active_npc_ids=[str(defender.id)]),
+            state_flags=StateFlags(),
+        )
+
+        result = asyncio.run(
+            execute_attack(
+                db,
+                campaign,
+                state,
+                sender_id="player-1",
+                sender_role="MASTER",
+                attacker_ref="Mago",
+                defender_ref="Goblin",
+                weapon_name="Sugerencia",
+                attack_index=0,
+            )
+        )
+
+        assert defender.document["system_mechanics"]["sheet"]["hp"]["current"] == 40
+        combat = result.messages[0]["combat_event"]
+        assert combat["attack_roll"]["resolution"] == "save"
+        assert "damage" not in combat
+        assert "éxito" in result.messages[0]["chat_summary"]
+        assert "Daño" not in result.messages[0]["chat_summary"]
+
+
 class TestExecuteInitiative:
     def test_rolls_only_track_entities_and_sorts_descending(self, monkeypatch):
         monkeypatch.setattr("random.randint", lambda _a, _b: 10)

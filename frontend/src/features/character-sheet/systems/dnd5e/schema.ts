@@ -62,19 +62,29 @@ const skillSchema = z.object({
   expertise: z.boolean(),
 });
 
-const attackSchema = z.object({
-  name: z.string().min(1, "Nombre requerido"),
-  ability: z.enum(DND5E_ABILITIES),
-  proficient: z.boolean(),
-  resolution: z.enum(["attack_roll", "save"]),
-  half_damage_on_save: z.boolean(),
-  effect_type: z.enum(["damage", "healing"]),
-  damage: z.object({
-    dice: z.string().min(1, "Dados requeridos"),
-    type: z.enum(DND5E_DAMAGE_TYPE_VALUES),
-  }),
-  properties: z.array(z.string()),
-});
+const attackSchema = z
+  .object({
+    name: z.string().min(1, "Nombre requerido"),
+    ability: z.enum(DND5E_ABILITIES),
+    proficient: z.boolean(),
+    resolution: z.enum(["attack_roll", "save"]),
+    half_damage_on_save: z.boolean(),
+    effect_type: z.enum(["damage", "healing"]),
+    damage: z.object({
+      dice: z.string(),
+      type: z.enum(DND5E_DAMAGE_TYPE_VALUES),
+    }),
+    properties: z.array(z.string()),
+  })
+  .superRefine((attack, ctx) => {
+    if (attack.resolution === "attack_roll" && !attack.damage.dice.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["damage", "dice"],
+        message: "Dados requeridos",
+      });
+    }
+  });
 
 const levelSchema = z.number().int().min(1).max(20);
 
@@ -444,15 +454,17 @@ export function normalizeAttackEntry(raw: unknown): Dnd5eSheet["attacks"][number
   const ability = DND5E_ABILITIES.includes(abilityRaw as Dnd5eAbility)
     ? (abilityRaw as Dnd5eAbility)
     : defaults.ability;
+  const resolution = entry.resolution === "save" ? "save" : "attack_roll";
+  const diceRaw = damage?.dice?.trim() ?? "";
   return {
     name: typeof entry.name === "string" ? entry.name : defaults.name,
     ability,
     proficient: entry.proficient === true,
-    resolution: entry.resolution === "save" ? "save" : "attack_roll",
+    resolution,
     half_damage_on_save: entry.half_damage_on_save === true,
     effect_type: entry.effect_type === "healing" ? "healing" : "damage",
     damage: {
-      dice: damage?.dice?.trim() || defaults.damage.dice,
+      dice: resolution === "save" ? diceRaw : diceRaw || defaults.damage.dice,
       type: normalizeAttackDamageType(damage?.type),
     },
     properties: Array.isArray(entry.properties)
