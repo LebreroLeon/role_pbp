@@ -164,6 +164,7 @@ class TestFilterSceneStateForViewer:
                 location_id="loc-1",
                 scene_objective="Descubrir la verdad",
                 master_prep_notes="Trampa oculta",
+                master_scene_scratchpad="Nota efímera del máster",
                 opening_narration="Un pasillo oscuro…",
                 prepared_entity_refs=[
                     {"entity_id": "npc-1", "player_visibility": "hidden", "add_to_roster": True},
@@ -175,6 +176,7 @@ class TestFilterSceneStateForViewer:
 
         assert filtered.context.scene_objective is None
         assert filtered.context.master_prep_notes is None
+        assert filtered.context.master_scene_scratchpad is None
         assert filtered.context.opening_narration is None
         assert filtered.context.location_id is None
         assert filtered.context.prepared_entity_refs == []

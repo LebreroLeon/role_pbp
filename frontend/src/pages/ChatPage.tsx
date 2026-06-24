@@ -397,7 +397,14 @@ export function ChatPage() {
             isMaster={Boolean(isMaster)}
             onSceneUpdate={handleSceneUpdate}
           />
-          {isMaster && <MasterCheatSheet campaignId={campaignId} scene={currentScene} />}
+          {isMaster && (
+            <MasterCheatSheet
+              campaignId={campaignId}
+              scene={currentScene}
+              entities={entities}
+              onSceneUpdate={handleSceneUpdate}
+            />
+          )}
           {!isMaster && loreAssistHistory.length > 0 && (
             <aside className="lore-assist-panel" aria-label="Respuestas del asistente">
               <h3 className="lore-assist-panel__title">@asistente</h3>

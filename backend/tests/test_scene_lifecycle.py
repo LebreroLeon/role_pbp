@@ -5,7 +5,7 @@ import asyncio
 import pytest
 
 from app.models.campaign import Campaign, Scene
-from app.schemas.scene import ChatMessage, SceneContext, SceneCreate, SceneMetadata, SceneState, TurnManagement
+from app.schemas.scene import ChatMessage, SceneContext, SceneCreate, SceneMetadata, SceneScratchpadUpdate, SceneState, TurnManagement
 from app.services.scenes import (
     _build_narrative_text,
     _placeholder_scene_summary,
@@ -18,6 +18,7 @@ from app.services.scenes import (
     scene_to_response,
     start_active_scene,
     update_scene_display_name,
+    update_scene_scratchpad,
     update_scene_status,
 )
 
@@ -119,6 +120,25 @@ class TestSceneLabelsAndSummary:
         assert "Escena 1: Posada" in summary
         assert "Buenas noches." in summary
 
+    def test_generate_scene_closure_summary_ignores_scratchpad(self):
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id="c1", status="ACTIVE"),
+            context=SceneContext(master_scene_scratchpad="No debe aparecer en el resumen"),
+            turn_management=TurnManagement(),
+            chat_buffer=[
+                ChatMessage(
+                    id="m1",
+                    timestamp="t1",
+                    sender_id="u1",
+                    type="ACTION",
+                    text="Exploran el bosque.",
+                ),
+            ],
+        )
+
+        narrative = _build_narrative_text(state)
+        assert "No debe aparecer" not in narrative
+
     def test_placeholder_summary_for_empty_chat(self):
         summary = _placeholder_scene_summary("", scene_number=3, display_name=None)
         assert summary == "Escena 3 — cerrada sin mensajes narrativos registrados."
@@ -162,6 +182,50 @@ class TestCloseScene:
         response = asyncio.run(update_scene_display_name(db, scene, "  El muelle  "))
         assert scene.display_name == "El muelle"
         assert response.display_name == "El muelle"
+
+    def test_close_scene_clears_scratchpad_and_excludes_from_summary(self):
+        scene = _make_scene(display_name="Cueva")
+        scene.scene_state["context"]["master_scene_scratchpad"] = "Secreto efímero"
+        scene.scene_state["chat_buffer"] = [
+            {
+                "id": "m1",
+                "timestamp": "t1",
+                "sender_id": "u1",
+                "type": "ACTION",
+                "text": "Entran en la cueva.",
+                "read_by": ["u1"],
+            }
+        ]
+        db = AsyncMock()
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock(side_effect=lambda obj: obj)
+        db.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
+
+        with patch(
+            "app.services.scenes.generate_scene_closure_summary",
+            new=AsyncMock(return_value="Resumen sin notas del máster."),
+        ), patch("app.services.scenes.rag_service.index_message", new=AsyncMock()):
+            asyncio.run(close_scene(db, scene))
+
+        assert scene.scene_state["context"].get("master_scene_scratchpad") is None
+        assert "Secreto efímero" not in scene.scene_state["metadata"]["closure_summary"]
+
+    def test_update_scene_scratchpad_persists_in_active_scene(self):
+        scene = _make_scene()
+        db = AsyncMock()
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock(side_effect=lambda obj: obj)
+
+        response = asyncio.run(
+            update_scene_scratchpad(
+                db,
+                scene,
+                SceneScratchpadUpdate(master_scene_scratchpad="  Apunto esto  "),
+            )
+        )
+
+        assert scene.scene_state["context"]["master_scene_scratchpad"] == "Apunto esto"
+        assert response.scene_state.context.master_scene_scratchpad == "Apunto esto"
 
 
 class TestDeleteSceneMessage:

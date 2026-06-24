@@ -17,6 +17,7 @@ export type LegacyFlatSceneState = {
   hidden_npc_ids?: string[];
   scene_objective?: string | null;
   master_prep_notes?: string | null;
+  master_scene_scratchpad?: string | null;
   opening_narration?: string | null;
   prepared_entity_refs?: import("../../api/types").PreparedEntityRef[];
   current_turn_player_id?: string | null;
@@ -107,6 +108,7 @@ export function normalizeSceneState(raw: SceneStateInput): SceneState {
       hidden_npc_ids: flat.hidden_npc_ids ?? [],
       scene_objective: flat.scene_objective ?? null,
       master_prep_notes: flat.master_prep_notes ?? null,
+      master_scene_scratchpad: flat.master_scene_scratchpad ?? null,
       opening_narration: flat.opening_narration ?? null,
       prepared_entity_refs: flat.prepared_entity_refs ?? [],
     },

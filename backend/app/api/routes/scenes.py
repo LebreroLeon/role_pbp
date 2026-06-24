@@ -30,6 +30,7 @@ from app.schemas.scene import (
     ScenePresenceUpdate,
     ScenePrepUpdate,
     SceneResponse,
+    SceneScratchpadUpdate,
     SceneStatusUpdate,
     SceneTurnManagementUpdate,
     SceneUpdate,
@@ -57,6 +58,7 @@ from app.services.scenes import (
     update_scene_display_name,
     update_scene_npc_presence,
     update_scene_prep,
+    update_scene_scratchpad,
     update_scene_status,
     update_scene_turn_management,
     advance_scene_pbp_turn,
@@ -249,6 +251,23 @@ async def patch_scene_prep_route(
     await require_campaign_master(db, current_user, scene.campaign_id)
     try:
         await update_scene_prep(db, scene, payload)
+    except SceneServiceError as exc:
+        raise scene_service_error_to_http(exc) from exc
+
+    return await broadcast_scene_update(db, scene, requester_role="MASTER")
+
+
+@router.patch("/{scene_id}/scratchpad", response_model=SceneResponse)
+async def patch_scene_scratchpad_route(
+    scene_id: str,
+    payload: SceneScratchpadUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> SceneResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_campaign_master(db, current_user, scene.campaign_id)
+    try:
+        await update_scene_scratchpad(db, scene, payload)
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 

@@ -2,7 +2,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "../../api/http";
 import type { CampaignMember, SheetRollRequest } from "../../api/types";
-import { Button, ErrorBanner, Input, MasterOnlyField, Switch } from "../../components/ui";
+import { Button, CollapsibleSection, ErrorBanner, Input, MasterOnlyField, Switch } from "../../components/ui";
+import { User } from "../../components/icons";
 import { gameSystemLabel, hasSheetTemplate } from "../campaign/gameSystems";
 import { useRollEntityMutation, useUpdateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 import {
@@ -216,6 +217,14 @@ export function EntitySheetEditor({
     <div className="entity-sheet-editor">
       {formError && <ErrorBanner message={formError} />}
 
+      <CollapsibleSection
+        icon={User}
+        iconTone="violet"
+        title="Datos narrativos"
+        description="Nombre, concepto, descripción, facción, ubicación e imágenes."
+        defaultOpen={mode === "create"}
+        className="sheet-narrative-collapsible"
+      >
       <form className="auth-form sheet-narrative-form" onSubmit={handleNarrativeSubmit}>
         <Input label="Nombre" value={name} onChange={(event) => setName(event.target.value)} required />
         <Input label="Concepto" value={concept} onChange={(event) => setConcept(event.target.value)} />
@@ -318,6 +327,7 @@ export function EntitySheetEditor({
           )}
         </div>
       </form>
+      </CollapsibleSection>
 
       {hasSheetEditor ? (
         <section className="sheet-mechanics-section">

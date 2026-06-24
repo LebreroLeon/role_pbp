@@ -120,3 +120,23 @@ export function useAddPlayerToSceneMutation({ campaignId, onSceneUpdate }: Scene
     },
   });
 }
+
+export function useUpdateSceneScratchpadMutation({ campaignId, onSceneUpdate }: SceneMutationOptions) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      sceneId,
+      master_scene_scratchpad,
+    }: {
+      sceneId: string;
+      master_scene_scratchpad: string | null;
+    }) => api.updateSceneScratchpad(sceneId, { master_scene_scratchpad }),
+    onSuccess: (scene) => {
+      const normalized = normalizeScene(scene);
+      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), normalized);
+      queryClient.invalidateQueries({ queryKey: queryKeys.scenes.detail(scene.id) });
+      onSceneUpdate?.(normalized);
+    },
+  });
+}

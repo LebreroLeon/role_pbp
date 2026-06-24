@@ -181,6 +181,11 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
+  updateSceneScratchpad: (sceneId: string, payload: import("./types").SceneScratchpadUpdate) =>
+    http<Scene>(`/api/v1/scenes/${sceneId}/scratchpad`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
   getMasterBriefing: (campaignId: string, sceneId: string) =>
     http<import("./types").MasterBriefingResponse>(
       `/api/v1/campaigns/${campaignId}/scenes/${sceneId}/master-briefing`,

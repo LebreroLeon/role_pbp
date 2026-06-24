@@ -63,6 +63,7 @@ class SceneContext(BaseModel):
     hidden_npc_ids: list[str] = Field(default_factory=list)
     scene_objective: str | None = None
     master_prep_notes: str | None = None
+    master_scene_scratchpad: str | None = None
     opening_narration: str | None = None
     prepared_entity_refs: list[PreparedEntityRef] = Field(default_factory=list)
 
@@ -129,6 +130,10 @@ class ScenePrepUpdate(BaseModel):
     opening_narration: str | None = None
     master_prep_notes: str | None = None
     prepared_entity_refs: list[PreparedEntityRef] | None = None
+
+
+class SceneScratchpadUpdate(BaseModel):
+    master_scene_scratchpad: str | None = None
 
 
 class ActivateSceneRequest(BaseModel):

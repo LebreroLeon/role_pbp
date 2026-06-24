@@ -25,6 +25,7 @@ from app.schemas.scene import (
     ScenePresenceUpdate,
     ScenePrepUpdate,
     SceneResponse,
+    SceneScratchpadUpdate,
     SceneState,
     SceneStatusType,
     SceneTurnManagementUpdate,
@@ -169,6 +170,7 @@ def migrate_scene_state(data: dict, *, scene_status: str | None = None) -> dict:
             if "hidden_npc_ids" not in context:
                 context["hidden_npc_ids"] = []
             context.setdefault("master_prep_notes", None)
+            context.setdefault("master_scene_scratchpad", None)
             context.setdefault("opening_narration", None)
             context.setdefault("prepared_entity_refs", [])
         return migrated
@@ -188,6 +190,7 @@ def migrate_scene_state(data: dict, *, scene_status: str | None = None) -> dict:
             "hidden_npc_ids": list(data.get("hidden_npc_ids") or []),
             "scene_objective": data.get("scene_objective"),
             "master_prep_notes": data.get("master_prep_notes"),
+            "master_scene_scratchpad": data.get("master_scene_scratchpad"),
             "opening_narration": data.get("opening_narration"),
             "prepared_entity_refs": list(data.get("prepared_entity_refs") or []),
         },
@@ -377,6 +380,7 @@ def scene_to_response(scene: Scene, *, viewer_role: str = "MASTER") -> SceneResp
 def _strip_master_only_scene_context(context: SceneContext) -> None:
     context.scene_objective = None
     context.master_prep_notes = None
+    context.master_scene_scratchpad = None
     context.opening_narration = None
     context.prepared_entity_refs = []
     context.location_id = None
@@ -922,6 +926,24 @@ async def update_scene_prep(
     return scene_to_response(scene)
 
 
+async def update_scene_scratchpad(
+    db: AsyncSession,
+    scene: Scene,
+    payload: SceneScratchpadUpdate,
+) -> SceneResponse:
+    if scene.status == "CLOSED":
+        raise SceneServiceError("Cannot edit a closed scene")
+
+    state = load_scene_state(scene)
+    if payload.master_scene_scratchpad is not None:
+        state.context.master_scene_scratchpad = payload.master_scene_scratchpad.strip() or None
+
+    save_scene_state(scene, state)
+    await db.commit()
+    await db.refresh(scene)
+    return scene_to_response(scene)
+
+
 async def _normalize_prepared_entity_refs(
     db: AsyncSession,
     campaign_id: uuid.UUID,
@@ -1092,6 +1114,7 @@ async def close_scene(db: AsyncSession, scene: Scene) -> CloseSceneResponse:
     )
     state.metadata.closure_summary = summary
     state.metadata.status = "CLOSED"
+    state.context.master_scene_scratchpad = None
     if state.combat.is_active or state.combat.conflict_mode_active or state.state_flags.conflict_mode_active:
         set_combat_active(state, False)
     save_scene_state(scene, state)

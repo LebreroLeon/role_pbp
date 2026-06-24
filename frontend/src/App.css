@@ -1932,6 +1932,107 @@
   max-width: 100%;
 }
 
+.sheet-form-tabs {
+  display: inline-flex;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.04);
+  width: fit-content;
+}
+
+.sheet-form-tabs__tab {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+}
+
+.sheet-form-tabs__tab.is-active {
+  background: rgba(139, 92, 246, 0.14);
+  color: var(--text-primary);
+}
+
+.sheet-form-tabs__tab + .sheet-form-tabs__tab {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.sheet-narrative-collapsible {
+  margin-bottom: 1rem;
+}
+
+.sheet-spellcasting {
+  display: grid;
+  gap: 1rem;
+}
+
+.sheet-spellcasting__computed {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.sheet-spellcasting__hint {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.sheet-spellcasting__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.sheet-spell-stat {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, 0.03);
+  min-width: 7rem;
+}
+
+.sheet-spell-stat span {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.sheet-spell-stat strong {
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-spell-slots {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.sheet-spell-slot {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, auto) 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.sheet-spell-slot__label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding-bottom: 0.55rem;
+}
+
+.sheet-spell-entry {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.65rem;
+}
+
 .entity-sheet-editor,
 .character-sheet-page,
 .campaign-sheets-editor {
@@ -4191,6 +4292,52 @@
 .master-cheat-sheet h4 {
   margin: 0 0 0.25rem;
   font-size: 0.85rem;
+}
+
+.master-cheat-sheet__context {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.master-cheat-sheet__tabs {
+  margin-bottom: 0.75rem;
+}
+
+.master-cheat-sheet__panel {
+  min-height: 4rem;
+}
+
+.master-cheat-sheet__scratchpad {
+  width: 100%;
+  min-height: 7rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-elevated, transparent);
+  color: inherit;
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.master-cheat-sheet__save-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+}
+
+.master-cheat-sheet__lore-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.master-cheat-sheet__lore-text {
+  margin: 0.25rem 0 0;
+  white-space: pre-wrap;
 }
 
 .next-scene-modal__tabs {

@@ -76,6 +76,32 @@ const attackSchema = z.object({
 
 const levelSchema = z.number().int().min(1).max(20);
 
+const spellSlotSchema = z.object({
+  level: z.number().int().min(1).max(9),
+  total: z.number().int().min(0),
+  used: z.number().int().min(0),
+});
+
+const spellEntrySchema = z.object({
+  name: z.string(),
+  level: z.number().int().min(0).max(9),
+  prepared: z.boolean(),
+  ritual: z.boolean(),
+  notes: z.string(),
+});
+
+const spellcastingSchema = z.object({
+  ability: z.enum(DND5E_ABILITIES),
+  save_dc: z.number().int().min(0).max(40).nullable(),
+  attack_bonus: z.number().int().min(-10).max(30).nullable(),
+  slots: z.array(spellSlotSchema),
+  spells: z.array(spellEntrySchema),
+});
+
+export type Dnd5eSpellSlot = z.infer<typeof spellSlotSchema>;
+export type Dnd5eSpellEntry = z.infer<typeof spellEntrySchema>;
+export type Dnd5eSpellcasting = z.infer<typeof spellcastingSchema>;
+
 const currencySchema = z.object({
   cp: z.number().int().min(0),
   sp: z.number().int().min(0),
@@ -100,6 +126,7 @@ export const dnd5eSheetSchema = z.object({
     inspiration: z.boolean(),
   }),
   features_traits: z.string(),
+  other_proficiencies: z.string(),
   equipment: z.string(),
   currency: currencySchema,
   abilities: z.object({
@@ -138,12 +165,112 @@ export const dnd5eSheetSchema = z.object({
     modifier: z.number().int(),
   }),
   conditions: z.array(z.string()),
+  spellcasting: spellcastingSchema,
 });
 
 export type Dnd5eSheet = z.infer<typeof dnd5eSheetSchema>;
 
 export function abilityModifier(score: number): number {
   return Math.floor((score - 10) / 2);
+}
+
+export const DND5E_SPELL_LEVEL_LABELS: Record<number, string> = {
+  0: "Trucos",
+  1: "Nivel 1",
+  2: "Nivel 2",
+  3: "Nivel 3",
+  4: "Nivel 4",
+  5: "Nivel 5",
+  6: "Nivel 6",
+  7: "Nivel 7",
+  8: "Nivel 8",
+  9: "Nivel 9",
+};
+
+export function defaultSpellSlots(): Dnd5eSpellSlot[] {
+  return Array.from({ length: 9 }, (_, index) => ({
+    level: index + 1,
+    total: 0,
+    used: 0,
+  }));
+}
+
+export function defaultSpellcasting(): Dnd5eSpellcasting {
+  return {
+    ability: "int",
+    save_dc: null,
+    attack_bonus: null,
+    slots: defaultSpellSlots(),
+    spells: [],
+  };
+}
+
+export function normalizeSpellSlots(raw: unknown): Dnd5eSpellSlot[] {
+  const defaults = defaultSpellSlots();
+  if (!Array.isArray(raw)) return defaults;
+  const byLevel = new Map<number, Dnd5eSpellSlot>();
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const level = (entry as { level?: number }).level;
+    if (typeof level !== "number" || level < 1 || level > 9) continue;
+    const total = (entry as { total?: number }).total;
+    const used = (entry as { used?: number }).used;
+    byLevel.set(level, {
+      level,
+      total: typeof total === "number" && total >= 0 ? Math.trunc(total) : 0,
+      used: typeof used === "number" && used >= 0 ? Math.trunc(used) : 0,
+    });
+  }
+  return defaults.map((slot) => byLevel.get(slot.level) ?? slot);
+}
+
+export function normalizeSpellEntries(raw: unknown): Dnd5eSpellEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
+    .map((entry) => ({
+      name: typeof entry.name === "string" ? entry.name : "",
+      level:
+        typeof entry.level === "number"
+          ? Math.min(9, Math.max(0, Math.trunc(entry.level)))
+          : 0,
+      prepared: entry.prepared === true,
+      ritual: entry.ritual === true,
+      notes: typeof entry.notes === "string" ? entry.notes : "",
+    }));
+}
+
+export function readSpellcasting(raw: unknown): Dnd5eSpellcasting {
+  const defaults = defaultSpellcasting();
+  if (!raw || typeof raw !== "object") return defaults;
+  const entry = raw as Record<string, unknown>;
+  const abilityRaw = typeof entry.ability === "string" ? entry.ability : defaults.ability;
+  const ability = DND5E_ABILITIES.includes(abilityRaw as Dnd5eAbility)
+    ? (abilityRaw as Dnd5eAbility)
+    : defaults.ability;
+  return {
+    ability,
+    save_dc: typeof entry.save_dc === "number" ? entry.save_dc : null,
+    attack_bonus: typeof entry.attack_bonus === "number" ? entry.attack_bonus : null,
+    slots: normalizeSpellSlots(entry.slots),
+    spells: normalizeSpellEntries(entry.spells),
+  };
+}
+
+export function computedSpellSaveDc(
+  ability: Dnd5eAbility,
+  proficiencyBonus: number,
+  abilities: Dnd5eSheet["abilities"],
+): number {
+  return 8 + proficiencyBonus + abilityModifier(abilities[ability] ?? 10);
+}
+
+export function computedSpellAttackBonus(
+  ability: Dnd5eAbility,
+  proficiencyBonus: number,
+  abilities: Dnd5eSheet["abilities"],
+): number {
+  return proficiencyBonus + abilityModifier(abilities[ability] ?? 10);
 }
 
 export function skillLabelEs(skillName: string): string {
@@ -181,6 +308,7 @@ export function defaultDnd5eSheet(): Dnd5eSheet {
       inspiration: false,
     },
     features_traits: "",
+    other_proficiencies: "",
     equipment: "",
     currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -208,6 +336,7 @@ export function defaultDnd5eSheet(): Dnd5eSheet {
     ],
     initiative: { modifier: 0 },
     conditions: [],
+    spellcasting: defaultSpellcasting(),
   };
 }
 
@@ -406,6 +535,7 @@ export function convertBackendDnd5eSheet(raw: Record<string, unknown>): Dnd5eShe
     identity: readSheetIdentity(raw.identity),
     roleplay: readRoleplay(raw.roleplay),
     features_traits: readString(raw.features_traits, defaults.features_traits),
+    other_proficiencies: readString(raw.other_proficiencies, defaults.other_proficiencies),
     equipment: readString(raw.equipment, defaults.equipment),
     currency: readCurrency(raw.currency),
     abilities,
@@ -420,11 +550,87 @@ export function convertBackendDnd5eSheet(raw: Record<string, unknown>): Dnd5eShe
     conditions: Array.isArray(raw.conditions)
       ? raw.conditions.filter((item): item is string => typeof item === "string")
       : defaults.conditions,
+    spellcasting: readSpellcasting(raw.spellcasting),
+  };
+}
+
+export function mergeDnd5eSheetDefaults(raw: unknown): Dnd5eSheet {
+  const defaults = defaultDnd5eSheet();
+  if (!raw || typeof raw !== "object") return defaults;
+  const entry = raw as Record<string, unknown>;
+  return {
+    ...defaults,
+    ...(entry as Partial<Dnd5eSheet>),
+    identity: {
+      ...defaults.identity,
+      ...(typeof entry.identity === "object" && entry.identity ? (entry.identity as Dnd5eSheet["identity"]) : {}),
+    },
+    roleplay: {
+      ...defaults.roleplay,
+      ...(typeof entry.roleplay === "object" && entry.roleplay ? (entry.roleplay as Dnd5eSheet["roleplay"]) : {}),
+    },
+    abilities: {
+      ...defaults.abilities,
+      ...(typeof entry.abilities === "object" && entry.abilities ? (entry.abilities as Dnd5eSheet["abilities"]) : {}),
+    },
+    proficiency: {
+      ...defaults.proficiency,
+      ...(typeof entry.proficiency === "object" && entry.proficiency
+        ? (entry.proficiency as Dnd5eSheet["proficiency"])
+        : {}),
+    },
+    defense: {
+      ...defaults.defense,
+      ...(typeof entry.defense === "object" && entry.defense ? (entry.defense as Dnd5eSheet["defense"]) : {}),
+      hp: {
+        ...defaults.defense.hp,
+        ...(typeof entry.defense === "object" &&
+        entry.defense &&
+        typeof (entry.defense as Dnd5eSheet["defense"]).hp === "object"
+          ? (entry.defense as Dnd5eSheet["defense"]).hp
+          : {}),
+      },
+      death_saves: {
+        ...defaults.defense.death_saves,
+        ...(typeof entry.defense === "object" &&
+        entry.defense &&
+        typeof (entry.defense as Dnd5eSheet["defense"]).death_saves === "object"
+          ? (entry.defense as Dnd5eSheet["defense"]).death_saves
+          : {}),
+      },
+      damage_modifiers: {
+        ...defaults.defense.damage_modifiers,
+        ...(typeof entry.defense === "object" &&
+        entry.defense &&
+        typeof (entry.defense as Dnd5eSheet["defense"]).damage_modifiers === "object"
+          ? (entry.defense as Dnd5eSheet["defense"]).damage_modifiers
+          : {}),
+      },
+    },
+    currency: {
+      ...defaults.currency,
+      ...(typeof entry.currency === "object" && entry.currency ? (entry.currency as Dnd5eSheet["currency"]) : {}),
+    },
+    initiative: {
+      ...defaults.initiative,
+      ...(typeof entry.initiative === "object" && entry.initiative
+        ? (entry.initiative as Dnd5eSheet["initiative"])
+        : {}),
+    },
+    features_traits: readString(entry.features_traits, defaults.features_traits),
+    other_proficiencies: readString(entry.other_proficiencies, defaults.other_proficiencies),
+    equipment: readString(entry.equipment, defaults.equipment),
+    attacks: Array.isArray(entry.attacks) && entry.attacks.length > 0 ? (entry.attacks as Dnd5eSheet["attacks"]) : defaults.attacks,
+    conditions: Array.isArray(entry.conditions)
+      ? entry.conditions.filter((item): item is string => typeof item === "string")
+      : defaults.conditions,
+    spellcasting: readSpellcasting(entry.spellcasting),
   };
 }
 
 export function parseDnd5eSheet(raw: unknown): Dnd5eSheet {
-  const result = dnd5eSheetSchema.safeParse(raw);
+  const merged = mergeDnd5eSheetDefaults(raw);
+  const result = dnd5eSheetSchema.safeParse(merged);
   if (result.success) return result.data;
 
   if (isBackendFlatSheet(raw)) {

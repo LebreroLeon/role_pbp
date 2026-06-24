@@ -64,6 +64,58 @@ class TestDnd5eSchema:
         assert validated.attacks[0].damage_type == "contundente"
         assert validated.attacks[0].to_hit_bonus == 2
 
+    def test_validate_frontend_nested_sheet_with_spellcasting(self, plugin: Dnd5ePlugin):
+        sheet = {
+            "identity": {"class_level": "Mago 5", "background": "", "race": "Elfo", "alignment": "CN"},
+            "roleplay": {"personality_traits": "", "ideals": "", "bonds": "", "flaws": "", "inspiration": False},
+            "features_traits": "Rasgo arcano",
+            "other_proficiencies": "Común, Élfico; kit de herboristería",
+            "equipment": "",
+            "currency": {"cp": 0, "sp": 0, "ep": 0, "gp": 0, "pp": 0},
+            "abilities": {"str": 8, "dex": 14, "con": 12, "int": 18, "wis": 10, "cha": 10},
+            "proficiency": {
+                "bonus": 3,
+                "saving_throws": ["int", "wis"],
+                "skills": [{"name": "Arcana", "proficient": True, "expertise": False}],
+            },
+            "defense": {
+                "ac": 13,
+                "hp": {"max": 28, "current": 28, "temp": 0},
+                "hit_dice": "5d6",
+                "death_saves": {"successes": 0, "failures": 0},
+            },
+            "attacks": [
+                {
+                    "name": "Bastón",
+                    "ability": "str",
+                    "proficient": False,
+                    "damage": {"dice": "1d6", "type": "contundente"},
+                    "properties": [],
+                }
+            ],
+            "initiative": {"modifier": 0},
+            "conditions": [],
+            "spellcasting": {
+                "ability": "int",
+                "save_dc": 16,
+                "attack_bonus": 8,
+                "slots": [
+                    {"level": 1, "total": 4, "used": 1},
+                    {"level": 2, "total": 3, "used": 0},
+                    {"level": 3, "total": 2, "used": 0},
+                ],
+                "spells": [
+                    {"name": "Prestidigitación", "level": 0, "prepared": True, "ritual": False, "notes": ""},
+                    {"name": "Bola de fuego", "level": 3, "prepared": True, "ritual": False, "notes": "8d6"},
+                ],
+            },
+        }
+        validated = plugin.validate_pc_sheet(sheet)
+        assert isinstance(validated, Dnd5eSheet)
+        assert validated.other_proficiencies == "Común, Élfico; kit de herboristería"
+        assert validated.spellcasting.save_dc == 16
+        assert validated.spellcasting.spells[1].name == "Bola de fuego"
+
     def test_ability_modifier(self):
         assert ability_modifier(10) == 0
         assert ability_modifier(14) == 2

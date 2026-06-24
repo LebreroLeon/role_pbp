@@ -22,6 +22,9 @@ import {
 import { DND5E_DAMAGE_TYPE_GROUPS, DND5E_DAMAGE_TYPE_VALUES, damageTypeLabel } from "./damageTypes";
 import type { Dnd5eDamageType } from "./damageTypes";
 import { InspirationBox, InspirationSpendToggle } from "./InspirationBox";
+import { Dnd5eSpellcastingPanel } from "./Dnd5eSpellcastingPanel";
+
+type SheetFormTab = "general" | "spells";
 
 type Dnd5eSheetFormProps = {
   defaultValues: Dnd5eSheet;
@@ -117,6 +120,7 @@ export function Dnd5eSheetForm({
   isRolling,
 }: Dnd5eSheetFormProps) {
   const rollDisabled = disabled || isRolling || !onRoll;
+  const [activeTab, setActiveTab] = useState<SheetFormTab>("general");
   const [advantageMode, setAdvantageMode] = useState<AdvantageMode>("normal");
   const [spendInspiration, setSpendInspiration] = useState(false);
 
@@ -294,6 +298,29 @@ export function Dnd5eSheetForm({
 
   return (
     <form className="sheet-form" onSubmit={handleSubmit(onSubmit)}>
+      <nav className="sheet-form-tabs" role="tablist" aria-label="Secciones de la ficha">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "general"}
+          className={`sheet-form-tabs__tab${activeTab === "general" ? " is-active" : ""}`}
+          onClick={() => setActiveTab("general")}
+        >
+          General
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "spells"}
+          className={`sheet-form-tabs__tab${activeTab === "spells" ? " is-active" : ""}`}
+          onClick={() => setActiveTab("spells")}
+        >
+          Conjuros
+        </button>
+      </nav>
+
+      {activeTab === "general" && (
+        <>
       <div className="sheet-form__roll-toolbar">
         <AdvantageToggle value={advantageMode} onChange={setAdvantageMode} disabled={rollDisabled} />
         {hasInspiration && (
@@ -607,6 +634,14 @@ export function Dnd5eSheetForm({
       </section>
 
       <section className="sheet-section">
+        <h3>Otras competencias</h3>
+        <label className="form-field">
+          <span>Idiomas, herramientas, competencias adicionales</span>
+          <textarea disabled={disabled} rows={4} {...register("other_proficiencies")} />
+        </label>
+      </section>
+
+      <section className="sheet-section">
         <h3>Equipo</h3>
         <label className="form-field">
           <span>Objetos y equipo</span>
@@ -720,6 +755,18 @@ export function Dnd5eSheetForm({
           </div>
         ))}
       </section>
+        </>
+      )}
+
+      {activeTab === "spells" && (
+        <Dnd5eSpellcastingPanel
+          control={control}
+          register={register}
+          watch={watch}
+          setValue={setValue}
+          disabled={disabled}
+        />
+      )}
 
       <div className="actions">
         <Button type="submit" disabled={disabled || isSaving}>

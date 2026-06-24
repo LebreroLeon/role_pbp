@@ -347,6 +347,8 @@ export type SceneContext = {
 
   master_prep_notes?: string | null;
 
+  master_scene_scratchpad?: string | null;
+
   opening_narration?: string | null;
 
   prepared_entity_refs?: PreparedEntityRef[];
@@ -538,6 +540,10 @@ export type ScenePrepUpdate = {
   opening_narration?: string | null;
   master_prep_notes?: string | null;
   prepared_entity_refs?: PreparedEntityRef[];
+};
+
+export type SceneScratchpadUpdate = {
+  master_scene_scratchpad?: string | null;
 };
 
 export type MasterBriefingNpcEntry = {

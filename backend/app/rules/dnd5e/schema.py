@@ -128,6 +128,32 @@ class RoleplayBlock(BaseModel):
     inspiration: bool = False
 
 
+class SpellSlotEntry(BaseModel):
+    level: int = Field(ge=1, le=9)
+    total: int = Field(default=0, ge=0)
+    used: int = Field(default=0, ge=0)
+
+
+class SpellEntry(BaseModel):
+    name: str = ""
+    level: int = Field(default=0, ge=0, le=9)
+    prepared: bool = False
+    ritual: bool = False
+    notes: str = ""
+
+
+def _default_spell_slots() -> list[SpellSlotEntry]:
+    return [SpellSlotEntry(level=level, total=0, used=0) for level in range(1, 10)]
+
+
+class SpellcastingBlock(BaseModel):
+    ability: str = "int"
+    save_dc: int | None = None
+    attack_bonus: int | None = None
+    slots: list[SpellSlotEntry] = Field(default_factory=_default_spell_slots)
+    spells: list[SpellEntry] = Field(default_factory=list)
+
+
 def _ability_modifier(score: int) -> int:
     return (score - 10) // 2
 
@@ -210,9 +236,11 @@ def normalize_dnd5e_sheet_input(data: object) -> object:
     identity = normalize_sheet_identity(data.get("identity", {}))
     roleplay = data.get("roleplay", {})
     features_traits = data.get("features_traits", "")
+    other_proficiencies = data.get("other_proficiencies", "")
     equipment = data.get("equipment", "")
     currency = data.get("currency", {})
     conditions = data.get("conditions", [])
+    spellcasting = data.get("spellcasting", {})
 
     raw_attacks = data.get("attacks", [])
     attacks: list[dict[str, Any]] = []
@@ -241,9 +269,11 @@ def normalize_dnd5e_sheet_input(data: object) -> object:
         "identity": identity,
         "roleplay": roleplay,
         "features_traits": features_traits,
+        "other_proficiencies": other_proficiencies,
         "equipment": equipment,
         "currency": currency,
         "conditions": conditions,
+        "spellcasting": spellcasting,
         "attacks": attacks,
     }
 
@@ -302,9 +332,11 @@ class Dnd5eSheet(BaseModel):
     identity: SheetIdentityBlock = Field(default_factory=SheetIdentityBlock)
     roleplay: RoleplayBlock = Field(default_factory=RoleplayBlock)
     features_traits: str = ""
+    other_proficiencies: str = ""
     equipment: str = ""
     currency: CurrencyBlock = Field(default_factory=CurrencyBlock)
     conditions: list[str] = Field(default_factory=list)
+    spellcasting: SpellcastingBlock = Field(default_factory=SpellcastingBlock)
     attacks: list[AttackEntry] = Field(default_factory=list)
 
     @model_validator(mode="before")
