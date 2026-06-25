@@ -2718,9 +2718,18 @@
   margin-top: 0.5rem;
 }
 
-.chat-page .panel,
-.master-screen .panel {
+.chat-page .panel {
   max-width: 720px;
+}
+
+.master-screen {
+  width: 100%;
+  min-width: 0;
+}
+
+.master-screen .panel {
+  max-width: none;
+  width: 100%;
 }
 
 .ooc-page .panel {
