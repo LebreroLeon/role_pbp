@@ -65,6 +65,7 @@ FROZEN_SCENE_DETAIL = "La escena está congelada por el Máster."
 OPEN_SCENE_BLOCK_MESSAGE = (
     "Hay una escena abierta (activa o pausada). Ciérrala antes de activar otra."
 )
+AUTO_CLOSED_SCENE_NOTE = "Cerrada automáticamente al abrir otra escena."
 FALLBACK_SUMMARY_MESSAGE_COUNT = 5
 
 
@@ -664,15 +665,16 @@ async def require_no_other_open_scene(
     raise SceneServiceError(OPEN_SCENE_BLOCK_MESSAGE)
 
 
-async def pause_other_active_scenes(
+async def close_other_open_scenes(
     db: AsyncSession,
     campaign_id: uuid.UUID,
     *,
     except_scene_id: uuid.UUID | None = None,
 ) -> list[Scene]:
+    """Close every other ACTIVE/PAUSED scene so at most one remains open."""
     query = select(Scene).where(
         Scene.campaign_id == campaign_id,
-        Scene.status == "ACTIVE",
+        Scene.status.in_(("ACTIVE", "PAUSED")),
     )
     if except_scene_id is not None:
         query = query.where(Scene.id != except_scene_id)
@@ -680,9 +682,24 @@ async def pause_other_active_scenes(
     scenes = (await db.scalars(query)).all()
     for other in scenes:
         state = load_scene_state(other)
-        state.metadata.status = "PAUSED"
+        if not (state.metadata.closure_summary or "").strip():
+            state.metadata.closure_summary = AUTO_CLOSED_SCENE_NOTE
+        state.metadata.status = "CLOSED"
+        state.context.master_scene_scratchpad = None
+        if state.combat.is_active or state.combat.conflict_mode_active or state.state_flags.conflict_mode_active:
+            set_combat_active(state, False)
         save_scene_state(other, state)
     return list(scenes)
+
+
+async def pause_other_active_scenes(
+    db: AsyncSession,
+    campaign_id: uuid.UUID,
+    *,
+    except_scene_id: uuid.UUID | None = None,
+) -> list[Scene]:
+    """Deprecated alias: closes other open scenes (kept for tests/scripts)."""
+    return await close_other_open_scenes(db, campaign_id, except_scene_id=except_scene_id)
 
 
 async def get_scene_by_id(db: AsyncSession, scene_id: uuid.UUID) -> Scene | None:
@@ -700,8 +717,8 @@ async def create_scene(
         raise SceneServiceError("Campaign not found")
 
     target_status = payload.status
-    if target_status == "ACTIVE":
-        await require_no_other_open_scene(db, campaign_id)
+    if target_status in ("ACTIVE", "PAUSED"):
+        await close_other_open_scenes(db, campaign_id)
 
     turn_order = payload.turn_order or [str(creator_user_id)]
     scene_state = default_scene_state(
@@ -910,8 +927,8 @@ async def update_scene_status(
     scene: Scene,
     status: SceneStatusType,
 ) -> SceneResponse:
-    if status == "ACTIVE":
-        await pause_other_active_scenes(db, scene.campaign_id, except_scene_id=scene.id)
+    if status in ("ACTIVE", "PAUSED"):
+        await close_other_open_scenes(db, scene.campaign_id, except_scene_id=scene.id)
 
     state = load_scene_state(scene)
     state.metadata.status = status
@@ -1091,7 +1108,7 @@ async def activate_scene(
     if scene.status == "ACTIVE":
         return scene_to_response(scene)
 
-    await require_no_other_open_scene(db, scene.campaign_id, except_scene_id=scene.id)
+    await close_other_open_scenes(db, scene.campaign_id, except_scene_id=scene.id)
 
     if scene.scene_number is None:
         scene.scene_number = await _next_assigned_scene_number(db, scene.campaign_id)
@@ -1149,9 +1166,6 @@ async def start_active_scene(
 
 
 async def delete_scene(db: AsyncSession, scene: Scene) -> None:
-    if scene.status in ("ACTIVE", "PAUSED"):
-        raise SceneServiceError("No se puede eliminar una escena abierta. Ciérrala primero.")
-
     scene_id = str(scene.id)
     campaign_id = str(scene.campaign_id)
 

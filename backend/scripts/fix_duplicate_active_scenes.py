@@ -1,4 +1,4 @@
-"""Pause duplicate ACTIVE scenes, keeping only the most recent per campaign."""
+"""Close duplicate open scenes (ACTIVE/PAUSED), keeping only one per campaign."""
 
 from __future__ import annotations
 
@@ -15,33 +15,37 @@ from sqlalchemy import func, select
 
 from app.core.database import SessionLocal
 from app.models.campaign import Scene
-from app.services.scenes import load_scene_state, save_scene_state
+from app.services.scenes import close_other_open_scenes
 
 
 async def run(*, dry_run: bool) -> int:
-    paused_rows: list[tuple[str, str, int, str]] = []
+    closed_rows: list[tuple[str, str, int | None, str]] = []
 
     async with SessionLocal() as db:
         duplicate_campaigns = (
             await db.execute(
                 select(Scene.campaign_id, func.count())
-                .where(Scene.status == "ACTIVE")
+                .where(Scene.status.in_(("ACTIVE", "PAUSED")))
                 .group_by(Scene.campaign_id)
                 .having(func.count() > 1)
             )
         ).all()
 
-        for campaign_id, active_count in duplicate_campaigns:
+        for campaign_id, open_count in duplicate_campaigns:
             scenes = (
                 await db.scalars(
                     select(Scene)
-                    .where(Scene.campaign_id == campaign_id, Scene.status == "ACTIVE")
-                    .order_by(Scene.updated_at.desc(), Scene.created_at.desc())
+                    .where(
+                        Scene.campaign_id == campaign_id,
+                        Scene.status.in_(("ACTIVE", "PAUSED")),
+                    )
+                    .order_by(Scene.scene_number.desc().nulls_last(), Scene.updated_at.desc())
                 )
             ).all()
             keeper = scenes[0]
-            for scene in scenes[1:]:
-                paused_rows.append(
+            closed = await close_other_open_scenes(db, campaign_id, except_scene_id=keeper.id)
+            for scene in closed:
+                closed_rows.append(
                     (
                         str(campaign_id),
                         str(scene.id),
@@ -49,34 +53,30 @@ async def run(*, dry_run: bool) -> int:
                         str(keeper.id),
                     )
                 )
-                if not dry_run:
-                    state = load_scene_state(scene)
-                    state.metadata.status = "PAUSED"
-                    save_scene_state(scene, state)
 
         if dry_run:
             await db.rollback()
         else:
             await db.commit()
 
-    print("=== Duplicate ACTIVE scenes ===")
-    if not paused_rows:
-        print("No duplicate ACTIVE scenes found.")
+    print("=== Duplicate open scenes (ACTIVE/PAUSED) ===")
+    if not closed_rows:
+        print("No duplicate open scenes found.")
     else:
-        for campaign_id, scene_id, scene_number, keeper_id in paused_rows:
+        for campaign_id, scene_id, scene_number, keeper_id in closed_rows:
             print(
                 f"  campaign={campaign_id} | scene #{scene_number} ({scene_id}) "
-                f"-> PAUSED (keeper={keeper_id})"
+                f"-> CLOSED (keeper={keeper_id})"
             )
 
     mode = "DRY RUN" if dry_run else "APPLIED"
-    print(f"\n{mode}: paused {len(paused_rows)} scene(s).")
+    print(f"\n{mode}: closed {len(closed_rows)} scene(s).")
     return 0
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Pause duplicate ACTIVE scenes per campaign (keeps most recent)."
+        description="Close duplicate open scenes per campaign (keeps highest scene_number)."
     )
     parser.add_argument(
         "--dry-run",

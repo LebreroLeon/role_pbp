@@ -95,15 +95,29 @@ class TestRequireNoOtherOpenScene:
 
 
 class TestActivateWithOpenScene:
-    def test_activate_prepared_blocked_when_paused_scene_open(self):
+    def test_activate_prepared_closes_other_open_scene(self):
         campaign_id = uuid.uuid4()
-        paused = _make_scene(status="PAUSED", campaign_id=campaign_id)
+        paused = _make_scene(status="PAUSED", campaign_id=campaign_id, scene_number=1)
         prepared = _make_scene(status="PREPARED", scene_number=None, campaign_id=campaign_id)
-        db = AsyncMock()
-        db.scalar = AsyncMock(return_value=paused)
 
-        with pytest.raises(SceneServiceError, match="escena abierta"):
-            asyncio.run(activate_scene(db, prepared, activator_user_id=str(uuid.uuid4())))
+        db = AsyncMock()
+        db.scalar = AsyncMock(return_value=None)
+        db.scalars = AsyncMock(
+            side_effect=[
+                MagicMock(all=MagicMock(return_value=[paused])),
+                MagicMock(all=MagicMock(return_value=[])),
+                MagicMock(all=MagicMock(return_value=[])),
+            ]
+        )
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock(side_effect=lambda obj: obj)
+
+        with patch("app.services.scenes.mark_all_campaign_pcs_present_for_scene", new=AsyncMock()):
+            response = asyncio.run(activate_scene(db, prepared, activator_user_id=str(uuid.uuid4())))
+
+        assert paused.status == "CLOSED"
+        assert prepared.status == "ACTIVE"
+        assert response.status == "ACTIVE"
 
 
 class TestDeleteScene:
@@ -120,31 +134,48 @@ class TestDeleteScene:
         db.delete.assert_called_once_with(scene)
         assert db.execute.await_count == 2
 
-    def test_delete_blocks_open_scene(self):
+    def test_delete_allows_active_scene(self):
         scene = _make_scene(status="ACTIVE")
         db = AsyncMock()
+        db.execute = AsyncMock()
+        db.delete = AsyncMock()
+        db.commit = AsyncMock()
 
-        with pytest.raises(SceneServiceError, match="escena abierta"):
+        with patch("app.services.scenes.rag_service.purge_semantic_cache", new=AsyncMock()):
             asyncio.run(delete_scene(db, scene))
 
-    def test_delete_blocks_paused_scene(self):
+        db.delete.assert_called_once_with(scene)
+
+    def test_delete_allows_paused_scene(self):
         scene = _make_scene(status="PAUSED")
         db = AsyncMock()
+        db.execute = AsyncMock()
+        db.delete = AsyncMock()
+        db.commit = AsyncMock()
 
-        with pytest.raises(SceneServiceError, match="escena abierta"):
+        with patch("app.services.scenes.rag_service.purge_semantic_cache", new=AsyncMock()):
             asyncio.run(delete_scene(db, scene))
+
+        db.delete.assert_called_once_with(scene)
 
 
 class TestCreateSceneWithOpenScene:
-    def test_create_active_blocked_when_open_scene_exists(self):
+    def test_create_active_closes_existing_open_scene(self):
         campaign_id = uuid.uuid4()
         open_scene = _make_scene(status="PAUSED", campaign_id=campaign_id)
         campaign = MagicMock()
         db = AsyncMock()
-        db.scalar = AsyncMock(side_effect=[campaign, open_scene])
+        db.scalar = AsyncMock(side_effect=[campaign, 0])
+        db.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[open_scene])))
+        db.add = MagicMock()
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock(side_effect=lambda obj: obj)
 
-        with pytest.raises(SceneServiceError, match="escena abierta"):
-            asyncio.run(
+        with patch(
+            "app.services.scenes.mark_all_campaign_pcs_present_for_scene",
+            new=AsyncMock(),
+        ):
+            response = asyncio.run(
                 create_scene(
                     db,
                     campaign_id,
@@ -152,3 +183,6 @@ class TestCreateSceneWithOpenScene:
                     uuid.uuid4(),
                 )
             )
+
+        assert open_scene.status == "CLOSED"
+        assert response.status == "ACTIVE"

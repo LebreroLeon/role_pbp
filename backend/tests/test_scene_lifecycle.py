@@ -353,6 +353,30 @@ class TestCloseSceneCombatPause:
 
 
 class TestSingleActiveSceneRule:
+    def test_close_other_open_scenes_closes_active_and_paused(self):
+        campaign_id = uuid.uuid4()
+        scene_a = _make_scene(status="ACTIVE", scene_number=1)
+        scene_a.campaign_id = campaign_id
+        scene_b = _make_scene(status="PAUSED", scene_number=2)
+        scene_b.campaign_id = campaign_id
+        keeper = _make_scene(status="PREPARED", scene_number=3)
+        keeper.campaign_id = campaign_id
+
+        db = AsyncMock()
+        db.scalars = AsyncMock(
+            return_value=MagicMock(all=MagicMock(return_value=[scene_a, scene_b]))
+        )
+        db.commit = AsyncMock()
+
+        from app.services.scenes import close_other_open_scenes
+
+        closed = asyncio.run(close_other_open_scenes(db, campaign_id, except_scene_id=keeper.id))
+        assert closed == [scene_a, scene_b]
+        assert scene_a.status == "CLOSED"
+        assert scene_b.status == "CLOSED"
+        assert scene_a.scene_state["metadata"]["status"] == "CLOSED"
+        assert scene_b.scene_state["metadata"]["status"] == "CLOSED"
+
     def test_pause_other_active_scenes_updates_status_and_state(self):
         campaign_id = uuid.uuid4()
         scene_a = _make_scene(status="ACTIVE", scene_number=1)
@@ -366,10 +390,10 @@ class TestSingleActiveSceneRule:
 
         paused = asyncio.run(pause_other_active_scenes(db, campaign_id))
         assert paused == [scene_a, scene_b]
-        assert scene_a.status == "PAUSED"
-        assert scene_b.status == "PAUSED"
-        assert scene_a.scene_state["metadata"]["status"] == "PAUSED"
-        assert scene_b.scene_state["metadata"]["status"] == "PAUSED"
+        assert scene_a.status == "CLOSED"
+        assert scene_b.status == "CLOSED"
+        assert scene_a.scene_state["metadata"]["status"] == "CLOSED"
+        assert scene_b.scene_state["metadata"]["status"] == "CLOSED"
 
     def test_create_scene_pauses_existing_active_before_creating_new(self):
         campaign_id = uuid.uuid4()
@@ -402,7 +426,7 @@ class TestSingleActiveSceneRule:
                 )
             )
 
-        assert existing.status == "PAUSED"
+        assert existing.status == "CLOSED"
         assert response.status == "ACTIVE"
         assert response.scene_number == 1
         db.add.assert_called_once()
@@ -424,9 +448,28 @@ class TestSingleActiveSceneRule:
             new=AsyncMock(),
         ):
             response = asyncio.run(update_scene_status(db, current, "ACTIVE"))
-        assert other.status == "PAUSED"
+        assert other.status == "CLOSED"
         assert current.status == "ACTIVE"
         assert response.status == "ACTIVE"
+
+    def test_update_scene_status_to_paused_closes_other_open_scenes(self):
+        campaign_id = uuid.uuid4()
+        current = _make_scene(status="PREPARED", scene_number=1)
+        current.campaign_id = campaign_id
+        current.scene_number = None
+        current.scene_state["metadata"]["status"] = "PREPARED"
+        other = _make_scene(status="ACTIVE", scene_number=2)
+        other.campaign_id = campaign_id
+
+        db = AsyncMock()
+        db.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[other])))
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock(side_effect=lambda obj: obj)
+
+        response = asyncio.run(update_scene_status(db, current, "PAUSED"))
+        assert other.status == "CLOSED"
+        assert current.status == "PAUSED"
+        assert response.status == "PAUSED"
 
     def test_start_active_scene_rejects_closed(self):
         scene = _make_scene(status="CLOSED", scene_number=1)
@@ -452,6 +495,6 @@ class TestSingleActiveSceneRule:
             new=AsyncMock(),
         ):
             response = asyncio.run(start_active_scene(db, paused))
-        assert active.status == "PAUSED"
+        assert active.status == "CLOSED"
         assert paused.status == "ACTIVE"
         assert response.status == "ACTIVE"
