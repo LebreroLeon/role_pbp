@@ -34,6 +34,7 @@ from app.services.campaigns import (
     CampaignServiceError,
     add_campaign_member,
     create_campaign,
+    delete_campaign,
     get_user_campaign_role,
     list_campaign_members,
     list_user_campaigns,
@@ -103,6 +104,21 @@ async def patch_campaign(
         return await update_campaign(db, campaign_uuid, current_user.id, payload)
     except CampaignServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/{campaign_id}", status_code=204)
+async def delete_campaign_route(
+    campaign_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    campaign_uuid = parse_uuid(campaign_id, "campaign_id")
+    await require_campaign_master(db, current_user, campaign_uuid)
+    try:
+        await delete_campaign(db, campaign_uuid)
+    except CampaignServiceError as exc:
+        status = 404 if "not found" in str(exc).lower() else 400
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 
 @router.delete("/{campaign_id}/members/{user_id}", status_code=204)

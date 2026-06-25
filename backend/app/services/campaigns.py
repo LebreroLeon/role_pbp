@@ -1,9 +1,9 @@
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.campaign import Campaign
+from app.models.campaign import Campaign, CampaignDocument, CampaignEntity, Scene
 from app.models.user import CampaignMember, User
 from app.schemas.campaign_mgmt import (
     CampaignCreate,
@@ -12,6 +12,9 @@ from app.schemas.campaign_mgmt import (
     CampaignResponse,
     CampaignUpdate,
 )
+from app.services.documents import resolve_document_storage_key
+from app.services.object_storage import get_storage_backend
+from app.services.rag import rag_service
 
 
 class CampaignServiceError(ValueError):
@@ -195,3 +198,27 @@ async def remove_campaign_member(
 
     await db.delete(membership)
     await db.commit()
+
+
+async def delete_campaign(db: AsyncSession, campaign_id: uuid.UUID) -> None:
+    campaign = await db.scalar(select(Campaign).where(Campaign.id == campaign_id))
+    if campaign is None:
+        raise CampaignServiceError("Campaign not found")
+
+    campaign_id_str = str(campaign_id)
+    storage = get_storage_backend()
+
+    docs = (
+        await db.scalars(select(CampaignDocument).where(CampaignDocument.campaign_id == campaign_id))
+    ).all()
+    for doc in docs:
+        key = resolve_document_storage_key(doc)
+        if storage.exists(key):
+            storage.delete_object(key)
+
+    await db.execute(delete(Scene).where(Scene.campaign_id == campaign_id))
+    await db.execute(delete(CampaignEntity).where(CampaignEntity.campaign_id == campaign_id))
+    await db.execute(delete(CampaignDocument).where(CampaignDocument.campaign_id == campaign_id))
+    await db.delete(campaign)
+    await db.commit()
+    await rag_service.purge_semantic_cache(db, campaign_id=campaign_id_str)

@@ -831,6 +831,39 @@ select {
   transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
 
+.campaign-card__actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.campaign-card__delete {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.campaign-card__delete:hover {
+  border-color: rgba(233, 69, 96, 0.45);
+  background: var(--accent-rose-soft);
+  color: var(--accent-rose);
+}
+
+.campaign-card__delete:focus-visible {
+  outline: 2px solid var(--accent-rose);
+  outline-offset: 2px;
+}
+
 .campaign-card__edit:hover {
   border-color: rgba(233, 69, 96, 0.35);
   background: var(--bg-surface-hover);
@@ -1076,9 +1109,13 @@ select:focus {
     transform: none;
   }
 
-  .campaign-card__edit {
+  .campaign-card__edit,
+  .campaign-card__delete {
     width: 2.5rem;
     height: 2.5rem;
+  }
+
+  .campaign-card__actions {
     margin-left: auto;
   }
 

@@ -335,6 +335,8 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
+  deleteCampaign: (campaignId: string) =>
+    http<void>(`/api/v1/campaigns/${campaignId}`, { method: "DELETE" }),
   removeCampaignMember: (campaignId: string, userId: string) =>
     http<void>(`/api/v1/campaigns/${campaignId}/members/${userId}`, { method: "DELETE" }),
   loreAssist: (sceneId: string, query: string) =>
