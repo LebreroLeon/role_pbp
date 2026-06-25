@@ -139,6 +139,7 @@ class TestPreparedSceneCrud:
     def test_update_scene_prep_persists_fields(self):
         scene = _make_scene()
         db = AsyncMock()
+        db.scalar = AsyncMock(return_value=None)
         db.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
         db.commit = AsyncMock()
         db.refresh = AsyncMock(side_effect=lambda obj: obj)
@@ -173,6 +174,7 @@ class TestPreparedSceneCrud:
         pc_id = str(pc.id)
 
         db = AsyncMock()
+        db.scalar = AsyncMock(return_value=None)
         db.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[pc])))
         db.commit = AsyncMock()
         db.refresh = AsyncMock(side_effect=lambda obj: obj)
@@ -213,6 +215,7 @@ class TestActivatePreparedScene:
         ]
 
         db = AsyncMock()
+        db.scalar = AsyncMock(return_value=None)
         db.scalars = AsyncMock(
             side_effect=[
                 MagicMock(all=MagicMock(return_value=[])),
@@ -246,6 +249,7 @@ class TestActivatePreparedScene:
         ]
 
         db = AsyncMock()
+        db.scalar = AsyncMock(return_value=None)
         db.scalars = AsyncMock(
             side_effect=[
                 MagicMock(all=MagicMock(return_value=[])),
@@ -302,7 +306,7 @@ class TestActivateSceneNumbering:
         scene.scene_number = None
 
         db = AsyncMock()
-        db.scalar = AsyncMock(return_value=1)
+        db.scalar = AsyncMock(side_effect=[None, 1])
         db.scalars = AsyncMock(
             side_effect=[
                 MagicMock(all=MagicMock(return_value=[])),

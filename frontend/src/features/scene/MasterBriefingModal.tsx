@@ -33,6 +33,7 @@ export function MasterBriefingModal({
   const sceneTitle =
     briefing.display_name?.trim() || formatSceneLabel({ scene_number: null, display_name: briefing.display_name });
   const openSceneLabel = formatOpenSceneLabel(briefing);
+  const blockedByOpenScene = Boolean(briefing.open_scene);
 
   return (
     <Modal
@@ -45,7 +46,7 @@ export function MasterBriefingModal({
           <Button variant="secondary" onClick={onCancel} disabled={activating}>
             Cancelar
           </Button>
-          <Button onClick={onActivate} disabled={activating}>
+          <Button onClick={onActivate} disabled={activating || blockedByOpenScene}>
             {activating ? "Activando…" : "Activar escena"}
           </Button>
         </div>
@@ -59,7 +60,8 @@ export function MasterBriefingModal({
           </p>
           {openSceneLabel && (
             <p>
-              La escena abierta actual ({openSceneLabel}) se pausará automáticamente al activar esta.
+              Hay una escena abierta ({openSceneLabel}). <strong>Ciérrala</strong> en la Mesa del Máster antes de
+              activar otra.
             </p>
           )}
           {briefing.opening_narration?.trim() && (

@@ -1,10 +1,10 @@
 import uuid
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.campaign import Campaign, CampaignEntity, MemoryDocumentType, Scene
+from app.models.campaign import Campaign, CampaignEntity, CampaignMemory, MemoryDocumentType, Scene, SceneMessageLike
 from app.schemas.scene import (
     ChatMessage,
     CloseSceneResponse,
@@ -62,6 +62,9 @@ DEFAULT_NARRATOR_DISPLAY_NAME = "Máster / Narrador"
 MASTER_DICE_ROLL_DISPLAY_NAME = "Máster"
 INTERACTIVE_SCENE_STATUSES = {"ACTIVE"}
 FROZEN_SCENE_DETAIL = "La escena está congelada por el Máster."
+OPEN_SCENE_BLOCK_MESSAGE = (
+    "Hay una escena abierta (activa o pausada). Ciérrala antes de activar otra."
+)
 FALLBACK_SUMMARY_MESSAGE_COUNT = 5
 
 
@@ -647,6 +650,20 @@ async def get_open_scene(db: AsyncSession, campaign_id: uuid.UUID) -> Scene | No
     )
 
 
+async def require_no_other_open_scene(
+    db: AsyncSession,
+    campaign_id: uuid.UUID,
+    *,
+    except_scene_id: uuid.UUID | None = None,
+) -> None:
+    open_scene = await get_open_scene(db, campaign_id)
+    if open_scene is None:
+        return
+    if except_scene_id is not None and open_scene.id == except_scene_id:
+        return
+    raise SceneServiceError(OPEN_SCENE_BLOCK_MESSAGE)
+
+
 async def pause_other_active_scenes(
     db: AsyncSession,
     campaign_id: uuid.UUID,
@@ -684,7 +701,7 @@ async def create_scene(
 
     target_status = payload.status
     if target_status == "ACTIVE":
-        await pause_other_active_scenes(db, campaign_id)
+        await require_no_other_open_scene(db, campaign_id)
 
     turn_order = payload.turn_order or [str(creator_user_id)]
     scene_state = default_scene_state(
@@ -1074,7 +1091,7 @@ async def activate_scene(
     if scene.status == "ACTIVE":
         return scene_to_response(scene)
 
-    await pause_other_active_scenes(db, scene.campaign_id, except_scene_id=scene.id)
+    await require_no_other_open_scene(db, scene.campaign_id, except_scene_id=scene.id)
 
     if scene.scene_number is None:
         scene.scene_number = await _next_assigned_scene_number(db, scene.campaign_id)
@@ -1129,6 +1146,29 @@ async def start_active_scene(
         send_opening_to_chat=send_opening_to_chat,
         activator_user_id=activator_user_id,
     )
+
+
+async def delete_scene(db: AsyncSession, scene: Scene) -> None:
+    if scene.status in ("ACTIVE", "PAUSED"):
+        raise SceneServiceError("No se puede eliminar una escena abierta. Ciérrala primero.")
+
+    scene_id = str(scene.id)
+    campaign_id = str(scene.campaign_id)
+
+    await db.execute(delete(SceneMessageLike).where(SceneMessageLike.scene_id == scene.id))
+    await db.execute(
+        delete(CampaignMemory).where(
+            CampaignMemory.campaign_id == scene.campaign_id,
+            or_(
+                CampaignMemory.metadata_["scene_id"].as_string() == scene_id,
+                CampaignMemory.metadata_["document_id"].astext == scene_id,
+                CampaignMemory.id == scene.id,
+            ),
+        )
+    )
+    await db.delete(scene)
+    await db.commit()
+    await rag_service.purge_semantic_cache(db, campaign_id=campaign_id)
 
 
 async def close_scene(db: AsyncSession, scene: Scene) -> CloseSceneResponse:

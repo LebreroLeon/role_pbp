@@ -1,10 +1,5 @@
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-
-import { api } from "../../api/client";
-import { queryKeys } from "../../api/queryKeys";
 import type { Scene, ScenePickerItem, SceneStatusType } from "../../api/types";
-import { Button, StatusBadge } from "../../components/ui";
+import { StatusBadge } from "../../components/ui";
 import { useCampaignScenesQuery } from "../../hooks/queries/useSceneQueries";
 
 const STATUS_LABELS: Record<SceneStatusType, string> = {
@@ -36,11 +31,8 @@ type CampaignSceneLogProps = {
   isMaster?: boolean;
 };
 
-export function CampaignSceneLog({ campaignId, activeSceneId, isMaster = false }: CampaignSceneLogProps) {
-  const queryClient = useQueryClient();
+export function CampaignSceneLog({ campaignId, activeSceneId }: CampaignSceneLogProps) {
   const { data: scenes = [], isLoading, isError } = useCampaignScenesQuery(campaignId);
-  const [resumingId, setResumingId] = useState<string | null>(null);
-  const [resumeError, setResumeError] = useState<string | null>(null);
 
   const closedScenes = scenes.filter((scene) => scene.status === "CLOSED");
   const closedCount = closedScenes.length;
@@ -51,20 +43,6 @@ export function CampaignSceneLog({ campaignId, activeSceneId, isMaster = false }
     if (!latest) return scene;
     return (scene.scene_number ?? -1) > (latest.scene_number ?? -1) ? scene : latest;
   }, null);
-
-  async function handleResume(sceneId: string) {
-    setResumingId(sceneId);
-    setResumeError(null);
-    try {
-      const updated = await api.activateScene(campaignId, sceneId);
-      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), updated);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
-    } catch (err) {
-      setResumeError(err instanceof Error ? err.message : "No se pudo reanudar la escena");
-    } finally {
-      setResumingId(null);
-    }
-  }
 
   if (isLoading) {
     return <p className="muted">Cargando historial de escenas...</p>;
@@ -97,8 +75,6 @@ export function CampaignSceneLog({ campaignId, activeSceneId, isMaster = false }
         <StatusBadge label="Total" value={String(scenes.length)} ok />
       </div>
 
-      {resumeError && <p className="muted scene-log__error">{resumeError}</p>}
-
       <ol className="scene-log__list">
         {orderedScenes.map((scene) => {
           const isCurrent = scene.status === "ACTIVE" && scene.id === activeSceneId;
@@ -123,17 +99,6 @@ export function CampaignSceneLog({ campaignId, activeSceneId, isMaster = false }
                 ) : (
                   <p className="scene-log__summary-missing muted">Sin resumen registrado.</p>
                 )
-              )}
-              {isMaster && scene.status === "PAUSED" && (
-                <div className="scene-log__actions">
-                  <Button
-                    variant="secondary"
-                    onClick={() => handleResume(scene.id)}
-                    disabled={resumingId === scene.id}
-                  >
-                    {resumingId === scene.id ? "Reanudando…" : "Reanudar"}
-                  </Button>
-                </div>
               )}
             </li>
           );

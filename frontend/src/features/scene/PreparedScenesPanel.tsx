@@ -77,9 +77,12 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
   const [preparedScenes, setPreparedScenes] = useState<ScenePickerItem[]>([]);
   const [closedSceneSummary, setClosedSceneSummary] = useState<string | null>(null);
   const [nextSceneLoading, setNextSceneLoading] = useState(false);
+  const [deleteDialogScene, setDeleteDialogScene] = useState<Scene | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const sortedScenes = useMemo(() => [...scenes].sort(compareScenes), [scenes]);
   const preparedCount = useMemo(() => scenes.filter((scene) => scene.status === "PREPARED").length, [scenes]);
+  const hasOpenScene = Boolean(openScene);
 
   async function invalidate() {
     await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.scenes(campaignId) });
@@ -224,6 +227,32 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
     }
   }
 
+  async function handleDeleteScene() {
+    if (!deleteDialogScene) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await api.deleteScene(deleteDialogScene.id);
+      if (editingScene?.id === deleteDialogScene.id) {
+        setEditingScene(null);
+      }
+      if (briefing?.scene_id === deleteDialogScene.id) {
+        setBriefing(null);
+      }
+      setDeleteDialogScene(null);
+      await invalidate();
+      setToastMessage("Escena eliminada.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo eliminar la escena");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function canDeleteScene(scene: Scene): boolean {
+    return scene.status === "PREPARED" || scene.status === "CLOSED";
+  }
+
   function renderSceneRow(scene: Scene) {
     const current = isCurrentScene(scene, openScene);
     const showMessages = current && (scene.status === "ACTIVE" || scene.status === "PAUSED");
@@ -269,8 +298,21 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
             Editar
           </Button>
           {!current && scene.status === "PREPARED" && (
-            <Button onClick={() => handleRequestActivate(scene)} disabled={loadingBriefing || activatingId === scene.id}>
+            <Button
+              onClick={() => handleRequestActivate(scene)}
+              disabled={hasOpenScene || loadingBriefing || activatingId === scene.id}
+              title={
+                hasOpenScene
+                  ? "Cierra la escena abierta antes de activar otra"
+                  : undefined
+              }
+            >
               {loadingBriefing ? "Cargando…" : "Activar"}
+            </Button>
+          )}
+          {canDeleteScene(scene) && (
+            <Button variant="secondary" onClick={() => setDeleteDialogScene(scene)}>
+              Eliminar
             </Button>
           )}
         </div>
@@ -328,6 +370,28 @@ export function PreparedScenesPanel({ campaignId, onSceneClosed }: PreparedScene
             setBriefing(null);
             setActivatingId(null);
           }}
+        />
+      )}
+
+      {deleteDialogScene && (
+        <ConfirmDialog
+          title="Eliminar escena"
+          description={
+            <>
+              <p>
+                Se eliminará <strong>{formatSceneLabel(deleteDialogScene)}</strong> de forma permanente.
+              </p>
+              <p>
+                Se borrarán <strong>todos los mensajes</strong> de la escena
+                {deleteDialogScene.status === "CLOSED" && " y su resumen si existe"}.
+              </p>
+              <p className="muted">Esta acción no se puede deshacer.</p>
+            </>
+          }
+          confirmLabel="Eliminar escena"
+          onConfirm={handleDeleteScene}
+          onCancel={() => setDeleteDialogScene(null)}
+          confirming={deleting}
         />
       )}
 

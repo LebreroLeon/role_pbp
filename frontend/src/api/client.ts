@@ -176,6 +176,10 @@ export const api = {
     http<import("./types").CloseSceneResponse>(`/api/v1/scenes/${sceneId}/close`, {
       method: "POST",
     }),
+  deleteScene: (sceneId: string) =>
+    http<void>(`/api/v1/scenes/${sceneId}`, {
+      method: "DELETE",
+    }),
   updateScenePrep: (sceneId: string, payload: import("./types").ScenePrepUpdate) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/prep`, {
       method: "PATCH",

@@ -44,6 +44,7 @@ from app.services.scenes import (
     add_player_to_scene_presence,
     close_scene,
     create_scene,
+    delete_scene,
     delete_scene_message,
     ensure_player_pc_present_in_scene,
     ensure_scene_post_allowed,
@@ -273,6 +274,20 @@ async def patch_scene_scratchpad_route(
         raise scene_service_error_to_http(exc) from exc
 
     return await broadcast_scene_update(db, scene, requester_role="MASTER")
+
+
+@router.delete("/{scene_id}", status_code=204)
+async def delete_scene_route(
+    scene_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_campaign_master(db, current_user, scene.campaign_id)
+    try:
+        await delete_scene(db, scene)
+    except SceneServiceError as exc:
+        raise scene_service_error_to_http(exc) from exc
 
 
 @router.post("/{scene_id}/close", response_model=CloseSceneResponse)
