@@ -1,10 +1,10 @@
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useId, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { ApiError } from "../../api/http";
 import type { DocumentType } from "../../api/types";
 import { Sparkles } from "../../components/icons";
-import { Button, ErrorBanner, Input, Panel, PanelHeader, Section } from "../../components/ui";
+import { Button, ErrorBanner, Input, MasterOnlyField, Panel, PanelHeader, Section } from "../../components/ui";
 import { useCreateCampaignMutation } from "../../hooks/mutations/useCampaignMutations";
 import { useUploadDocumentMutation } from "../../hooks/queries/useDocumentQueries";
 import { campaignDefaultPath } from "./campaignRoutes";
@@ -18,6 +18,7 @@ import { InviteMemberForm } from "./InviteMemberForm";
 type WizardStep = 1 | 2 | 3 | 4;
 
 export function CreateCampaignWizard() {
+  const toneFieldId = useId();
   const navigate = useNavigate();
   const [step, setStep] = useState<WizardStep>(1);
   const [name, setName] = useState("");
@@ -125,12 +126,19 @@ export function CreateCampaignWizard() {
                 </ul>
               </div>
             )}
-            <Input
+            <MasterOnlyField
               label="Tono narrativo (opcional)"
-              value={tone}
-              onChange={(e) => setTone(e.target.value)}
-              placeholder="Ej. intriga urbana, horror cósmico, heroico..."
-            />
+              htmlFor={toneFieldId}
+              description="Solo para tu preparación; los jugadores no lo ven en la campaña."
+            >
+              <input
+                id={toneFieldId}
+                type="text"
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+                placeholder="Ej. intriga urbana, horror cósmico, heroico..."
+              />
+            </MasterOnlyField>
             <Button type="submit" disabled={createMutation.isPending || !name.trim()}>
               {createMutation.isPending ? "Creando..." : "Continuar"}
             </Button>

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import type { OocMessage } from "../api/types";
-import { mergeOocMessage, OocChatPanel } from "../features/ooc/OocChatPanel";
+import { mergeOocMessage, OocChatPanel, removeOocMessage } from "../features/ooc/OocChatPanel";
 import type { OocChannelId } from "../features/ooc/oocChannels";
 import { buildOocChannelTabs } from "../features/ooc/oocChannels";
 import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
@@ -12,6 +13,7 @@ import { useCampaignWs } from "../providers/CampaignWsContext";
 
 export function OocChatPage() {
   const { campaignId = "" } = useParams();
+  const queryClient = useQueryClient();
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
   const viewerRole = campaign?.role ?? "PLAYER";
@@ -33,6 +35,9 @@ export function OocChatPage() {
   const [hydrated, setHydrated] = useState(false);
   const [sending, setSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
+  const [deletingMessage, setDeletingMessage] = useState(false);
+  const isMaster = viewerRole === "MASTER";
 
   useEffect(() => {
     if (channelMessages.length === 0) return;
@@ -56,16 +61,21 @@ export function OocChatPage() {
     setHydrated(true);
   }, []);
 
+  const handleMessageDeleted = useCallback((messageId: string) => {
+    setMessages((current) => removeOocMessage(current, messageId));
+  }, []);
+
   const { connected, registerOocHandlers } = useCampaignWs();
 
   useEffect(() => {
     registerOocHandlers({
       onSnapshot: handleSnapshot,
       onMessage: handleMessage,
+      onMessageDeleted: handleMessageDeleted,
       onError: setErrorMessage,
     });
     return () => registerOocHandlers(null);
-  }, [handleSnapshot, handleMessage, registerOocHandlers]);
+  }, [handleSnapshot, handleMessage, handleMessageDeleted, registerOocHandlers]);
 
   const sendPublic = useCallback(
     async (content: string) => {
@@ -101,6 +111,23 @@ export function OocChatPage() {
     [campaignId],
   );
 
+  const confirmDeleteMessage = useCallback(async () => {
+    if (!deleteMessageId || !isMaster) return;
+
+    setDeletingMessage(true);
+    setErrorMessage(null);
+    try {
+      await api.deleteOocMessage(campaignId, deleteMessageId);
+      setMessages((current) => removeOocMessage(current, deleteMessageId));
+      setDeleteMessageId(null);
+      await queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId, "ooc", "messages"] });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "No se pudo borrar el mensaje");
+    } finally {
+      setDeletingMessage(false);
+    }
+  }, [campaignId, deleteMessageId, isMaster, queryClient]);
+
   const markOocRead = useCallback(() => {
     api.markOocRead(campaignId).catch(() => undefined);
   }, [campaignId]);
@@ -128,6 +155,11 @@ export function OocChatPage() {
         errorMessage={errorMessage}
         onSendPublic={sendPublic}
         onSendWhisper={sendWhisper}
+        onDeleteMessage={isMaster ? setDeleteMessageId : undefined}
+        deleteMessageId={deleteMessageId}
+        onConfirmDelete={confirmDeleteMessage}
+        onCancelDelete={() => setDeleteMessageId(null)}
+        deletingMessage={deletingMessage}
       />
     </div>
   );

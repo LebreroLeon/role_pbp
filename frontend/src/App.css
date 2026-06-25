@@ -890,8 +890,28 @@
 
 .chat-composer__attach {
   flex-shrink: 0;
-  min-width: 2.75rem;
-  padding-inline: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.chat-composer__attach:hover:not(:disabled) {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.chat-composer__attach:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .chat-composer__input-wrap textarea,

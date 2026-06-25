@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import type { CampaignMember, OocMessage } from "../../api/types";
-import { Button, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../../components/ui";
+import { Button, ConfirmDialog, ErrorBanner, Panel, PanelHeader, StatusBadge } from "../../components/ui";
 import { SECTION_ICONS } from "../../components/icons";
 import { useAuthStore } from "../../stores/authStore";
+import { ChatMessageDeleteButton } from "../scene/ChatMessageDeleteButton";
 import {
   buildOocChannelTabs,
   filterMessagesByChannel,
@@ -23,6 +24,11 @@ type OocChatPanelProps = {
   errorMessage: string | null;
   onSendPublic: (content: string) => Promise<void>;
   onSendWhisper: (content: string, targetUserId: string) => Promise<void>;
+  onDeleteMessage?: (messageId: string) => void;
+  deleteMessageId?: string | null;
+  onConfirmDelete?: () => void;
+  onCancelDelete?: () => void;
+  deletingMessage?: boolean;
 };
 
 function formatTime(iso: string): string {
@@ -43,6 +49,10 @@ export function mergeOocMessage(existing: OocMessage[], message: OocMessage): Oo
   return mergeMessages(existing, [message]);
 }
 
+export function removeOocMessage(existing: OocMessage[], messageId: string): OocMessage[] {
+  return existing.filter((message) => message.id !== messageId);
+}
+
 export function OocChatPanel({
   members,
   viewerRole,
@@ -54,6 +64,11 @@ export function OocChatPanel({
   errorMessage,
   onSendPublic,
   onSendWhisper,
+  onDeleteMessage,
+  deleteMessageId = null,
+  onConfirmDelete,
+  onCancelDelete,
+  deletingMessage = false,
 }: OocChatPanelProps) {
   const currentUserId = useAuthStore((state) => state.user?.id ?? "");
   const [draft, setDraft] = useState("");
@@ -72,6 +87,7 @@ export function OocChatPanel({
   );
 
   const isPrivateChannel = activeChannel !== "all";
+  const isMaster = viewerRole === "MASTER";
 
   useEffect(() => {
     const feed = feedRef.current;
@@ -166,9 +182,14 @@ export function OocChatPanel({
                         )}
                       </div>
                     </div>
-                    <time className="chat-card__time" dateTime={message.created_at}>
-                      {formatTime(message.created_at)}
-                    </time>
+                    <div className="chat-card__meta">
+                      {isMaster && onDeleteMessage && (
+                        <ChatMessageDeleteButton onClick={() => onDeleteMessage(message.id)} />
+                      )}
+                      <time className="chat-card__time" dateTime={message.created_at}>
+                        {formatTime(message.created_at)}
+                      </time>
+                    </div>
                   </header>
                   <p className="chat-card__body">{message.content}</p>
                 </article>
@@ -199,6 +220,17 @@ export function OocChatPanel({
           </Button>
         </div>
       </form>
+
+      {deleteMessageId && onConfirmDelete && onCancelDelete && (
+        <ConfirmDialog
+          title="Eliminar mensaje OOC"
+          description="¿Seguro que quieres eliminar este mensaje del chat fuera de personaje?"
+          confirmLabel="Eliminar"
+          onConfirm={onConfirmDelete}
+          onCancel={onCancelDelete}
+          confirming={deletingMessage}
+        />
+      )}
     </Panel>
   );
 }

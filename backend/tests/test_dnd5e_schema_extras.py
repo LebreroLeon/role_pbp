@@ -106,3 +106,11 @@ class TestDnd5eSheetIdentityAndAttacks:
             }
         )
         assert sheet.speed == "12 m (40 pies), nadar 12 m (40 pies)"
+
+    def test_identity_serializes_class_alias(self):
+        sheet = Dnd5eSheet.model_validate(
+            {"identity": {"class": "Guerrero", "level": 3, "background": "", "race": "", "alignment": ""}}
+        )
+        dumped = sheet.model_dump(mode="json")
+        assert dumped["identity"]["class"] == "Guerrero"
+        assert "class_" not in dumped["identity"]

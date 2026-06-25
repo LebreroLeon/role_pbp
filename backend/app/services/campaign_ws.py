@@ -94,6 +94,37 @@ class CampaignConnectionManager:
                 logger.debug("Dropping stale websocket for campaign %s", campaign_id)
                 self.disconnect(campaign_id, websocket)
 
+    async def broadcast_ooc_message_deleted(
+        self,
+        campaign_id: str,
+        payload: dict[str, Any],
+    ) -> None:
+        message_type = str(payload.get("message_type", ""))
+        author_user_id = str(payload.get("author_user_id", ""))
+        target_user_id = payload.get("target_user_id")
+        target_user_id_str = str(target_user_id) if target_user_id else None
+        message_id = str(payload.get("id", ""))
+
+        room = list(self._rooms.get(campaign_id, {}).items())
+        for websocket, user_id in room:
+            if not user_can_see_ooc_message(
+                message_type,
+                author_user_id,
+                target_user_id_str,
+                str(user_id),
+            ):
+                continue
+            try:
+                await websocket.send_json(
+                    {
+                        "event": "ooc_message_deleted",
+                        "message_id": message_id,
+                    },
+                )
+            except Exception:
+                logger.debug("Dropping stale websocket for campaign %s", campaign_id)
+                self.disconnect(campaign_id, websocket)
+
     async def broadcast_unread_counts(self, db: AsyncSession, campaign_id: str) -> None:
         campaign_uuid = uuid.UUID(campaign_id)
         room = list(self._rooms.get(campaign_id, {}).items())

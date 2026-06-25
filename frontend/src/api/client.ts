@@ -82,6 +82,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ content, target_user_id: targetUserId }),
     }),
+  deleteOocMessage: (campaignId: string, messageId: string) =>
+    http<void>(`/api/v1/campaigns/${campaignId}/ooc/messages/${messageId}`, {
+      method: "DELETE",
+    }),
   getUnreadCounts: (campaignId: string) =>
     http<import("./types").UnreadCounts>(`/api/v1/campaigns/${campaignId}/unread-counts`),
   markOocRead: (campaignId: string) =>

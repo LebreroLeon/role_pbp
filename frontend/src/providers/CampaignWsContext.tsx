@@ -18,6 +18,7 @@ const HEARTBEAT_INTERVAL_MS = 45_000;
 type CampaignWsEvent =
   | { event: "ooc_snapshot"; messages: OocMessage[] }
   | { event: "ooc_message"; message: OocMessage }
+  | { event: "ooc_message_deleted"; message_id: string }
   | { event: "unread_counts"; play: number; ooc: number }
   | { event: "presence_snapshot"; online_user_ids: string[] }
   | { event: "presence_update"; online_user_ids: string[] }
@@ -27,6 +28,7 @@ type CampaignWsEvent =
 export type OocWsHandlers = {
   onSnapshot?: (messages: OocMessage[]) => void;
   onMessage?: (message: OocMessage) => void;
+  onMessageDeleted?: (messageId: string) => void;
   onError?: (detail: string) => void;
 };
 
@@ -86,6 +88,8 @@ export function CampaignWsProvider({ campaignId, children, onUnreadCounts }: Cam
           oocHandlersRef.current.onSnapshot?.(data.messages);
         } else if (data.event === "ooc_message") {
           oocHandlersRef.current.onMessage?.(data.message);
+        } else if (data.event === "ooc_message_deleted") {
+          oocHandlersRef.current.onMessageDeleted?.(data.message_id);
         } else if (data.event === "unread_counts") {
           onUnreadCountsRef.current?.({ play: data.play, ooc: data.ooc });
         } else if (data.event === "error" && data.detail) {

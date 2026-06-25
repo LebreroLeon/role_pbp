@@ -401,7 +401,10 @@ function readSheetIdentity(raw: unknown): Dnd5eSheet["identity"] {
   if (!raw || typeof raw !== "object") return defaults;
   const entry = raw as Record<string, unknown>;
 
-  const classDirect = readString(entry.class, "");
+  const classDirect = readString(
+    entry.class ?? (entry as { class_?: string }).class_,
+    "",
+  );
   const levelDirect = typeof entry.level === "number" ? entry.level : undefined;
 
   if (classDirect || levelDirect !== undefined) {
@@ -630,10 +633,7 @@ export function mergeDnd5eSheetDefaults(raw: unknown): Dnd5eSheet {
   return {
     ...defaults,
     ...(entry as Partial<Dnd5eSheet>),
-    identity: {
-      ...defaults.identity,
-      ...(typeof entry.identity === "object" && entry.identity ? (entry.identity as Dnd5eSheet["identity"]) : {}),
-    },
+    identity: readSheetIdentity(entry.identity),
     roleplay: {
       ...defaults.roleplay,
       ...(typeof entry.roleplay === "object" && entry.roleplay ? (entry.roleplay as Dnd5eSheet["roleplay"]) : {}),

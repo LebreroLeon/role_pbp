@@ -221,7 +221,7 @@ def validate_npc_sheet_for_campaign(
         raise EntityValidationError(str(exc)) from exc
 
     if isinstance(validated, BaseModel):
-        return validated.model_dump(mode="json")
+        return validated.model_dump(mode="json", by_alias=True)
     if isinstance(validated, dict):
         return validated
     raise EntityValidationError("validate_npc_sheet must return a dict or BaseModel")
@@ -254,7 +254,7 @@ def validate_pc_sheet_for_campaign(
         raise EntityValidationError(str(exc)) from exc
 
     if isinstance(validated, BaseModel):
-        return validated.model_dump(mode="json")
+        return validated.model_dump(mode="json", by_alias=True)
     if isinstance(validated, dict):
         return validated
     raise EntityValidationError("validate_pc_sheet must return a dict or BaseModel")

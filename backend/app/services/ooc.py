@@ -306,3 +306,28 @@ async def post_ooc_whisper(
     author_name = await _get_user_display_name(db, author_user_id)
     target_name = await _get_user_display_name(db, target_user_id)
     return _message_to_response(message, author_name, target_name)
+
+
+async def delete_ooc_message(
+    db: AsyncSession,
+    campaign_id: uuid.UUID,
+    message_id: uuid.UUID,
+) -> dict[str, str | None]:
+    message = await db.scalar(
+        select(CampaignOocMessage).where(
+            CampaignOocMessage.id == message_id,
+            CampaignOocMessage.campaign_id == campaign_id,
+        )
+    )
+    if message is None:
+        raise OocServiceError("Message not found")
+
+    payload = {
+        "id": str(message.id),
+        "message_type": message.message_type,
+        "author_user_id": str(message.author_user_id),
+        "target_user_id": str(message.target_user_id) if message.target_user_id else None,
+    }
+    await db.delete(message)
+    await db.commit()
+    return payload

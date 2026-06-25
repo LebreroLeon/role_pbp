@@ -1,15 +1,16 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, parse_uuid, require_campaign_member
+from app.api.deps import get_current_user, parse_uuid, require_campaign_master, require_campaign_member
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.ooc import OocMessageResponse, OocPublicMessageCreate, OocWhisperMessageCreate
 from app.services.campaign_ws import campaign_ws_manager
 from app.services.ooc import (
     OocServiceError,
+    delete_ooc_message,
     list_ooc_messages,
     post_ooc_public,
     post_ooc_whisper as create_ooc_whisper,
@@ -89,3 +90,23 @@ async def create_ooc_whisper_message(
     )
     await campaign_ws_manager.broadcast_unread_counts(db, campaign_id)
     return message
+
+
+@router.delete("/{campaign_id}/ooc/messages/{message_id}", status_code=204)
+async def delete_ooc_message_route(
+    campaign_id: str,
+    message_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    campaign_uuid = parse_uuid(campaign_id, "campaign_id")
+    message_uuid = parse_uuid(message_id, "message_id")
+    await require_campaign_master(db, current_user, campaign_uuid)
+    try:
+        deleted = await delete_ooc_message(db, campaign_uuid, message_uuid)
+    except OocServiceError as exc:
+        raise _ooc_error_to_http(exc) from exc
+
+    await campaign_ws_manager.broadcast_ooc_message_deleted(campaign_id, deleted)
+    await campaign_ws_manager.broadcast_unread_counts(db, campaign_id)
+    return Response(status_code=204)

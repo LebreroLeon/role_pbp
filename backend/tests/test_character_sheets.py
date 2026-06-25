@@ -227,6 +227,23 @@ class TestPcSheetValidation:
         assert stored["abilities"]["str"] == 16
         assert stored["attacks"][0]["damage_dice"] == "1d4"
 
+    def test_backend_flat_sheet_roundtrip_preserves_class(self):
+        """Sheet identity.class must survive validate + model_dump (not class_)."""
+        frontend = _frontend_dnd5e_sheet()
+        frontend["identity"]["class"] = "Paladín"
+        frontend["identity"]["level"] = 5
+
+        document = _pc_document_with_typed_sheet(frontend)
+        normalized = normalize_entity_document_for_campaign(
+            campaign_game_system="dnd5e",
+            entity_type=EntityType.PC,
+            document=document,
+        )
+        stored_identity = normalized["system_mechanics"]["sheet"]["identity"]
+        assert stored_identity["class"] == "Paladín"
+        assert "class_" not in stored_identity
+        assert stored_identity["level"] == 5
+
     def test_put_entity_attack_damage_dice_and_type_persist(self):
         """Frontend nested attack payload must survive entity PUT normalization."""
         frontend = _frontend_dnd5e_sheet()

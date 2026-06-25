@@ -289,3 +289,57 @@ async def test_get_ooc_messages_passes_channel_filter(override_db, mock_db):
 
     assert response.status_code == 200
     list_messages.assert_awaited_once_with(mock_db, campaign_id, user.id, channel="all")
+
+
+@pytest.mark.asyncio
+async def test_delete_ooc_message_requires_master(override_db):
+    user = _make_user()
+    campaign_id = uuid.uuid4()
+    message_id = uuid.uuid4()
+    _override_user(user)
+
+    with patch("app.api.routes.ooc.require_campaign_master", new_callable=AsyncMock) as require_master:
+        from fastapi import HTTPException
+
+        require_master.side_effect = HTTPException(status_code=403, detail="Master role required")
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.delete(
+                f"/api/v1/campaigns/{campaign_id}/ooc/messages/{message_id}",
+            )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_delete_ooc_message_broadcasts_and_returns_204(override_db, mock_db):
+    user = _make_user()
+    campaign_id = uuid.uuid4()
+    message_id = uuid.uuid4()
+    _override_user(user)
+    deleted_payload = {
+        "id": str(message_id),
+        "message_type": "OOC_PUBLIC",
+        "author_user_id": str(user.id),
+        "target_user_id": None,
+    }
+
+    with (
+        patch("app.api.routes.ooc.require_campaign_master", new_callable=AsyncMock, return_value="MASTER"),
+        patch("app.api.routes.ooc.delete_ooc_message", new_callable=AsyncMock, return_value=deleted_payload) as delete,
+        patch(
+            "app.api.routes.ooc.campaign_ws_manager.broadcast_ooc_message_deleted",
+            new_callable=AsyncMock,
+        ) as broadcast_deleted,
+        patch("app.api.routes.ooc.campaign_ws_manager.broadcast_unread_counts", new_callable=AsyncMock),
+    ):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.delete(
+                f"/api/v1/campaigns/{campaign_id}/ooc/messages/{message_id}",
+            )
+
+    assert response.status_code == 204
+    delete.assert_awaited_once_with(mock_db, campaign_id, message_id)
+    broadcast_deleted.assert_awaited_once_with(str(campaign_id), deleted_payload)

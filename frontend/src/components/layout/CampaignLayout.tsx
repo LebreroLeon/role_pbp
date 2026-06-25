@@ -72,7 +72,7 @@ export function CampaignLayout() {
       <header className="campaign-shell__header">
         <div>
           <h2 className="campaign-shell__title">{campaign.name}</h2>
-          {campaign.tone && <p className="muted campaign-shell__meta">{campaign.tone}</p>}
+          {isMaster && campaign.tone && <p className="muted campaign-shell__meta">{campaign.tone}</p>}
           <CampaignStatusBadges
             campaign={campaign}
             openScene={openScene}

@@ -1,7 +1,7 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useId, useState } from "react";
 
 import type { Campaign } from "../../api/types";
-import { Button, ErrorBanner, Input } from "../../components/ui";
+import { Button, ErrorBanner, Input, MasterOnlyField } from "../../components/ui";
 import { useUpdateCampaignMutation } from "../../hooks/mutations/useCampaignMutations";
 import { gameSystemLabel } from "./gameSystems";
 
@@ -24,6 +24,7 @@ export function CampaignBasicSettingsForm({
   onSaved,
   onPendingChange,
 }: CampaignBasicSettingsFormProps) {
+  const toneFieldId = useId();
   const mutation = useUpdateCampaignMutation(campaignId);
   const [name, setName] = useState(campaign?.name ?? "");
   const [tone, setTone] = useState(campaign?.tone ?? "");
@@ -62,7 +63,19 @@ export function CampaignBasicSettingsForm({
         <strong>Sistema:</strong> {gameSystemLabel(campaign?.game_system)}
       </p>
       <Input label="Nombre" value={name} onChange={(event) => setName(event.target.value)} required autoFocus={!showHeading} />
-      <Input label="Tono narrativo" value={tone} onChange={(event) => setTone(event.target.value)} />
+      <MasterOnlyField
+        label="Tono narrativo"
+        htmlFor={toneFieldId}
+        description="Solo para tu preparación; los jugadores no lo ven en la campaña."
+      >
+        <input
+          id={toneFieldId}
+          type="text"
+          value={tone}
+          onChange={(event) => setTone(event.target.value)}
+          placeholder="Ej. intriga urbana, horror cósmico, heroico..."
+        />
+      </MasterOnlyField>
       {error && <ErrorBanner message={error} />}
       {savedMessage && <p className="muted">{savedMessage}</p>}
       {!hideSubmitButton && (

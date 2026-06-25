@@ -43,7 +43,7 @@ export function CampaignCardItem({ campaign }: CampaignCardItemProps) {
             </span>
             <div className="campaign-card__body">
               <strong>{campaign.name}</strong>
-              {campaign.tone && <p className="muted">{campaign.tone}</p>}
+              {isMaster && campaign.tone && <p className="muted">{campaign.tone}</p>}
               <CampaignStatusBadges
                 campaign={campaign}
                 openScene={openScene}

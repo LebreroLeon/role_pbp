@@ -104,9 +104,9 @@ def normalize_sheet_identity(raw: object) -> dict[str, Any]:
 
 
 class SheetIdentityBlock(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
-    class_: str = Field(default="", alias="class")
+    class_: str = Field(default="", validation_alias="class", serialization_alias="class")
     level: int = Field(default=1, ge=1, le=20)
     background: str = ""
     race: str = ""

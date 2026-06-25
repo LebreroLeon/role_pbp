@@ -1,9 +1,9 @@
-# El Último Trago de Neverwinter — Pack de playtest RolePBP (v3)
+# El Último Trago de Neverwinter — Pack de playtest RolePBP (v3.5 - Optimizado)
 
 > **Mini-campaña de prueba** · D&D 5e · Faerûn (Costa de la Espada) · 5 escenas async (~15–20 mensajes cada una)  
-> **Tono:** western claustrofóbico en Faerûn — salón cerrado, moral gris, diálogo adulto con filo. Referencia atmosférica: *Reservoir Dogs*, *Pulp Fiction*, *The Hateful Eight* (paranoia de salón, no copiar escenas). No es aventura infantil: gente real con sangre en las uñas.
+> **Tono:** Western claustrofóbico en Faerûn — salón cerrado, moral podrida, diálogo adulto con filo de navaja. Referencia atmosférica: *Reservoir Dogs*, *The Hateful Eight* (paranoia de salón, sospecha constante). No es fantasía heroica infantil: gente real con cicatrices en el alma y sangre vieja bajo las uñas.
 
-**Premisa en una línea:** Una ventisca cierra el Paso del Cuervo Blanco; diez almas atrapadas en la Posada del Paso Helado descubren que alguien mintió sobre por qué está ahí — y el último trago de la noche no será para todos.
+**Premisa en una línea:** Una ventisca indomable cierra el Paso del Cuervo Blanco; diez almas atrapadas en la Posada del Paso Helado descubren que todos han mentido sobre por qué están allí — y el último trago de la noche se servirá sobre un cadáver.
 
 ---
 
@@ -37,13 +37,13 @@
 Guía interna para Shadow Master / DM. Pegar en Ajustes de campaña (los jugadores no ven este campo):
 
 ```
-Western claustrofóbico en Faerûn: una noche, un salón, diez extraños. Ritmo de sala de interrogatorio — diálogo largo, adulto, acusatorio — antes de que la violencia estalle; cuando llegue, íntima y audible (hueso, respiración rota), no coreografía de feria. Humor negro seco entre gente educada que se odia.
+Western claustrofóbico de aislamiento térmico y hostilidad moral: una noche, un salón de piedra mal escuadrada, diez extraños. Ritmo de sala de interrogatorio. El diálogo largo, sibilino, acusatorio y pasivo-agresivo precede a la violencia; cuando esta estalla, es íntima, visceral y audible (hueso astillado, respiración rota), nunca una coreografía de feria heroica. Humor negro seco, cortante, entre gente educada que se odia a muerte.
 
-Sensorial siempre: cerveza rancia, lana mojada, hierro, tablas que crujen, miradas que tardan un segundo de más. Los PJ descubren inconsistencias jugando; no anuncies el tema ni prediques que «todos mienten».
+Sensorial y decadente siempre: vaho denso, grasa de buey rancia, hollín sordo, lana mojada podrida por la nieve, el crujido de tablones combados por la humedad y miradas hostiles que tardan un segundo de más en apartarse. Los PJ deben descubrir las inconsistencias investigando físicamente el entorno y los sutiles tics físicos; no anuncies los temas ni prediques que «todos mienten».
 
-Casting: arquetipo y raza no marcan culpa. El drow puede ser el más limpio; la «clériga» puede ser farsante; el «paladín» puede ser rata de oro.
+Casting implacable: el arquetipo y la raza no dictan la culpa. El drow es el único protector real; la clériga es una envenenadora fugitiva; el paladín es un saqueador de tumbas cínico; el medio-orco es un ejecutor frío.
 
-Adulto: heridas viscerales, lenguaje soez cuando caen las máscaras, tortura solo si los PJ la provocan (información mezclada, coste moral). La muerte importa. Referencia atmosférica Tarantino-adult (paranoia de salón, traición personal) — sin copiar escenas ni nombres.
+Adulto: heridas viscerales, lenguaje descarnado cuando caen las máscaras, tortura psicológica y física si los PJ la provocan (obteniendo información mezclada con mentiras desesperadas, alto coste moral). La muerte importa. Paranoia de salón donde cada acusación es mitad verdad y mitad veneno.
 ```
 
 ### Post cinematográfico de apertura — **visible para jugadores** (enviar ANTES de activar Escena 1)

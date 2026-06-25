@@ -1,7 +1,7 @@
 import { FormEvent, KeyboardEvent, ChangeEvent, useMemo, useRef, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
 
-import { Button } from "../../components/ui";
+import { Button, Tooltip } from "../../components/ui";
 import type { MessageType } from "./messageTypes";
 import { MESSAGE_TYPE_META } from "./messageTypes";
 import { filterMentionOptions, type MentionOption } from "./mentionOptions";
@@ -273,16 +273,17 @@ export function ChatComposer({
               onChange={handleImageChange}
               disabled={disabled || imageUploading}
             />
-            <Button
-              type="button"
-              variant="secondary"
-              className="chat-composer__attach"
-              disabled={disabled || imageUploading}
-              onClick={() => fileInputRef.current?.click()}
-              aria-label="Adjuntar imagen"
-            >
-              <ImagePlus size={18} aria-hidden />
-            </Button>
+            <Tooltip content="Adjuntar imagen">
+              <button
+                type="button"
+                className="chat-composer__attach"
+                disabled={disabled || imageUploading}
+                onClick={() => fileInputRef.current?.click()}
+                aria-label="Adjuntar imagen"
+              >
+                <ImagePlus size={15} aria-hidden />
+              </button>
+            </Tooltip>
           </>
         )}
         <Button type="submit" disabled={disabled || !canSubmit}>
