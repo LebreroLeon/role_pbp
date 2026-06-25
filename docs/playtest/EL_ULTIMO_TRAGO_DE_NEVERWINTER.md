@@ -37,13 +37,13 @@
 Guía interna para Shadow Master / DM. Pegar en Ajustes de campaña (los jugadores no ven este campo):
 
 ```
-Western claustrofóbico de aislamiento térmico y hostilidad moral: una noche, un salón de piedra mal escuadrada, diez extraños. Ritmo de sala de interrogatorio. El diálogo largo, sibilino, acusatorio y pasivo-agresivo precede a la violencia; cuando esta estalla, es íntima, visceral y audible (hueso astillado, respiración rota), nunca una coreografía de feria heroica. Humor negro seco, cortante, entre gente educada que se odia a muerte.
+Western claustrofóbico de aislamiento térmico y hostilidad moral: una noche, un salón de piedra mal escuadrada, una mortal tormenta gélida y varios extraños. Ritmo de sala de interrogatorio. El diálogo largo, sibilino, acusatorio y pasivo-agresivo precede a la violencia; cuando esta estalla, es íntima, visceral y audible (hueso astillado, respiración rota), nunca una coreografía de feria heroica. Humor negro seco, cortante, entre gente educada que se odia a muerte.
 
-Sensorial y decadente siempre: vaho denso, grasa de buey rancia, hollín sordo, lana mojada podrida por la nieve, el crujido de tablones combados por la humedad y miradas hostiles que tardan un segundo de más en apartarse. Los PJ deben descubrir las inconsistencias investigando físicamente el entorno y los sutiles tics físicos; no anuncies los temas ni prediques que «todos mienten».
+Sensorial y decadente siempre: vaho denso, grasa de buey rancia, hollín sordo, lana mojada podrida por la nieve, el crujido de tablones combados por la humedad y miradas hostiles que tardan un segundo de más en apartarse. Los PJ deben descubrir las inconsistencias investigando físicamente el entorno y los sutiles tics físicos, también interrogando o conversando con los extraños de la posada; no anuncies los temas ni prediques que «todos mienten».
 
-Casting implacable: el arquetipo y la raza no dictan la culpa. El drow es el único protector real; la clériga es una envenenadora fugitiva; el paladín es un saqueador de tumbas cínico; el medio-orco es un ejecutor frío.
+Nadie dice la verdad del todo, todo el mundo tiene algo que ocultar, pronto empezarán a acusarse entre ellos y se creará una confusión sobre quién es el culpable.
 
-Adulto: heridas viscerales, lenguaje descarnado cuando caen las máscaras, tortura psicológica y física si los PJ la provocan (obteniendo información mezclada con mentiras desesperadas, alto coste moral). La muerte importa. Paranoia de salón donde cada acusación es mitad verdad y mitad veneno.
+Adulto: heridas viscerales, lenguaje descarnado cuando caen las máscaras, insultos, tortura psicológica y física si los PJ la provocan (obteniendo información mezclada con mentiras desesperadas, alto coste moral). La muerte importa. Paranoia de salón donde cada acusación es mitad verdad y mitad veneno.
 ```
 
 ### Post cinematográfico de apertura — **visible para jugadores** (enviar ANTES de activar Escena 1)
@@ -53,15 +53,15 @@ Pegar como primer mensaje del máster en el canal, sin roster activo aún:
 ```
 [CINEMÁTICA — solo lectura]
 
-El Paso del Cuervo Blanco no perdona. La nieve no cae: presiona. Cada copo seco contra la capucha suena a uña.
+El Paso del Cuervo Blanco no perdona. La ventisca no cae: presiona como un muro blanco. Cada copo seco contra el cuero de vuestras capuchas suena como una uña rascando un ataúd. Neverwinter queda atrás, un recuerdo borroso sepultado bajo el gris implacable de las montañas.
 
-Neverwinter queda atrás como neón borroso bajo el gris. Delante, la Posada del Paso Helado — dos ventanas amarillas empañadas, humo que no alcanza a tapar el estofado rancio ni el sudor viejo de lana. Un cuervo blanco en el poste del umbral. No grazna. Espera.
+Delante, plantada en mitad de la nada helada, emerge la Posada del Paso Helado: una mole de piedra tosca que exhala un humo espeso y negro por la turba húmeda. Sus ventanas amarillentas y empañadas no invitan a entrar; parecen los ojos ictericios de un animal moribundo. Un cuervo blanco, congelado sobre el poste del umbral, tiene una costra de hielo en el pico. No grazna. Os juzga en silencio.
 
-Empujáis la puerta. El calor os golpea de golpe; dentro, ocho siluetas ya rodean la chimenea — tiefling con tabardo demasiado blanco, elfa con las manos en el vientre, halfling con mandolina sin tocar, dracónida apretando un maletín con sello. Nadie levanta la vista del fuego de inmediato. En la barra, una mujer de delantal cuenta jarras como fichas.
+Empujáis la pesada puerta de roble. El calor de la sala común os golpea como un puñetazo: huele a grasa de buey rancia, hollín sordo, calzados podridos y alcohol de patata de baja estofa. Dentro, ocho siluetas ya rodean la chimenea de piedra negra. Un tiefling con un tabardo blanco demasiado pulcro; una elfa joven que se aferra el vientre con manos trémulas; un halfling que acaricia una mandolina sin llegar a tocarla; una dracónida que aprieta contra su pecho un maletín de hierro sellado con lacre escarlata. Nadie levanta la vista del fuego de inmediato. En la barra, una mujer de delantal manchado cuenta jarras gastadas como si contara dientes.
 
-Fuera, el viento cierra la puerta detrás de vosotros con un clic seco.
+Fuera, una ráfaga salvaje cierra la puerta detrás de vosotros con un golpe seco y el clic definitivo del cerrojo.
 
-Bienvenidos. La tormenta acaba de empezar.
+Bienvenidos a la Posada del Paso Helado. La tormenta de vuestras vidas acaba de empezar.
 ```
 
 ### Consultas de ejemplo para Shadow Master (modo `campaign`) — 🔒 SOLO MÁSTER
@@ -97,9 +97,9 @@ Crear **una sola** entidad de tipo **Arco narrativo** en Mundo.
 | Campo              | Valor                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **title**          | `El Último Trago`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **global_summary** | `Ventisca en el Paso del Cuervo Blanco. Diez máscaras en la Posada del Paso Helado y un cofre de la Alianza que no contiene oro sino plaga sellada, mapas de armas de la Guerra de la Corona y cartas que podrían incendiar Neverwinter. Un drow con capa de ceniza que parece asesino a sueldo pero vino a blindar un nombre muerto. Una «hermana de Ilmater» que en realidad aprendió venenos en Calimport y usa el símbolo como camuflaje — y aun así está salvando a alguien esta noche. Un tiefling con tabardo robado que todos llaman «paladín» y que cuenta monedas como quien cuenta pecados. Un medio-orco con cuchillo de cocina que parece el lobo de la historia pero no ha matado a nadie en diez años — la posadera humana sí enterró tres hombres en una avalancha «accidental». Sangre en el techo, un mozo estrangulado, pólvora sobre la mesa. Nadie sale hasta que amaine la tormenta o hasta el último trago. Paranoia como motor; cada acusación es mitad verdad y mitad veneno.` |
+| **global_summary** | `Ventisca hostil en el Paso del Cuervo Blanco. Diez máscaras cínicas atrapadas en la Posada del Paso Helado alrededor de un cofre de la Alianza de los Lores que esconde un vial de plaga sellada, mapas de armas prohibidas de la Guerra de la Corona y cartas de chantaje político capaces de reducir Neverwinter a cenizas. Un drow con capa de ceniza que simula ser un asesino a sueldo pero actúa como escudo secreto de un legado maldito. Una «hermana de Ilmater» que es una envenenadora huida de Calimport, camuflada tras rezos falsos. Un tiefling con tabardo robado de paladín que cuenta monedas para pagar una deuda de sangre. Un cocinero medio-orco que es un ejecutor de los Zhentarim y una posadera que enterró a tres hombres bajo una avalancha provocada. Nadie sale limpio; la paranoia es el único motor de la noche.` |
 | **current_act**    | `1` (subir en cada escena hasta `5`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| **narrative_tone** | `Suspenso íntimo, diálogo afilado, moral podrida, traición personal, violencia visceral contenida hasta que estalla`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **narrative_tone** | `Claustrofobia pura, diálogo afilado y pasivo-agresivo, moral podrida, violencia visceral contenida hasta que detona.`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ### `active_quests` (5 misiones — una por escena)
 
@@ -182,22 +182,25 @@ Crear 5 escenas con estado **PREPARED**. Tras crear cada una, abrir el editor de
 **opening_narration**:
 
 ```
-El viento golpea la Posada del Paso Helado como si quisiera entrar sin pagar. Nieve pegada a las ventanas, humo de hogar barato, el crujido de tablones que han visto demasiadas noches malas. En el umbral, el frío os muerde la espalda; dentro, el calor huele a estofado, cerveza rancia y algo metálico — sangre vieja en las grietas del suelo, sin duda.
+El viento aúlla fuera como un lobo atrapado en un cepo, golpeando los muros de piedra de la Posada del Paso Helado. Dentro, el aire es denso, cargado de vapor de lana mojada, el hedor rancio de un guiso indigerible y un persistente fondo metálico que evoca sangre vieja incrustada en las grietas del suelo combado.
 
-Maelis Verdecuervo, la posadera, no sonríe del todo: «Quedan tres habitaciones. Diez bocas. La tormenta no pregunta si tenéis prisa.» En la sala común, siluetas ya calientan las manos alrededor del fuego. Una elfa joven se lleva las manos al vientre. Un tiefling con tabardo blanco demasiado limpio aprieta una ballesta baja. Un halfling afina una mandolina sin tocarla. Una dracónida aprieta un maletín con sello rojo. Nadie se ha presentado aún. Fuera, algo grazna. Los cuervos del paso nunca duermen.
+Maelis Verdecuervo, la posadera de manos curtidas, arrastra una jarra de madera sobre el roble de la barra con una lentitud exasperante: «Quedan tres habitaciones habitables, diez bocas sedientas y una noche entera por delante. La tormenta no os va a preguntar si vuestros asuntos en Neverwinter eran urgentes». En la sala común, las siluetas alrededor del fuego se tensan. Una elfa del bosque se encoge de hombros acariciando un vientre prominente; un tiefling de mirada torva limpia sus uñas con una daga, descuidando una ballesta cargada apoyada contra su silla; una dracónida de escamas apagadas abraza un cofre de hierro como si fuera su propio hijo muerto. Nadie da su nombre verdadero. Nadie confía. Fuera, algo pesado choca contra el poste del umbral. El cuervo blanco sigue observando.
 ```
 
 **master_prep_notes**:
 
 ```
-- Pista 1: Sera Vann aprieta maletín con sello Alianza (Investigación CD 12).
-- Pista 2: Kaelen Ruin tiene vendajes frescos bajo la capa (Medicina CD 11).
-- Pista 3: Yselda Cuervonegro evita que le toquen el hombro izquierdo — moretón oculto (Percepción CD 13).
-- Orin ofrece música a cambio de secretos.
-- Grakk en cocina: Percepción CD 14 oye susurro en dialecto zhent.
-- Huldra pregunta quién lleva anillo de tres cuervos — anzuelo Hook 1.
-- Viajero en piso superior — visibility hidden.
-- Cerrar: presentaciones + 1 pista + tormenta bloquea salida (~15–20 msgs).
+Pista 1: Examen físico o visual de Sera Vann revela que el sello del maletín es de la Alianza de los Lordes (Investigación CD 12).
+
+Pista 2: Observar de cerca a Kaelen Ruin revela manchas oscuras que empapan su capa bajo el costado (Medicina CD 11).
+
+Pista 3: Si un PJ interactúa con Yselda, notará que se estremece si se acercan a su hombro izquierdo debido a una contusión fresca oculta (Percepción CD 13).
+
+Orin Keth intentará sonsacar secretos de los PJ ofreciendo canciones o trucos de cartas.
+
+Si un PJ se acerca a la cocina, una tirada de Percepción CD 14 le permitirá escuchar a Grakk mascullar una frase corta en argot criminal zhentarim.
+
+Cierre de la escena: Una vez que todos los PJ se hayan presentado o tomado una postura defensiva y la tormenta golpee con fuerza destructiva las ventanas (~15-20 mensajes).
 ```
 
 **prepared_entity_refs**:
@@ -235,22 +238,19 @@ Maelis Verdecuervo, la posadera, no sonríe del todo: «Quedan tres habitaciones
 **opening_narration**:
 
 ```
-La tormenta no afloja. Bebéis porque no hay otra cosa que hacer. Entonces — un golpe sordo arriba. No es el viento.
+La tormenta ha sepultado el mundo exterior tras un muro blanco y ensordecedor. Dentro, bebéis el alcohol malo de Maelis porque es lo único que mantiene el frío fuera de los huesos. De repente, un golpe seco y sordo resuena en la planta de arriba. No es la madera asentándose. No es el viento.
 
-Una gota roja cae del techo de vigas y estalla en la mesa de roble como una baya podrida. Luego otra. Y otra. El olor a hierro llena la sala más rápido que el miedo.
-
-Nadie ha bajado las escaleras. Nadie ha gritado. Pero algo arriba acaba de empezar a sangrar — o ya lleva un rato haciéndolo.
+Una gota densa, de un rojo brillante y viscoso, se filtra a través de la juntura de dos vigas ennegrecidas. Cae directamente sobre la mesa de roble común, estallando como una baya podrida. Dos segundos después, cae otra. Y otra. El inconfundible olor a hierro fresco inunda la sala más rápido que el pánico. Nadie ha bajado las escaleras en la última hora. Nadie ha gritado arriba. Pero el piso superior acaba de empezar a desangrarse.
 ```
 
 **master_prep_notes**:
 
 ```
-- Fuente sangre: herida Kaelen (se desangra en habitación) O Edrin muerto arriba (si adelantas).
-- Grakk sabía del hueco entre vigas — Percepción CD 15 en cocina encuentra sierra con pelo.
-- Yselda vio sombra en escalera; miente que estaba dormida (Insight CD 14).
-- Revelar Viajero si suben o fallan 2 Investigaciones.
-- Latido 15–20 min: «Las gotas se aceleran. Alguien en la barra deja caer su jarra.»
-- Cerrar: grupo sube O acusa a alguien abajo + mención del cofre.
+El origen es la herida de Kaelen en la Habitación 4. Su sangre se filtra por la trampilla que Grakk preparó previamente para espiar (Investigación CD 15 en la cocina revela una sierra de mano con restos de resina de viga).
+
+Yselda incurre en contradicciones: afirma haber estado dormida en el banco, pero si un PJ la confronta con Perspicacia CD 14, notará que su mirada esquiva la escalera porque vio a Thorn subir con guantes limpios minutos antes.
+
+Si los PJ deciden subir en grupo o si fallan dos tiradas consecutivas de rastreo, el Viajero drow se verá forzado a salir de las sombras de la Habitación 4, revelando su identidad.
 ```
 
 **Beats:** gotas → pánico contenido → subir escaleras / acusaciones → pista techo hueco → Calistra ofrece curar «al herido».
@@ -271,22 +271,19 @@ Nadie ha bajado las escaleras. Nadie ha gritado. Pero algo arriba acaba de empez
 **opening_narration**:
 
 ```
-La noche no perdona. Una hora después del incidente del techo, un grito corto — demasiado corto — viene del establo anexo. El olor a heno mojado ya no disimula el hierro.
+La noche se vuelve más cerrada e implacable. Mientras la mesa común discute sobre las gotas del techo, un alarido cortado en seco —un espantoso estertor húmedo— llega desde el establo anexo que comunica con la cocina.
 
-La puerta lateral está entreabierta. Huellas de bota mezcladas con sangre fresca sobre la nieve que entró en ráfagas. En el suelo, Edrin el Mozo. Cuello marcado. Ojos abiertos como quien vio venir su nombre.
-
-En la sala común, los que no movieron un dedo empiezan, por fin, a hablar demasiado.
+La puerta lateral bate con violencia, dejando entrar ráfagas de nieve fina. Sobre la paja humedecida por los orines de las bestias yace Edrin el Mozo. Su lengua asoma entre los labios hinchados; su cuello está marcado por un surco violáceo y profundo que le ha roto la laringe. Tiene los ojos desorbitados, congelados en la última expresión de terror de quien vio venir su muerte de manos de un conocido. Los caballos patean los pesebres, inquietos por el olor a muerte. La posada ya no es un refugio; es un matadero cerrado por dentro.
 ```
 
 **master_prep_notes**:
 
 ```
-- Edrin estrangulado. Huella de mano medio-orco (falsa pista) + cuerda fina (asesino real: Grakk o cómplice).
-- Thorn acusa Kaelen si suena Mere de Tresvelas.
-- Calistra rompe: confesó a Edrin antes — no que lo mató.
-- Sótano: cerradura CD 12 / fuerza CD 14.
-- Huldra ofrece pólvora «para defenderse» — tentación.
-- Cerrar: teoría asesino + cofre mencionado + 1 RELATIONSHIP revelada en juego.
+Edrin fue estrangulado con un garrote de seda trenzada fina (arma del crimen oculta por Grakk, comprada a Huldra).
+
+Pista física: Una marca de mano medio-orco sobre el lodo del pesebre. Es una trampa tosca plantada por Grakk para simular un descuido o un error de un tercero, pero Thorn complicó la escena al mover el cuerpo buscando las notas del chico sobre Kaelen.
+
+Sister Calistra sufre un colapso nervioso: confiesa a gritos que Edrin conocía «sus pecados de Calimport», lo que la posiciona como el chivo expiatorio perfecto de la sala común.
 ```
 
 **Beats:** cadáver → acusaciones → interrogatorio → pista sótano → confesión parcial Calistra u Orin.
@@ -307,22 +304,19 @@ En la sala común, los que no movieron un dedo empiezan, por fin, a hablar demas
 **opening_narration**:
 
 ```
-El cielo aclara un poco en el Paso del Cuervo Blanco: la ventisca afloja, pero el frío no suelta. El lacre del cofre de Sera Vann tiene una huella de dedo que no es suya — fresca, grasa de cocina, o eso parece.
+El viento amaina ligeramente en el exterior, pero el frío se vuelve más denso, casi sólido. En mitad de la sala común, el maletín de hierro de Sera Vann reposa sobre la mesa de roble. Alguien ha intentado forzar el sello de lacre escarlata con un cuchillo sucio de grasa de cocina; hay una marca grasienta inconfundible cerca del cierre.
 
-En la cocina, Grakk ya no sonríe. En el sótano, una puerta que nadie admitió conocer respira aire frío de túnel. Y en la mesa, Huldra deja un saquito de pólvora negra como un ultimátum silencioso.
-
-«Alguien va a abrir eso», dice Maelis sin levantar la voz. «La pregunta es quién paga el precio.»
+Grakk ha dejado de sonreír detrás de la barra y acaricia abiertamente el pomo de su cuchillo de carnicero. En el rincón de la cocina, la trampilla mal encajada del sótano exhala una corriente helada con olor a tierra subterránea que nadie admite conocer. Huldra azota un saquito de cuero relleno de pólvora negra sobre el roble: «Ese cofre se va a abrir esta noche», dice la enana con la pipa apagada entre los dientes. «La única duda real es cuántos de vosotros vais a estar vivos para ver qué hay dentro».
 ```
 
 **master_prep_notes**:
 
 ```
-- Abrir cofre: cerradura CD 18 / fuerza CD 20. Sin precaución: vial plaga — CD 14 CON.
-- Contenido: vial plaga + mapas armas Guerra Corona + cartas chantaje Neverwinter.
-- Grakk vendió lista huéspedes. Thorn solo quiere Kaelen. Huldra quiere mapas para revender.
-- Viajero ofrece mediación Harper si grupo demostró honor.
-- Torturar NPC: ver tabla tentaciones sección J.
-- Cerrar: cofre abierto O destruido O robado + alguien traiciona explícitamente.
+Si los PJ ceden ante Huldra y abren el cofre con la pólvora o herramientas sin desactivar el pestillo de seguridad, el vial libera una toxina (CD 14 CON para evitar infección latente).
+
+Las cartas del interior revelan que Halvek Crownsplitter (padre del hijo de Yselda) vendió posiciones de la Alianza a los Zhentarim.
+
+Grakk se vuelve hostil si se inspecciona la harina de la cocina, donde oculta la lista de huéspedes vendida que le incrimina como informador de la red criminal.
 ```
 
 **Beats:** ultimátum cofre → bajada sótano → revelación contenido → ofertas cruzadas → traición visible.
@@ -343,15 +337,13 @@ En la cocina, Grakk ya no sonríe. En el sótano, una puerta que nadie admitió 
 **opening_narration**:
 
 ```
-La tormenta cede lo justo para oírse los corazones. Maelis deja una botella sin etiqueta en el centro de la mesa — la misma que su abuelo guardaba para «el día que alguien diga la verdad entera».
+La tormenta da un respiro exterior, el suficiente para que el silencio dentro de la posada se vuelva absoluto. Podéis escuchar los latidos de vuestros propios corazones. Maelis Verdecuervo golpea el centro de la mesa con una botella de vidrio oscuro sin etiqueta: el licor que su abuelo guardaba para el día que alguien dijera una verdad entera en este paso de malditos.
 
-«Un trago por persona», dice. «Y después…»
+«Un trago por cabeza», murmura la posadera sin emoción alguna. «Y después de que baje, que los dioses decidan quién sale por esa puerta».
 
-No termina la frase. No hace falta. Thorn el tiefling tiene la ballesta baja pero lista — tabardo de Torm manchado de nieve, no de sangre aún. Grakk el cuchillo de cocina. Sera el cofre — o lo que queda. Kaelen la espada temblorosa. Huldra un mechero cerca del barril de cerveza. Yselda entre la puerta y la ventana, una mano en el vientre, otra en un cuchillo de mesa que nadie le vio coger. En el piso de arriba, el drow de la capa ceniza baja por primera vez.
+Nadie se mueve, pero todas las armas están amartilladas bajo la luz moribunda del fuego.
 
-Fuera, el cuervo blanco. Dentro, diez historias que no caben en una noche.
-
-**[MÁSTER: activar post de standoff mexicano — sección K. Un solo mensaje. Fin de campaña.]**
+[MÁSTER: Activar de inmediato el post de STANDOFF MEXICANO de la Sección K. Un solo asalto de interacción asíncrona antes del cierre de campaña.]
 ```
 
 **master_prep_notes**:
