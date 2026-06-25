@@ -530,6 +530,11 @@ select {
   border: 1px solid var(--border-subtle);
 }
 
+.campaign-shell__header > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .campaign-shell__title {
   margin: 0;
   font-size: 1.55rem;
@@ -540,6 +545,9 @@ select {
 .campaign-shell__meta {
   margin: 0.35rem 0 0;
   font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .campaign-shell__badges {
@@ -918,8 +926,12 @@ select {
   overflow-wrap: anywhere;
 }
 
-.campaign-card .muted {
-  overflow-wrap: anywhere;
+.campaign-card__tone {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .campaign-card__chevron {
