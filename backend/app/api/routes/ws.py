@@ -79,7 +79,9 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
                 try:
                     if action == "message":
                         text = str(data.get("text", "")).strip()
-                        if not text:
+                        image_url = data.get("image_url")
+                        image_url_str = str(image_url).strip() if image_url else None
+                        if not text and not image_url_str:
                             await websocket.send_json({"event": "error", "detail": "Empty message"})
                             continue
                         msg_type = str(data.get("message_type", "ACTION")).upper()
@@ -92,7 +94,8 @@ async def scene_websocket(scene_id: str, websocket: WebSocket, token: str = "") 
                             str(user.id),
                             PostMessageRequest(
                                 type=msg_type,
-                                text=text,
+                                text=text or None,
+                                image_url=image_url_str,
                                 speaker_entity_id=(
                                     str(speaker_entity_id) if speaker_entity_id else None
                                 ),

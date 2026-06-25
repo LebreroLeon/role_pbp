@@ -102,7 +102,7 @@
     },
     "chatMessageNarrative": {
       "type": "object",
-      "required": ["id", "timestamp", "sender_id", "type", "text"],
+      "required": ["id", "timestamp", "sender_id", "type"],
       "properties": {
         "id": { "type": "string", "format": "uuid" },
         "timestamp": { "type": "string", "format": "date-time" },
@@ -112,6 +112,10 @@
           "description": "NARRATIVE se normaliza a ACTION en clientes nuevos."
         },
         "text": { "type": "string", "minLength": 1 },
+        "image_url": {
+          "type": "string",
+          "description": "URL de imagen adjunta (subida o externa). Solo el Máster puede adjuntar."
+        },
         "read_by": {
           "type": "array",
           "items": { "type": "string", "format": "uuid" },

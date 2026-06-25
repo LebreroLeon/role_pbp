@@ -48,6 +48,13 @@ def illustration_storage_key(campaign_id: uuid.UUID, entity_id: uuid.UUID, exten
     return f"{campaign_id}/illustrations/{entity_id}{normalized}"
 
 
+def chat_message_image_storage_key(
+    campaign_id: uuid.UUID, image_id: uuid.UUID, extension: str
+) -> str:
+    normalized = ".jpg" if extension == ".jpeg" else extension
+    return f"{campaign_id}/chat/{image_id}{normalized}"
+
+
 def document_storage_key(campaign_id: uuid.UUID, document_id: uuid.UUID, extension: str) -> str:
     return f"{campaign_id}/documents/{document_id}{extension}"
 

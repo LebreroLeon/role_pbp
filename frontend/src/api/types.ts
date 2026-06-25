@@ -315,6 +315,8 @@ export type ChatMessage = {
 
   visibility?: "all" | "master_only";
 
+  image_url?: string;
+
 };
 
 

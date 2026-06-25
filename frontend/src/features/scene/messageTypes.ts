@@ -11,6 +11,7 @@ export type ChatMessage = {
   final_result?: number;
   skill_checked?: string | null;
   read_by?: string[];
+  image_url?: string;
 };
 
 export const MESSAGE_TYPE_META: Record<

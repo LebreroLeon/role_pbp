@@ -85,11 +85,13 @@ export function useSceneWebSocket({ sceneId, onSceneUpdate, onError }: UseSceneW
         speaker_entity_id?: string;
         speaker_display_name: string;
       },
+      imageUrl?: string | null,
     ) =>
       send({
         action: "message",
         text,
         message_type: messageType,
+        ...(imageUrl ? { image_url: imageUrl } : {}),
         ...(speaker ?? {}),
       }),
     [send],

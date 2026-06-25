@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 MessageType = Literal["SPEAK", "ACTION", "CONTEXT", "MASTER", "NARRATIVE", "DICE_ROLL"]
 MessageVisibility = Literal["all", "master_only"]
@@ -43,6 +43,7 @@ class ChatMessage(BaseModel):
     speaker_display_name: str | None = None
     speaker_type: SpeakerType | None = None
     visibility: MessageVisibility = "all"
+    image_url: str | None = None
 
 
 class SceneMetadata(BaseModel):
@@ -156,10 +157,23 @@ class SceneResponse(BaseModel):
 
 class PostMessageRequest(BaseModel):
     type: str = "ACTION"
-    text: str = Field(min_length=1)
+    text: str | None = None
+    image_url: str | None = None
     speaker_entity_id: str | None = None
     speaker_display_name: str | None = None
     speaker_type: SpeakerType | None = None
+
+    @model_validator(mode="after")
+    def require_text_or_image(self) -> "PostMessageRequest":
+        has_text = bool(self.text and self.text.strip())
+        has_image = bool(self.image_url and self.image_url.strip())
+        if not has_text and not has_image:
+            raise ValueError("Se requiere texto o imagen adjunta")
+        return self
+
+
+class SceneMessageImageUploadResponse(BaseModel):
+    image_url: str
 
 
 class DiceRollRequest(BaseModel):

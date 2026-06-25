@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -76,6 +76,9 @@ export function ChatPage() {
   const [togglingLikeId, setTogglingLikeId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [loreAssistHistory, setLoreAssistHistory] = useState<LoreAssistResponse[]>([]);
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+  const [pendingImagePreviewUrl, setPendingImagePreviewUrl] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
 
   const currentScene = scene ?? openScene ?? null;
   const isMaster = campaign?.role === "MASTER";
@@ -135,8 +138,27 @@ export function ChatPage() {
   const isSceneFrozen = currentScene?.status === "PAUSED";
   const composerDisabled =
     loading ||
+    imageUploading ||
     (isSceneFrozen && !isMaster) ||
     (pbpEnabled && !canPostInPbp && !isMaster);
+
+  useEffect(() => {
+    if (!pendingImageFile) {
+      setPendingImagePreviewUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(pendingImageFile);
+    setPendingImagePreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [pendingImageFile]);
+
+  function handleAttachImage(file: File) {
+    setPendingImageFile(file);
+  }
+
+  function handleClearImage() {
+    setPendingImageFile(null);
+  }
 
   const handleMarkRead = useCallback(() => {
     if (!currentScene || !currentUserId) return;
@@ -227,7 +249,7 @@ export function ChatPage() {
 
   async function handleSend(event: FormEvent) {
     event.preventDefault();
-    if (!message.trim() || !currentScene) return;
+    if ((!message.trim() && !pendingImageFile) || !currentScene) return;
 
     const text = message.trim();
     const loreMatch = text.match(/^@asistente\s+(.+)/i);
@@ -255,14 +277,38 @@ export function ChatPage() {
     const type = messageType;
     setMessage("");
 
-    const sent = sendMessage(text, type, selectedSpeakerPayload);
+    let imageUrl: string | null = null;
+    const imageFile = pendingImageFile;
+    if (imageFile && isMaster) {
+      setImageUploading(true);
+      try {
+        const upload = await api.uploadSceneMessageImage(currentScene.id, imageFile);
+        imageUrl = upload.image_url;
+        setPendingImageFile(null);
+      } catch (err) {
+        setErrorMessage(err instanceof Error ? err.message : "No se pudo subir la imagen");
+        setLoading(false);
+        setImageUploading(false);
+        return;
+      } finally {
+        setImageUploading(false);
+      }
+    }
+
+    const sent = sendMessage(text, type, selectedSpeakerPayload, imageUrl);
     if (sent) {
       setLoading(false);
       return;
     }
 
     try {
-      const updated = await api.postMessage(currentScene.id, text, type, selectedSpeakerPayload);
+      const updated = await api.postMessage(
+        currentScene.id,
+        text,
+        type,
+        selectedSpeakerPayload,
+        imageUrl,
+      );
       handleSceneUpdate(updated);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Error al enviar mensaje");
@@ -559,6 +605,11 @@ export function ChatPage() {
               speakerOptions={speakerOptions}
               speakerId={speakerId}
               onSpeakerChange={setSpeakerId}
+              pendingImageFile={pendingImageFile}
+              pendingImagePreviewUrl={pendingImagePreviewUrl}
+              onAttachImage={isMaster ? handleAttachImage : undefined}
+              onClearImage={isMaster ? handleClearImage : undefined}
+              imageUploading={imageUploading}
             />
 
             <DiceRoller

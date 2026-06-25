@@ -128,15 +128,22 @@ export const api = {
       speaker_entity_id?: string;
       speaker_display_name: string;
     },
+    imageUrl?: string | null,
   ) =>
     http<Scene>(`/api/v1/scenes/${sceneId}/messages`, {
       method: "POST",
       body: JSON.stringify({
         type,
-        text,
+        text: text || null,
+        ...(imageUrl ? { image_url: imageUrl } : {}),
         ...(speaker ?? {}),
       }),
     }),
+  uploadSceneMessageImage: (sceneId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return httpUpload<{ image_url: string }>(`/api/v1/scenes/${sceneId}/message-images`, form);
+  },
   rollDice: (
     sceneId: string,
     diceExpression: string,
@@ -237,7 +244,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  masterAssist: (campaignId: string, sceneId: string, query: string, mode: MasterAssistMode = "campaign") =>
+  masterAssist: (
+    campaignId: string,
+    sceneId: string,
+    query: string,
+    mode: MasterAssistMode = "campaign",
+    focusEntityId?: string | null,
+  ) =>
     http<MasterAssistResponse>("/api/v1/master/assist", {
       method: "POST",
       body: JSON.stringify({
@@ -245,6 +258,7 @@ export const api = {
         scene_id: sceneId,
         query,
         mode,
+        ...(focusEntityId ? { focus_entity_id: focusEntityId } : {}),
       }),
     }),
   listEntities: (campaignId: string, entityType?: EntityType) => {

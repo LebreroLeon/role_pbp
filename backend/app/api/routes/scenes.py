@@ -1,5 +1,6 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
@@ -32,10 +33,16 @@ from app.schemas.scene import (
     SceneResponse,
     SceneScratchpadUpdate,
     SceneStatusUpdate,
+    SceneMessageImageUploadResponse,
     SceneTurnManagementUpdate,
     SceneUpdate,
 )
 from app.services.combat_resolver import CombatResolverError, execute_attack, execute_initiative
+from app.services.chat_message_images import (
+    ChatMessageImageError,
+    get_scene_message_image_bytes,
+    save_scene_message_image_file,
+)
 from app.services.entities import CharacterSheetError, get_campaign_or_error
 from app.services.lore_assist import build_player_lore_response
 from app.services.scene_ws import broadcast_scene_update, scene_response_with_likes
@@ -118,6 +125,52 @@ async def post_message_route(
         raise scene_service_error_to_http(exc) from exc
 
     return await broadcast_scene_update(db, scene, requester_role=role)
+
+
+@router.post("/{scene_id}/message-images", response_model=SceneMessageImageUploadResponse)
+async def upload_scene_message_image_route(
+    scene_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+    file: UploadFile = File(...),
+) -> SceneMessageImageUploadResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_campaign_master(db, current_user, scene.campaign_id)
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Missing filename")
+
+    content = await file.read()
+    try:
+        image_url = save_scene_message_image_file(
+            scene,
+            original_name=file.filename,
+            content=content,
+            mime_type=file.content_type,
+        )
+    except ChatMessageImageError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return SceneMessageImageUploadResponse(image_url=image_url)
+
+
+@router.get("/{scene_id}/message-images/{image_id}")
+async def get_scene_message_image_route(
+    scene_id: str,
+    image_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_campaign_member(db, current_user, scene.campaign_id)
+
+    image_uuid = parse_uuid(image_id, "image_id")
+    try:
+        content, media_type = get_scene_message_image_bytes(scene, image_uuid)
+    except ChatMessageImageError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return Response(content=content, media_type=media_type)
 
 
 @router.post("/{scene_id}/dice", response_model=SceneResponse)

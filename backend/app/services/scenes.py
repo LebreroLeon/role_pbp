@@ -5,6 +5,7 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.campaign import Campaign, CampaignEntity, CampaignMemory, MemoryDocumentType, Scene, SceneMessageLike
+from app.services.chat_message_images import ChatMessageImageError, validate_message_image_url
 from app.schemas.scene import (
     ChatMessage,
     CloseSceneResponse,
@@ -788,12 +789,25 @@ async def post_message(
         msg_type=msg_type,
     )
 
+    text = (payload.text or "").strip()
+    image_url = (payload.image_url or "").strip() or None
+
+    if image_url and sender_role != "MASTER":
+        raise SceneServiceError("Solo el Máster puede adjuntar imágenes al chat")
+
+    if image_url:
+        try:
+            validate_message_image_url(scene, image_url)
+        except ChatMessageImageError as exc:
+            raise SceneServiceError(str(exc)) from exc
+
     message = {
         "id": str(uuid.uuid4()),
         "timestamp": utc_now_iso(),
         "sender_id": sender_id,
         "type": msg_type,
-        "text": payload.text,
+        "text": text or None,
+        "image_url": image_url,
         "read_by": [sender_id],
         **speaker_fields,
     }
@@ -810,13 +824,14 @@ async def post_message(
     await db.commit()
     await db.refresh(scene)
 
-    await rag_service.index_message(
-        db,
-        campaign_id=state.metadata.campaign_id,
-        document_id=message["id"],
-        text=payload.text,
-        metadata={"scene_id": str(scene.id), "sender_id": sender_id, "type": msg_type},
-    )
+    if text:
+        await rag_service.index_message(
+            db,
+            campaign_id=state.metadata.campaign_id,
+            document_id=message["id"],
+            text=text,
+            metadata={"scene_id": str(scene.id), "sender_id": sender_id, "type": msg_type},
+        )
     return scene_to_response(scene)
 
 

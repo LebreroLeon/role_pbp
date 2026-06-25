@@ -5,6 +5,7 @@ import type { SceneStateInput } from "./sceneState";
 import { Eye } from "../../components/icons";
 import { Tooltip } from "../../components/ui";
 import { ChatIllustrationPreviewIcon } from "./ChatIllustrationPreviewIcon";
+import { ChatMessageImage } from "./ChatMessageImage";
 import { ChatMessageDeleteButton } from "./ChatMessageDeleteButton";
 import { resolveMessageAvatarUrl } from "../entities/entityAvatar";
 import { ChatAvatar } from "./ChatAvatar";
@@ -170,7 +171,14 @@ export function ChatEntry({
           <time className="chat-card__time">{formatChatTimestamp(message.timestamp)}</time>
         </div>
       </header>
-      <p className="chat-card__body">{message.text}</p>
+      {message.text && <p className="chat-card__body">{message.text}</p>}
+      {message.image_url && (
+        <ChatMessageImage
+          imageUrl={message.image_url}
+          alt="Imagen narrativa del Máster"
+          className="chat-card__image--inline"
+        />
+      )}
       <footer className="chat-card__footer">
         <Tooltip content={buildReadTooltip(readBy, members)}>
           <span className="chat-card__read" aria-label={buildReadTooltip(readBy, members)}>

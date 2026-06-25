@@ -10,8 +10,10 @@ import { RoleGate } from "../components/auth/RoleGate";
 import { DESK_TAB_ICONS, SECTION_ICONS } from "../components/icons";
 import { Button, ErrorBanner, Panel, PanelHeader, Toast, Tooltip } from "../components/ui";
 import { CampaignSettingsForm } from "../features/campaign";
+import { ENTITY_TYPE_LABELS, getEntityDisplayName, type CampaignEntity } from "../features/entities/entityDefaults";
 import { PreparedScenesPanel } from "../features/scene";
 import { useCampaignQuery } from "../hooks/queries/useCampaignQueries";
+import { useEntitiesQuery } from "../hooks/queries/useEntityQueries";
 import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
 
 const NARRATOR_SPEAKER = {
@@ -82,6 +84,18 @@ const TABS: { id: DeskTab; label: string; hint: string }[] = [
   { id: "settings", label: "Campaña", hint: "Datos generales y jugadores" },
 ];
 
+const FOCUS_ENTITY_TYPES = new Set(["NPC", "PC", "LOCATION", "FACTION"]);
+
+function buildFocusEntityOptions(entities: CampaignEntity[]) {
+  return entities
+    .filter((entity) => FOCUS_ENTITY_TYPES.has(entity.entity_type))
+    .sort((left, right) => {
+      const typeOrder = left.entity_type.localeCompare(right.entity_type);
+      if (typeOrder !== 0) return typeOrder;
+      return getEntityDisplayName(left, entities).localeCompare(getEntityDisplayName(right, entities), "es");
+    });
+}
+
 export function MasterDeskPage() {
   const { campaignId = "" } = useParams();
   const queryClient = useQueryClient();
@@ -94,6 +108,7 @@ export function MasterDeskPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [sendingSuggestionKey, setSendingSuggestionKey] = useState<string | null>(null);
   const [narrativeDrafts, setNarrativeDrafts] = useState<string[]>([]);
+  const [focusEntityId, setFocusEntityId] = useState("");
 
   const narrativeSuggestions = useMemo(() => {
     if (!response || assistMode !== "narrative") return [];
@@ -108,6 +123,9 @@ export function MasterDeskPage() {
 
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: openScene } = useOpenSceneQuery(campaignId);
+  const { data: entities = [] } = useEntitiesQuery(campaignId);
+
+  const focusEntityOptions = useMemo(() => buildFocusEntityOptions(entities), [entities]);
 
   async function handleAssist(event: FormEvent) {
     event.preventDefault();
@@ -118,7 +136,13 @@ export function MasterDeskPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await api.masterAssist(campaignId, openScene.id, query.trim(), assistMode);
+      const result = await api.masterAssist(
+        campaignId,
+        openScene.id,
+        query.trim(),
+        assistMode,
+        focusEntityId || null,
+      );
       setResponse(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo consultar al asistente");
@@ -215,6 +239,29 @@ export function MasterDeskPage() {
                     </button>
                   </Tooltip>
                 ))}
+              </div>
+              <div className="shadow-master-focus">
+                <label className="field-label" htmlFor="shadow-master-focus-entity">
+                  Enfoque narrativo (opcional)
+                </label>
+                <select
+                  id="shadow-master-focus-entity"
+                  className="shadow-master-focus__select"
+                  value={focusEntityId}
+                  onChange={(event) => setFocusEntityId(event.target.value)}
+                  disabled={loading || !openScene}
+                >
+                  <option value="">Sin enfoque — toda la campaña</option>
+                  {focusEntityOptions.map((entity) => (
+                    <option key={entity.id} value={entity.id}>
+                      {getEntityDisplayName(entity, entities)} ({ENTITY_TYPE_LABELS[entity.entity_type]})
+                    </option>
+                  ))}
+                </select>
+                <p className="muted shadow-master-focus__hint">
+                  Elige un PNJ, PJ, ubicación o facción para que el asistente responda con su voz, contexto y estado.
+                  Útil para diálogos en personaje o detalles sobre esa entidad concreta.
+                </p>
               </div>
               <form className="master-form" onSubmit={handleAssist}>
                 <label className="field-label" htmlFor="shadow-master-query">
