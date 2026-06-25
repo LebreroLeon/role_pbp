@@ -70,6 +70,14 @@ class TestSpanishStatBlockParser:
         assert attack["to_hit_mod"] == 4
         assert attack["damage_die_count"] == 1
         assert attack["damage_bonus"] == 2
+        assert scimitar["section"] == "actions"
+
+    def test_goblin_sheet_has_structured_sections(self, parsed_goblin):
+        sheet = validate_parsed_sheet(parsed_goblin, source_label=SOURCE_LABEL)
+        assert "--- Características especiales ---" in sheet.features_traits
+        assert "--- Acciones ---" in sheet.features_traits
+        assert "Huida veloz" in sheet.features_traits
+        assert "Cimitarra" in sheet.features_traits
 
     def test_maps_to_valid_sheet_with_provenance(self, parsed_goblin):
         sheet = validate_parsed_sheet(parsed_goblin, source_label=SOURCE_LABEL)
@@ -158,6 +166,19 @@ class TestVoloNeothelidoParser:
         assert not any(trait["name"].startswith("(10") for trait in parsed.traits)
         assert any("Sentido de Criaturas" in trait["name"] for trait in parsed.traits)
         assert any("Resistencia Mágica" in trait["name"] for trait in parsed.traits)
+        spell_traits = [trait for trait in parsed.traits if trait.get("kind") == "spellcasting"]
+        assert len(spell_traits) == 1
+        assert "levitar" in spell_traits[0]["desc"].lower()
+
+    def test_neothelido_sheet_sections_and_multi_damage(self):
+        parsed = parse_spanish_stat_block(NEOTHELIDO_FIXTURE.read_text(encoding="utf-8"))
+        sheet = validate_parsed_sheet(parsed, source_label=VOLO_SOURCE)
+        assert "--- Hechizos ---" in sheet.features_traits
+        assert "--- Acciones ---" in sheet.features_traits
+        assert "Aliento ácido" in sheet.features_traits
+        tentacles = next(attack for attack in sheet.attacks if "Tentáculos" in attack.name)
+        assert tentacles.damage_dice == "3d8+8"
+        assert "psíquico" in sheet.features_traits.lower() or "psiquico" in sheet.features_traits.lower()
 
     def test_neothelido_catalog_row(self):
         block = NEOTHELIDO_FIXTURE.read_text(encoding="utf-8")
@@ -213,6 +234,20 @@ class TestMultiverseOblexParser:
         assert any("Ataque múltiple" in name or "Ataque m" in name for name in action_names)
         assert any("Engullir recuerdos" in name for name in action_names)
         assert any("Suplantación" in name for name in action_names)
+        spell_traits = [trait for trait in parsed.traits if trait.get("kind") == "spellcasting"]
+        assert len(spell_traits) == 1
+        assert "detectar pensamientos" in spell_traits[0]["desc"].lower()
+
+    def test_oblex_sheet_sections(self):
+        parsed = parse_spanish_stat_block(OBLEX_FIXTURE.read_text(encoding="utf-8"))
+        sheet = validate_parsed_sheet(parsed, source_label=MULTIVERSE_SOURCE)
+        assert "--- Características especiales ---" in sheet.features_traits
+        assert "--- Hechizos ---" in sheet.features_traits
+        assert "--- Acciones ---" in sheet.features_traits
+        assert "--- Acciones adicionales ---" in sheet.features_traits
+        assert "Engullir recuerdos" in sheet.features_traits
+        assert "Suplantación" in sheet.features_traits
+        assert "dominar persona" in sheet.features_traits.lower()
 
     def test_oblex_catalog_row(self):
         block = OBLEX_FIXTURE.read_text(encoding="utf-8")
