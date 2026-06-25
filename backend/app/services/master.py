@@ -40,18 +40,26 @@ SHADOW_MASTER_NARRATIVE_MODE_APPENDIX = """
 NARRATIVE MODE (mandatory for this query):
 - The MASTER QUERY asks for spoken narration, scene openings, descriptions, atmosphere, or prose the players will read in chat.
 
+Tone and voice (mandatory):
+- Write like a professional literary narrator — controlled, specific, evocative prose. Match campaign_tone and arc_narrative_tone from CAMPAIGN PROFILE exactly (e.g. gritty, claustrophobic, paranoid, adult — NOT cheerful Hallmark fantasy).
+- When SCENE LOCATION is provided, match its ambient_tone and weave public_description and notable_features into the prose. Do not rename the place or substitute a generic "taberna/inn" when the location has a proper name.
+- Avoid stock cozy-tavern filler (candelabras, fresh bread, roaring camaraderie, generic ale) unless campaign tone and location ambient_tone explicitly support it.
+- Adult, tense, or morally grey tone when the campaign profile calls for it — never sanitize into generic heroic fantasy.
+
 Campaign grounding (mandatory — never write generic disconnected prose):
-- Every narrative suggestion MUST be anchored in the provided context: ABSOLUTE STATE (scene flags, entities, JSONB documents), HISTORICAL CONTEXT (campaign RAG), RECENT CHAT, and closed-scene summaries when present.
-- Do NOT invent plot beats, locations, NPCs, factions, or items that are not supported by that context. Generic sensory atmosphere (weather, silence, tension) is allowed only when it fits the established scene and does not contradict known facts.
-- When context names concrete campaign elements (e.g. Prólogo, bosque, Arturo, a prior ambush, a known location), weave those names and facts into the prose — do not substitute unrelated placeholders.
+- Every narrative suggestion MUST be anchored in: CAMPAIGN PROFILE, SCENE LOCATION (when present), ABSOLUTE STATE (scene flags, entities, JSONB documents), HISTORICAL CONTEXT (campaign RAG), RECENT CHAT, and closed-scene summaries when present.
+- Do NOT invent plot beats, locations, NPCs, factions, organizations, or items unsupported by that context. Generic sensory atmosphere is allowed only when it fits the established scene and does not contradict known facts.
+- FACTIONS AND ORGANIZATIONS: use ONLY factions explicitly listed in the entities snapshot or named in HISTORICAL CONTEXT / RECENT CHAT. Never invent groups (e.g. "Los Arpistas", "La Orden del Guantelete") to flavor the scene.
+- When context names concrete campaign elements, weave those names and facts into the prose — do not substitute unrelated placeholders.
 - Respect hard entity flags: dead or absent NPCs cannot act physically; present entities and scene objectives should inform what the narration describes.
 
 context_summary (DM-facing):
-- Brief analysis of why these options fit the scene AND which lore/context elements each suggestion draws from (e.g. "Suggestion 1 uses the forest ambush RAG + Arturo's wounded state; Suggestion 2 echoes the Prólogo hook from chat.").
+- Brief analysis of why these options fit the scene AND which lore/context elements each suggestion draws from (campaign tone, location profile, RAG, chat, entities).
 - If campaign memory is thin, say what is missing; do not fabricate lore to fill gaps.
 
 suggestions:
-- Each item MUST be copy-paste ready narrator text — vivid, descriptive prose in professional novel tone (first-person narrator or omniscient voice). Write 2-4 sentences per suggestion that the DM publishes directly in the scene chat.
+- Provide at most 2-3 suggestions total.
+- Each item MUST be copy-paste ready narrator text — vivid, descriptive prose in professional novel tone (omniscient third-person narrator). Write 2-4 sentences per suggestion that the DM publishes directly in the scene chat.
 - Ground every suggestion in retrieved campaign/scene context; avoid stock fantasy filler unrelated to this campaign.
 - FORBIDDEN in suggestions: meta or coaching phrasing such as "El maestro podría...", "Podrías narrar...", "Consider describing...", "The GM could...", "You could start by...". No instructions to the DM inside suggestions — only the in-world narration itself.
 - Example BAD suggestion: "El maestro puede comenzar describiendo el silencio del claro."
@@ -70,6 +78,9 @@ Priority order:
 
 Rules:
 - Ground answers in retrieved campaign memory and entity state; do not invent plot details unsupported by context.
+- When SCENE LOCATION is provided, use its narrative_profile (public_description, ambient_tone, notable_features) as the authoritative source for place facts — not generic fantasy tropes.
+- Match campaign_tone and arc_narrative_tone from CAMPAIGN PROFILE; do not default to cheerful generic fantasy unless the profile says so.
+- FACTIONS AND ORGANIZATIONS: mention ONLY factions explicitly listed in the entities snapshot or named in HISTORICAL CONTEXT / RECENT CHAT. Never invent organizations to fill gaps.
 - Do NOT answer with rulebook mechanics, prices, class features, or official manual text unless the query explicitly asks for rules.
 - Do NOT output narrator prose for players unless the MASTER QUERY explicitly asks for narration or scene description to publish.
 - context_summary: synthesis of relevant campaign and scene facts for the DM.
@@ -328,13 +339,15 @@ def build_entity_flags_snapshot(
     *,
     include_secrets: bool,
     focus_entity_id: str | None = None,
+    always_include_entity_ids: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     focus = focus_entity_id.lower() if focus_entity_id else None
+    always_include = {entity_id.lower() for entity_id in (always_include_entity_ids or []) if entity_id}
     snapshot: list[dict[str, Any]] = []
 
     for entity in entities:
         entity_id = str(entity.id)
-        if focus and entity_id.lower() != focus:
+        if focus and entity_id.lower() != focus and entity_id.lower() not in always_include:
             continue
 
         try:
@@ -360,19 +373,99 @@ def build_entity_flags_snapshot(
     return snapshot
 
 
+def find_campaign_entity_by_id(
+    entities: list[CampaignEntity],
+    entity_id: str | None,
+) -> CampaignEntity | None:
+    if not entity_id:
+        return None
+    target = entity_id.strip().lower()
+    if not target:
+        return None
+    for entity in entities:
+        if str(entity.id).lower() == target:
+            return entity
+    return None
+
+
+def build_location_context_snapshot(
+    location_entity: CampaignEntity | None,
+    *,
+    include_secrets: bool = True,
+) -> dict[str, Any] | None:
+    """Compact location profile for Shadow Master place/atmosphere grounding."""
+    if location_entity is None or location_entity.entity_type != EntityType.LOCATION.value:
+        return None
+
+    document = location_entity.document if isinstance(location_entity.document, dict) else {}
+    document = prepare_entity_document(document, EntityType.LOCATION, include_secrets=include_secrets)
+
+    identity = document.get("identity")
+    profile = document.get("narrative_profile")
+    state_flags = document.get("state_flags")
+
+    if not isinstance(identity, dict):
+        identity = {}
+    if not isinstance(profile, dict):
+        profile = {}
+    if not isinstance(state_flags, dict):
+        state_flags = {}
+
+    context: dict[str, Any] = {
+        "entity_id": str(location_entity.id),
+        "name": identity.get("name"),
+        "location_type": identity.get("location_type"),
+        "parent_location_id": identity.get("parent_location_id"),
+        "public_description": profile.get("public_description"),
+        "ambient_tone": profile.get("ambient_tone"),
+        "notable_features": profile.get("notable_features", []),
+        "state_flags": state_flags,
+    }
+    if include_secrets and profile.get("secret_lore_master"):
+        context["secret_lore_master"] = profile.get("secret_lore_master")
+    return context
+
+
+def format_location_context_section(location_context: dict[str, Any] | None) -> list[str]:
+    if not location_context:
+        return []
+    return [
+        "## SCENE LOCATION (current place — PRIMARY for atmosphere and place queries)",
+        json.dumps(location_context, ensure_ascii=False, indent=2),
+        "",
+    ]
+
+
 def build_campaign_context_snapshot(
     campaign: Campaign | None,
     arc_manifest: dict[str, Any] | None = None,
+    *,
+    include_secrets: bool = True,
 ) -> dict[str, Any]:
     """Campaign-level style and macro-plot fields for Shadow Master grounding."""
     if campaign is None:
         return {}
 
     plot_line: dict[str, Any] = {}
+    active_quests: list[dict[str, Any]] = []
     if isinstance(arc_manifest, dict):
         raw_plot = arc_manifest.get("plot_line")
         if isinstance(raw_plot, dict):
             plot_line = raw_plot
+        raw_quests = arc_manifest.get("active_quests")
+        if isinstance(raw_quests, list):
+            for quest in raw_quests:
+                if not isinstance(quest, dict):
+                    continue
+                quest_entry: dict[str, Any] = {
+                    "quest_id": quest.get("quest_id"),
+                    "title": quest.get("title"),
+                    "description": quest.get("description"),
+                }
+                if include_secrets and quest.get("secret_dm_notes"):
+                    quest_entry["secret_dm_notes"] = quest.get("secret_dm_notes")
+                if quest_entry.get("title") or quest_entry.get("description"):
+                    active_quests.append(quest_entry)
 
     context: dict[str, Any] = {
         "campaign_name": campaign.name,
@@ -384,6 +477,8 @@ def build_campaign_context_snapshot(
             value = plot_line.get(key)
             if value is not None and value != "":
                 context[f"arc_{key}"] = value
+    if active_quests:
+        context["active_quests"] = active_quests
     return context
 
 
@@ -419,6 +514,7 @@ def build_sandwich_prompt(
     chat_buffer: list[dict[str, Any]],
     query: str,
     campaign_context: dict[str, Any] | None = None,
+    location_context: dict[str, Any] | None = None,
     rules_query: bool = False,
     campaign_query: bool = False,
     narrative_query: bool = False,
@@ -427,10 +523,11 @@ def build_sandwich_prompt(
     campaign_profile_block: list[str] = []
     if campaign_profile:
         campaign_profile_block = [
-            "## CAMPAIGN PROFILE (name, tone, arc) [style and macro-plot grounding]",
+            "## CAMPAIGN PROFILE (name, tone, arc, active quests) [style and macro-plot grounding]",
             campaign_profile,
             "",
         ]
+    location_block = format_location_context_section(location_context)
     if campaign_query or narrative_query:
         manual_label = (
             "## SYSTEM RULEBOOKS (RAG — Official Manuals) "
@@ -446,6 +543,7 @@ def build_sandwich_prompt(
         )
         sections = [
             *campaign_profile_block,
+            *location_block,
             "## ABSOLUTE STATE (Flags & Entities) [PRIMARY FOR THIS QUERY]",
             json.dumps(
                 {
@@ -501,6 +599,7 @@ def build_sandwich_prompt(
 
     sections = [
         *campaign_profile_block,
+        *location_block,
         "## ABSOLUTE STATE (Flags & Entities)",
         json.dumps(
             {
@@ -589,6 +688,7 @@ def _parse_llm_assist_response(
         suggestions = _extract_suggestions_from_parsed(parsed)
         if narrative_query and suggestions:
             suggestions = sanitize_narrative_suggestions(suggestions)
+            suggestions = suggestions[:3]
         if narrative_query and not suggestions and summary:
             paragraphs = [part.strip() for part in re.split(r"\n\s*\n", summary) if part.strip()]
             if len(paragraphs) >= 2:
@@ -651,7 +751,7 @@ async def build_master_assist_response(
         arc_doc = getattr(arc_entity, "document", None)
         if isinstance(arc_doc, dict):
             arc_manifest = dict(arc_doc)
-    campaign_context = build_campaign_context_snapshot(campaign, arc_manifest)
+    campaign_context = build_campaign_context_snapshot(campaign, arc_manifest, include_secrets=True)
 
     rag_chunks = await rag_service.search(
         db,
@@ -671,10 +771,15 @@ async def build_master_assist_response(
         )
 
     entities = await fetch_campaign_entities(db, scene.campaign_id)
+    scene_location_id = state.context.location_id if state.context else None
+    location_entity = find_campaign_entity_by_id(entities, scene_location_id)
+    location_context = build_location_context_snapshot(location_entity, include_secrets=True)
+    always_include_ids = [scene_location_id] if scene_location_id else None
     entities_snapshot = build_entity_flags_snapshot(
         entities,
         include_secrets=True,
         focus_entity_id=payload.focus_entity_id,
+        always_include_entity_ids=always_include_ids,
     )
 
     chat_buffer = format_chat_buffer(state.chat_buffer, buffer_size)
@@ -687,6 +792,7 @@ async def build_master_assist_response(
         chat_buffer=chat_buffer,
         query=payload.query,
         campaign_context=campaign_context,
+        location_context=location_context,
         rules_query=rules_query,
         campaign_query=campaign_query,
         narrative_query=narrative_query,

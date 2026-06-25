@@ -10,10 +10,12 @@ from app.services.master import (
     apply_language_instruction,
     build_campaign_context_snapshot,
     build_entity_flags_snapshot,
+    build_location_context_snapshot,
     build_manual_search_query,
     build_master_assist_response,
     build_shadow_master_system_prompt,
     build_sandwich_prompt,
+    find_campaign_entity_by_id,
     is_narrative_query,
     is_rules_query,
     query_language_is_spanish,
@@ -172,6 +174,47 @@ class TestNarrativeSuggestions:
         assert "ABSOLUTE STATE" in prompt
         assert "Do NOT invent plot" in prompt
         assert "which lore/context elements each suggestion draws from" in prompt
+        assert "SCENE LOCATION" in prompt
+        assert "campaign_tone" in prompt
+        assert "FACTIONS AND ORGANIZATIONS" in prompt
+        assert "at most 2-3 suggestions" in prompt
+
+    def test_tavern_narrative_intro_question_is_narrative_mode(self):
+        query = (
+            "Qué puedes decirme de la taberna y cómo harías una descripción "
+            "narrativa de introducción..."
+        )
+        assert is_narrative_query(query)
+        assert resolve_query_kind(query) == "narrative"
+        prompt, query_kind = build_shadow_master_system_prompt(query)
+        assert query_kind == "narrative"
+        assert "NARRATIVE MODE" in prompt
+        assert "ambient_tone" in prompt
+
+    def test_sandwich_includes_scene_location_block(self):
+        prompt = build_sandwich_prompt(
+            scene_flags={"combat_active": False},
+            scene_context={"location_id": "loc-posada"},
+            entities_snapshot=[],
+            rag_chunks=[],
+            manual_rag_chunks=[],
+            chat_buffer=[],
+            query="Qué puedes decirme de la taberna?",
+            campaign_context={"campaign_tone": "Tarantino claustrofóbico"},
+            location_context={
+                "entity_id": "loc-posada",
+                "name": "Posada del Paso Helado",
+                "ambient_tone": "Calor falso, tablones que crujen",
+                "public_description": "Posada de piedra en el Paso del Cuervo Blanco",
+                "notable_features": ["Chimenea de piedra negra"],
+            },
+            narrative_query=True,
+        )
+        assert "SCENE LOCATION" in prompt
+        assert "Posada del Paso Helado" in prompt
+        assert "Calor falso" in prompt
+        assert "Chimenea de piedra negra" in prompt
+        assert prompt.index("SCENE LOCATION") < prompt.index("ABSOLUTE STATE")
 
     def test_narrative_sandwich_prioritizes_state_and_campaign_rag(self):
         prompt = build_sandwich_prompt(
@@ -292,6 +335,32 @@ class TestSandwichPrompt:
         assert snapshot["campaign_tone"] == "Épico"
         assert snapshot["arc_narrative_tone"] == "Misterio"
         assert snapshot["arc_title"] == "El Prólogo"
+
+    def test_build_campaign_context_snapshot_includes_active_quests(self):
+        campaign = Campaign(
+            id=uuid.uuid4(),
+            name="Prueba",
+            tone="Épico",
+            game_system="dnd5e",
+        )
+        snapshot = build_campaign_context_snapshot(
+            campaign,
+            {
+                "plot_line": {"title": "Acto I", "narrative_tone": "Paranoia"},
+                "active_quests": [
+                    {
+                        "quest_id": "q1",
+                        "title": "El último trago",
+                        "description": "Descubrir quién miente en la posada.",
+                        "secret_dm_notes": "El veneno está bajo la tercera tabla.",
+                    }
+                ],
+            },
+            include_secrets=True,
+        )
+        assert len(snapshot["active_quests"]) == 1
+        assert snapshot["active_quests"][0]["title"] == "El último trago"
+        assert "veneno" in snapshot["active_quests"][0]["secret_dm_notes"]
 
     def test_rules_query_prioritizes_manual_section(self):
         prompt = build_sandwich_prompt(
@@ -679,6 +748,101 @@ async def test_build_master_assist_explicit_narrative_mode_overrides_creative_qu
 
 
 @pytest.mark.asyncio
+async def test_build_master_assist_injects_scene_location_into_prompt():
+    campaign_id = uuid.uuid4()
+    scene_id = uuid.uuid4()
+    location_id = uuid.uuid4()
+    campaign = Campaign(
+        id=campaign_id,
+        name="El Último Trago",
+        tone="Tarantino claustrofóbico",
+        game_system="dnd5e",
+    )
+    scene = MagicMock()
+    scene.campaign_id = campaign_id
+    scene.id = scene_id
+
+    query = (
+        "Qué puedes decirme de la taberna y cómo harías una descripción "
+        "narrativa de introducción?"
+    )
+    payload = MasterAssistRequest(
+        campaign_id=str(campaign_id),
+        scene_id=str(scene_id),
+        query=query,
+        focus_entity_id=str(uuid.uuid4()),
+    )
+
+    location_entity = MagicMock()
+    location_entity.id = location_id
+    location_entity.entity_type = "LOCATION"
+    location_entity.document = {
+        "identity": {"name": "Posada del Paso Helado", "location_type": "posada"},
+        "narrative_profile": {
+            "public_description": "Posada de piedra en el Paso del Cuervo Blanco",
+            "ambient_tone": "Calor falso, tablones que crujen",
+            "notable_features": ["Chimenea de piedra negra"],
+            "secret_lore_master": "Sótano con túnel",
+        },
+        "state_flags": {"danger_level": 5},
+    }
+
+    arc_entity = MagicMock()
+    arc_entity.document = {
+        "plot_line": {"title": "Acto I", "narrative_tone": "Paranoia", "global_summary": "Diez máscaras"},
+        "active_quests": [
+            {
+                "quest_id": "q1",
+                "title": "El último trago",
+                "description": "Quién miente en la posada",
+                "secret_dm_notes": "Veneno bajo la tabla",
+            }
+        ],
+    }
+
+    db = AsyncMock()
+    db.scalar = AsyncMock(side_effect=[campaign, arc_entity])
+    db.scalars = AsyncMock(return_value=[location_entity])
+
+    mock_state = MagicMock()
+    mock_state.memory_settings.rag_top_k_matches = 3
+    mock_state.memory_settings.max_chat_buffer_size = 20
+    mock_state.state_flags.model_dump.return_value = {}
+    mock_state.context.location_id = str(location_id)
+    mock_state.context.model_dump.return_value = {"location_id": str(location_id)}
+    mock_state.chat_buffer = []
+
+    with (
+        patch("app.services.scenes.load_scene_state", return_value=mock_state),
+        patch("app.services.master.rag_service.search", new=AsyncMock(return_value=[])),
+        patch("app.services.master.rag_service.search_system_manuals", new=AsyncMock(return_value=[])),
+        patch(
+            "app.services.master.chat_completion",
+            new=AsyncMock(
+                return_value='{"context_summary": "Usa tono claustrofóbico y la Posada.", '
+                '"suggestions": ["El viento golpea la posada de piedra."]}'
+            ),
+        ) as mock_chat,
+    ):
+        response = await build_master_assist_response(db, payload, scene=scene)
+
+    mock_chat.assert_awaited_once()
+    user_message = mock_chat.await_args.args[0][1]["content"]
+    system_message = mock_chat.await_args.args[0][0]["content"]
+
+    assert "SCENE LOCATION" in user_message
+    assert "Posada del Paso Helado" in user_message
+    assert "Calor falso" in user_message
+    assert "Tarantino claustrofóbico" in user_message
+    assert "El último trago" in user_message
+    assert "Veneno bajo la tabla" in user_message
+    assert str(location_id) in user_message
+    assert "NARRATIVE MODE" in system_message
+    assert "FACTIONS AND ORGANIZATIONS" in system_message
+    assert response.query_kind == "narrative"
+
+
+@pytest.mark.asyncio
 async def test_build_master_assist_campaign_mode_uses_campaign_prompt_and_skips_manual_rag():
     campaign_id = uuid.uuid4()
     scene_id = uuid.uuid4()
@@ -799,3 +963,67 @@ class TestEntityFlagsSnapshot:
 
         assert len(snapshot) == 1
         assert snapshot[0]["entity_id"] == "npc-b"
+
+    def test_focus_entity_still_includes_scene_location(self):
+        entities = [
+            self._entity(
+                "LOCATION",
+                {
+                    "identity": {"name": "Posada del Paso Helado"},
+                    "narrative_profile": {
+                        "public_description": "Posada de piedra",
+                        "ambient_tone": "Calor falso",
+                    },
+                },
+                "loc-posada",
+            ),
+            self._entity("NPC", {"identity": {"name": "Maelis"}}, "npc-maelis"),
+        ]
+
+        snapshot = build_entity_flags_snapshot(
+            entities,
+            include_secrets=True,
+            focus_entity_id="npc-maelis",
+            always_include_entity_ids=["loc-posada"],
+        )
+
+        assert len(snapshot) == 2
+        ids = {item["entity_id"] for item in snapshot}
+        assert ids == {"loc-posada", "npc-maelis"}
+
+    def test_build_location_context_snapshot(self):
+        entity = self._entity(
+            "LOCATION",
+            {
+                "identity": {
+                    "name": "Posada del Paso Helado",
+                    "location_type": "posada de montaña",
+                },
+                "narrative_profile": {
+                    "public_description": "Posada de piedra y madera oscura",
+                    "secret_lore_master": "Sótano con túnel de contrabando",
+                    "ambient_tone": "Calor falso, tablones que crujen",
+                    "notable_features": ["Chimenea de piedra negra"],
+                },
+                "state_flags": {"danger_level": 5},
+            },
+            "loc-posada",
+        )
+
+        location = build_location_context_snapshot(entity, include_secrets=True)
+
+        assert location is not None
+        assert location["name"] == "Posada del Paso Helado"
+        assert location["ambient_tone"] == "Calor falso, tablones que crujen"
+        assert "contrabando" in location["secret_lore_master"]
+        assert location["notable_features"] == ["Chimenea de piedra negra"]
+
+    def test_find_campaign_entity_by_id(self):
+        entities = [
+            self._entity("LOCATION", {"identity": {"name": "Posada"}}, "loc-1"),
+            self._entity("NPC", {"identity": {"name": "Maelis"}}, "npc-1"),
+        ]
+        found = find_campaign_entity_by_id(entities, "loc-1")
+        assert found is not None
+        assert str(found.id) == "loc-1"
+        assert find_campaign_entity_by_id(entities, None) is None
