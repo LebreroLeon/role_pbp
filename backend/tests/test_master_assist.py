@@ -8,6 +8,7 @@ from app.models.campaign import Campaign
 from app.schemas.master import MasterAssistRequest
 from app.services.master import (
     apply_language_instruction,
+    build_campaign_context_snapshot,
     build_entity_flags_snapshot,
     build_manual_search_query,
     build_master_assist_response,
@@ -249,6 +250,49 @@ class TestNarrativeSuggestions:
 
 
 class TestSandwichPrompt:
+    def test_campaign_profile_included_when_provided(self):
+        prompt = build_sandwich_prompt(
+            scene_flags={},
+            scene_context={},
+            entities_snapshot=[],
+            rag_chunks=[],
+            manual_rag_chunks=[],
+            chat_buffer=[],
+            query="Que complicacion encaja?",
+            campaign_context={
+                "campaign_name": "La Espada Rota",
+                "campaign_tone": "Oscuro y político",
+                "arc_narrative_tone": "Intriga",
+            },
+        )
+        assert "CAMPAIGN PROFILE" in prompt
+        assert "La Espada Rota" in prompt
+        assert "Oscuro y político" in prompt
+        assert "Intriga" in prompt
+
+    def test_build_campaign_context_snapshot_merges_arc_manifest(self):
+        campaign = Campaign(
+            id=uuid.uuid4(),
+            name="Prueba",
+            tone="Épico",
+            game_system="dnd5e",
+        )
+        snapshot = build_campaign_context_snapshot(
+            campaign,
+            {
+                "plot_line": {
+                    "title": "El Prólogo",
+                    "narrative_tone": "Misterio",
+                    "global_summary": "Una amenaza crece al norte.",
+                    "current_act": 2,
+                }
+            },
+        )
+        assert snapshot["campaign_name"] == "Prueba"
+        assert snapshot["campaign_tone"] == "Épico"
+        assert snapshot["arc_narrative_tone"] == "Misterio"
+        assert snapshot["arc_title"] == "El Prólogo"
+
     def test_rules_query_prioritizes_manual_section(self):
         prompt = build_sandwich_prompt(
             scene_flags={},

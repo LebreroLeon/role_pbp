@@ -24,6 +24,7 @@ export function CampaignSettingsForm({ campaignId, campaign }: CampaignSettingsF
   const [tone, setTone] = useState(campaign?.tone ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
 
   useEffect(() => {
@@ -35,12 +36,17 @@ export function CampaignSettingsForm({ campaignId, campaign }: CampaignSettingsF
     event.preventDefault();
     setLoading(true);
     setError(null);
+    setSavedMessage(null);
     try {
       await api.updateCampaign(campaignId, {
         name: name.trim() || undefined,
         tone: tone.trim(),
       });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.detail(campaignId) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.detail(campaignId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.all }),
+      ]);
+      setSavedMessage("Cambios guardados.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo guardar");
     } finally {
@@ -68,6 +74,7 @@ export function CampaignSettingsForm({ campaignId, campaign }: CampaignSettingsF
         <Input label="Nombre" value={name} onChange={(event) => setName(event.target.value)} required />
         <Input label="Tono narrativo" value={tone} onChange={(event) => setTone(event.target.value)} />
         {error && <ErrorBanner message={error} />}
+        {savedMessage && <p className="muted">{savedMessage}</p>}
         <Button type="submit" disabled={loading}>
           {loading ? "Guardando…" : "Guardar cambios"}
         </Button>

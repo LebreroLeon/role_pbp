@@ -360,6 +360,39 @@ def build_entity_flags_snapshot(
     return snapshot
 
 
+def build_campaign_context_snapshot(
+    campaign: Campaign | None,
+    arc_manifest: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Campaign-level style and macro-plot fields for Shadow Master grounding."""
+    if campaign is None:
+        return {}
+
+    plot_line: dict[str, Any] = {}
+    if isinstance(arc_manifest, dict):
+        raw_plot = arc_manifest.get("plot_line")
+        if isinstance(raw_plot, dict):
+            plot_line = raw_plot
+
+    context: dict[str, Any] = {
+        "campaign_name": campaign.name,
+        "campaign_tone": campaign.tone,
+        "game_system": campaign.game_system,
+    }
+    if plot_line:
+        for key in ("title", "narrative_tone", "global_summary", "current_act"):
+            value = plot_line.get(key)
+            if value is not None and value != "":
+                context[f"arc_{key}"] = value
+    return context
+
+
+def format_campaign_context_section(campaign_context: dict[str, Any]) -> str | None:
+    if not campaign_context:
+        return None
+    return json.dumps(campaign_context, ensure_ascii=False, indent=2)
+
+
 def format_chat_buffer(buffer: list, max_size: int) -> list[dict[str, Any]]:
     trimmed = buffer[-max_size:] if max_size > 0 else []
     formatted: list[dict[str, Any]] = []
@@ -385,10 +418,19 @@ def build_sandwich_prompt(
     manual_rag_chunks: list[str],
     chat_buffer: list[dict[str, Any]],
     query: str,
+    campaign_context: dict[str, Any] | None = None,
     rules_query: bool = False,
     campaign_query: bool = False,
     narrative_query: bool = False,
 ) -> str:
+    campaign_profile = format_campaign_context_section(campaign_context or {})
+    campaign_profile_block: list[str] = []
+    if campaign_profile:
+        campaign_profile_block = [
+            "## CAMPAIGN PROFILE (name, tone, arc) [style and macro-plot grounding]",
+            campaign_profile,
+            "",
+        ]
     if campaign_query or narrative_query:
         manual_label = (
             "## SYSTEM RULEBOOKS (RAG — Official Manuals) "
@@ -403,6 +445,7 @@ def build_sandwich_prompt(
             else "## MASTER QUERY (campaign / scene / lore)"
         )
         sections = [
+            *campaign_profile_block,
             "## ABSOLUTE STATE (Flags & Entities) [PRIMARY FOR THIS QUERY]",
             json.dumps(
                 {
@@ -430,6 +473,7 @@ def build_sandwich_prompt(
 
     if rules_query:
         sections = [
+            *campaign_profile_block,
             "## SYSTEM RULEBOOKS (RAG — Official Manuals) [PRIMARY FOR THIS QUERY]",
             "\n---\n".join(manual_rag_chunks) if manual_rag_chunks else "(No indexed system manuals for this game system.)",
             "",
@@ -456,6 +500,7 @@ def build_sandwich_prompt(
         return "\n".join(sections)
 
     sections = [
+        *campaign_profile_block,
         "## ABSOLUTE STATE (Flags & Entities)",
         json.dumps(
             {
@@ -595,6 +640,19 @@ async def build_master_assist_response(
     if game_system is None:
         logger.warning("Campaign %s has no game_system; skipping system manual RAG", scene.campaign_id)
 
+    arc_entity = await db.scalar(
+        select(CampaignEntity).where(
+            CampaignEntity.campaign_id == scene.campaign_id,
+            CampaignEntity.entity_type == EntityType.ARC_MANIFEST.value,
+        )
+    )
+    arc_manifest: dict[str, Any] | None = None
+    if arc_entity is not None:
+        arc_doc = getattr(arc_entity, "document", None)
+        if isinstance(arc_doc, dict):
+            arc_manifest = dict(arc_doc)
+    campaign_context = build_campaign_context_snapshot(campaign, arc_manifest)
+
     rag_chunks = await rag_service.search(
         db,
         campaign_id=payload.campaign_id,
@@ -628,6 +686,7 @@ async def build_master_assist_response(
         manual_rag_chunks=manual_rag_chunks,
         chat_buffer=chat_buffer,
         query=payload.query,
+        campaign_context=campaign_context,
         rules_query=rules_query,
         campaign_query=campaign_query,
         narrative_query=narrative_query,
