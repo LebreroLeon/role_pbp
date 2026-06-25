@@ -24,3 +24,15 @@ export function useInviteMemberMutation(campaignId: string) {
     },
   });
 }
+
+export function useUpdateCampaignMutation(campaignId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: { name?: string; tone?: string }) => api.updateCampaign(campaignId, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.detail(campaignId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.all });
+    },
+  });
+}

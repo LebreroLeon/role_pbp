@@ -788,22 +788,58 @@ select {
 
 .campaign-card {
   display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.campaign-card__nav {
+  display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 1rem 1.15rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   background: var(--bg-elevated);
-  min-width: 0;
-  max-width: 100%;
+  color: inherit;
+  text-decoration: none;
   transition: border-color 0.15s, background 0.15s, transform 0.15s var(--ease-out);
 }
 
-.campaign-card:hover {
+.campaign-card__nav:hover {
   border-color: rgba(233, 69, 96, 0.3);
   background: var(--bg-surface-hover);
   transform: translateX(3px);
+}
+
+.campaign-card__edit {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.campaign-card__edit:hover {
+  border-color: rgba(233, 69, 96, 0.35);
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.campaign-card__edit:focus-visible {
+  outline: 2px solid var(--accent-violet);
+  outline-offset: 2px;
 }
 
 .campaign-card__main {
@@ -1026,12 +1062,24 @@ select:focus {
   .campaign-card {
     flex-wrap: wrap;
     align-items: flex-start;
+    gap: 0.55rem;
+  }
+
+  .campaign-card__nav {
+    flex-wrap: wrap;
+    align-items: flex-start;
     gap: 0.55rem 0.75rem;
     padding: 0.85rem 1rem;
   }
 
-  .campaign-card:hover {
+  .campaign-card__nav:hover {
     transform: none;
+  }
+
+  .campaign-card__edit {
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-left: auto;
   }
 
   .campaign-card__main {
