@@ -106,6 +106,7 @@ select {
   min-height: 100vh;
   display: grid;
   grid-template-rows: auto 1fr;
+  overflow-x: clip;
 }
 
 .app-header {
@@ -215,7 +216,9 @@ select {
   padding: 1.5rem 1.25rem 2.5rem;
   max-width: 1080px;
   width: 100%;
+  min-width: 0;
   margin: 0 auto;
+  overflow-x: clip;
 }
 
 /* —— Panels —— */
@@ -225,6 +228,9 @@ select {
   border-radius: var(--radius-lg);
   padding: 1.35rem 1.5rem;
   box-shadow: var(--shadow-sm);
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .panel-header {
@@ -809,12 +815,20 @@ select {
   padding: 0;
   display: grid;
   gap: 0.65rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.campaign-list > li {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .campaign-card {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  width: 100%;
   min-width: 0;
   max-width: 100%;
 }
@@ -826,6 +840,8 @@ select {
   gap: 1rem;
   flex: 1 1 auto;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   padding: 1rem 1.15rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
@@ -906,15 +922,20 @@ select {
   gap: 0.85rem;
   flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
 }
 
 .campaign-card__main > div,
 .campaign-card__body {
   min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .campaign-card__badges {
   margin-top: 0.55rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .campaign-card__badges .status-pill {
@@ -946,6 +967,7 @@ select {
 .campaign-card__tone {
   margin: 0.2rem 0 0;
   font-size: 0.82rem;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1128,6 +1150,7 @@ select:focus {
   }
 
   .campaign-card__nav {
+    flex: 1 1 100%;
     flex-wrap: wrap;
     align-items: flex-start;
     gap: 0.55rem 0.75rem;
