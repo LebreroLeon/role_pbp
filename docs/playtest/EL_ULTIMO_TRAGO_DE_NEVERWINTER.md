@@ -1,1572 +1,1028 @@
-# El Último Trago de Neverwinter — Pack de playtest RolePBP (v3.5 - Optimizado)
+# EL ÚLTIMO TRAGO DE NEVERWINTER
+### Documento de Referencia del Máster — v5.0
 
-> **Mini-campaña de prueba** · D&D 5e · Faerûn (Costa de la Espada) · 5 escenas async (~15–20 mensajes cada una)  
-> **Tono:** Western claustrofóbico en Faerûn — salón cerrado, moral podrida, diálogo adulto con filo de navaja. Referencia atmosférica: *Reservoir Dogs*, *The Hateful Eight* (paranoia de salón, sospecha constante). No es fantasía heroica infantil: gente real con cicatrices en el alma y sangre vieja bajo las uñas.
-
-**Premisa en una línea:** Una ventisca indomable cierra el Paso del Cuervo Blanco; diez almas atrapadas en la Posada del Paso Helado descubren que todos han mentido sobre por qué están allí — y el último trago de la noche se servirá sobre un cadáver.
-
----
-
-## Mapa rápido de campos de la app
-
-| Área de la app                      | Campos que debes rellenar                                                                                            |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Crear campaña / Ajustes**         | `name`, `tone`, `game_system`                                                                                        |
-| **Arco narrativo** (`ARC_MANIFEST`) | `plot_line.*`, `active_quests[]`, `state_flags.*`                                                                    |
-| **Ubicación** (`LOCATION`)          | `identity.*`, `narrative_profile.*`, `state_flags.*`                                                                 |
-| **NPC**                             | `identity.*`, `ai_narrative_profile.*`, `system_mechanics.sheet`, `state_flags.*`                                    |
-| **PC**                              | `identity.*`, `public_profile.*`, `system_mechanics.sheet`, `state_flags.*`                                          |
-| **Facción** (`FACTION`)             | `identity.*`, `narrative_profile.*`, `state_flags.*`                                                                 |
-| **Relación** (`RELATIONSHIP`)       | `connection.*`, `narrative_bond.*`, `ai_behavior_guidelines.*`, `state_flags.*`                                      |
-| **Escena preparada** (`PREPARED`)   | `display_name`, `scene_objective`, `location_id`, `opening_narration`, `master_prep_notes`, `prepared_entity_refs[]` |
-| **Shadow Master**                   | Modos `narrative` / `rules` / `campaign` + foco en entidad (`focus_entity_id`)                                       |
+> **Sistema:** D&D 5e · Faerûn, Costa de la Espada  
+> **Formato:** PBP async · 5 escenas · ~15–20 mensajes por escena  
+> **Solo el Máster lee esto completo. Los jugadores solo ven lo que el Máster elige revelar.**
 
 ---
 
-## A. Campaña (wizard + Ajustes)
+## APÉNDICE TÉCNICO — Mapa de campos de la app RolePBP
 
-### Al crear la campaña
-
-| Campo           | Valor copy-paste                 |
-| --------------- | -------------------------------- |
-| **name**        | `El Último Trago de Neverwinter` |
-| **game_system** | `dnd5e`                          |
-
-### Tono narrativo (`tone`) — 🔒 SOLO MÁSTER — no compartir con jugadores
-
-Guía interna para Shadow Master / DM. Pegar en Ajustes de campaña (los jugadores no ven este campo):
-
-```
-Western claustrofóbico de aislamiento térmico y hostilidad moral: una noche, un salón de piedra mal escuadrada, una mortal tormenta gélida y varios extraños. Ritmo de sala de interrogatorio. El diálogo largo, sibilino, acusatorio y pasivo-agresivo precede a la violencia; cuando esta estalla, es íntima, visceral y audible (hueso astillado, respiración rota), nunca una coreografía de feria heroica. Humor negro seco, cortante, entre gente educada que se odia a muerte.
-
-Sensorial y decadente siempre: vaho denso, grasa de buey rancia, hollín sordo, lana mojada podrida por la nieve, el crujido de tablones combados por la humedad y miradas hostiles que tardan un segundo de más en apartarse. Los PJ deben descubrir las inconsistencias investigando físicamente el entorno y los sutiles tics físicos, también interrogando o conversando con los extraños de la posada; no anuncies los temas ni prediques que «todos mienten».
-
-Nadie dice la verdad del todo, todo el mundo tiene algo que ocultar, pronto empezarán a acusarse entre ellos y se creará una confusión sobre quién es el culpable.
-
-Adulto: heridas viscerales, lenguaje descarnado cuando caen las máscaras, insultos, tortura psicológica y física si los PJ la provocan (obteniendo información mezclada con mentiras desesperadas, alto coste moral). La muerte importa. Paranoia de salón donde cada acusación es mitad verdad y mitad veneno.
-```
-
-### Post cinematográfico de apertura — **visible para jugadores** (enviar ANTES de activar Escena 1)
-
-Pegar como primer mensaje del máster en el canal, sin roster activo aún:
-
-```
-[CINEMÁTICA — solo lectura]
-
-El Paso del Cuervo Blanco no perdona. La ventisca no cae: presiona como un muro blanco. Cada copo seco contra el cuero de vuestras capuchas suena como una uña rascando un ataúd. Neverwinter queda atrás, un recuerdo borroso sepultado bajo el gris implacable de las montañas.
-
-Delante, plantada en mitad de la nada helada, emerge la Posada del Paso Helado: una mole de piedra tosca que exhala un humo espeso y negro por la turba húmeda. Sus ventanas amarillentas y empañadas no invitan a entrar; parecen los ojos ictericios de un animal moribundo. Un cuervo blanco, congelado sobre el poste del umbral, tiene una costra de hielo en el pico. No grazna. Os juzga en silencio.
-
-Empujáis la pesada puerta de roble. El calor de la sala común os golpea como un puñetazo: huele a grasa de buey rancia, hollín sordo, calzados podridos y alcohol de patata de baja estofa. Dentro, ocho siluetas ya rodean la chimenea de piedra negra. Un tiefling con un tabardo blanco demasiado pulcro; una elfa joven que se aferra el vientre con manos trémulas; un halfling que acaricia una mandolina sin llegar a tocarla; una dracónida que aprieta contra su pecho un maletín de hierro sellado con lacre escarlata. Nadie levanta la vista del fuego de inmediato. En la barra, una mujer de delantal manchado cuenta jarras gastadas como si contara dientes.
-
-Fuera, una ráfaga salvaje cierra la puerta detrás de vosotros con un golpe seco y el clic definitivo del cerrojo.
-
-Bienvenidos a la Posada del Paso Helado. La tormenta de vuestras vidas acaba de empezar.
-```
-
-### Consultas de ejemplo para Shadow Master (modo `campaign`) — 🔒 SOLO MÁSTER
-
-- «¿Qué sabe el grupo públicamente de Sera Vann al inicio?»
-- «Si un PJ inspecciona el sótano sin permiso, ¿qué pista encuentra sin revelar el lore secreto de Grakk?»
-- «Resume la tensión entre Thorn y Kaelen si alguien menciona Mere de Tresvelas.»
-- «¿Qué miente Yselda sobre el padre del bebé?»
-- «Si un PJ tortura a Orin, ¿qué dice de verdad y qué inventa para salvar piel?»
-- «¿Por qué el drow aceptó un contrato de muerte sobre Sera si es protector?»
-- «¿Quién envenenó el pozo contra Yselda y qué gana si aborta?»
-
-### Ritmo PBP — latido de tensión cada 15–20 minutos reales
-
-| Minuto aprox. | Latido del máster (copy-paste o adaptar) |
-| ------------- | ---------------------------------------- |
-| 0             | Post cinematográfico + activar Escena 1  |
-| 15–20         | «Un trueno sacude los cristales. Alguien en la mesa se lleva la mano al cinturón.» |
-| 35–40         | «El fuego cruje. Una jarra se vacía sin que nadie la haya tocado.» |
-| 55–60         | «Oís un crujido en el piso de arriba. No es el viento.» |
-| 75–80         | «El olor a hierro se hace más fuerte. ¿Sangre nueva o vieja?» |
-
-Ajustar según escena. En Escena 2+, sustituir por gotas de sangre en el techo, gritos amortiguados, etc.
+| Área de la app | Campos que rellenar |
+|---|---|
+| **Crear campaña / Ajustes** | `name`, `tone`, `game_system` |
+| **Arco narrativo** (`ARC_MANIFEST`) | `plot_line.*`, `active_quests[]`, `state_flags.*` |
+| **Ubicación** (`LOCATION`) | `identity.*`, `narrative_profile.*`, `state_flags.*` |
+| **NPC** | `identity.*`, `ai_narrative_profile.*`, `system_mechanics.sheet`, `state_flags.*` |
+| **PC** | `identity.*`, `public_profile.*`, `system_mechanics.sheet`, `state_flags.*` |
+| **Facción** (`FACTION`) | `identity.*`, `narrative_profile.*`, `state_flags.*` |
+| **Relación** (`RELATIONSHIP`) | `connection.*`, `narrative_bond.*`, `ai_behavior_guidelines.*`, `state_flags.*` |
+| **Escena preparada** (`PREPARED`) | `display_name`, `scene_objective`, `location_id`, `opening_narration`, `master_prep_notes`, `prepared_entity_refs[]` |
+| **Shadow Master** | Modos `narrative` / `rules` / `campaign` + foco en entidad (`focus_entity_id`) |
 
 ---
 
-## B. Arco narrativo (`ARC_MANIFEST`)
+---
 
-Crear **una sola** entidad de tipo **Arco narrativo** en Mundo.
+# 0. SINOPSIS
 
-### `plot_line`
+**Premisa.** Una ventisca ciega el Paso del Cuervo Blanco. Diez personas quedan atrapadas en la Posada del Paso Helado, cada una con un motivo para estar aquí y un motivo mayor para que nadie lo sepa. En el centro: un cofre de hierro sellado que cuatro facciones quieren por razones incompatibles. Selvyn Drask, notario real de Neverwinter, cuarenta y cinco años y un fichero mental de todos los presentes, lleva la noche chantajeando a cuatro personas distintas con citas escalonadas en el establo. Esta noche va a morir —a manos de alguien que la sala entera tardará en mirar— y la sala entera va a reconstruir la noche equivocándose de manera espléndida.
 
-| Campo              | Valor                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **title**          | `El Último Trago`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **global_summary** | `Ventisca hostil en el Paso del Cuervo Blanco. Diez máscaras cínicas atrapadas en la Posada del Paso Helado alrededor de un cofre de la Alianza de los Lores que esconde un vial de plaga sellada, mapas de armas prohibidas de la Guerra de la Corona y cartas de chantaje político capaces de reducir Neverwinter a cenizas. Un drow con capa de ceniza que simula ser un asesino a sueldo pero actúa como escudo secreto de un legado maldito. Una «hermana de Ilmater» que es una envenenadora huida de Calimport, camuflada tras rezos falsos. Un tiefling con tabardo robado de paladín que cuenta monedas para pagar una deuda de sangre. Un cocinero medio-orco que es un ejecutor de los Zhentarim y una posadera que enterró a tres hombres bajo una avalancha provocada. Nadie sale limpio; la paranoia es el único motor de la noche.` |
-| **current_act**    | `1` (subir en cada escena hasta `5`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| **narrative_tone** | `Claustrofobia pura, diálogo afilado y pasivo-agresivo, moral podrida, violencia visceral contenida hasta que detona.`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+**Cómo dirigirlo.** No hay combate obligatorio. El motor de la aventura es la deducción: cada pista revela que la explicación obvia es incorrecta, que la persona más gentil hizo algo calculado, y que la persona más temible tiene una razón que la sala entiende en silencio. Selvyn muere en la Escena 3 —en tiempo real, durante el juego— no antes. Sembrad las causas en las Escenas 1 y 2. El Máster mantiene al menos dos NPCs activamente mintiendo en cualquier momento. Nunca anunciéis temas; dejad que los jugadores los encuentren cavando.
 
-### `active_quests` (5 misiones — una por escena)
-
-**Misión 1 — Refugio en el paso**
-
-| Campo               | Valor                                                                                                                                                                                                                             |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **title**           | `Refugio en el paso`                                                                                                                                                                                                              |
-| **description**     | `La tormenta cierra el paso. Diez caras, diez historias incompletas. Presentarse es obligatorio; confiar es opcional y probablemente estúpido.` |
-| **secret_dm_notes** | `Orin ya vio el sello de Sera y calcula el precio del chantaje. Grakk avisará a Zhentarim si alguien abre el sótano sin pagar. Huldra reconoce el anillo de tres cuervos de Orin — anzuelo PC Hook 1. El Viajero (drow) observa desde arriba: NO revelar raza ni misión hasta Escena 2 salvo Percepción CD 17. Maelis miente sobre el cuervo blanco del umbral («solo decoración»). Sembrar: cofre, vendajes de Kaelen, moretón de Yselda, tabardo de Thorn demasiado limpio.` |
-
-**Misión 2 — La gota en el techo**
-
-| Campo               | Valor                                                                                                                                                                                                                                      |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **title**           | `La gota en el techo`                                                                                                                                                                                                                      |
-| **description**     | `Sangre fresca gotea del piso superior. Nadie admite haber subido. Las teorías empiezan antes que los cadáveres.` |
-| **secret_dm_notes** | `Fuente: herida reabierta de Kaelen (Thorn le clavó un cuchillo hace dos días) O cadáver de Edrin arriba si adelantas. Grakk sabía del hueco entre vigas — no es su sangre. Yselda vio a Thorn salir del pasillo con guantes de cuero; miente que dormía. Calistra subió a cambiar vendajes a Kaelen y vio al Viajero — no dice nada porque cree que es el asesino a sueldo que vino por Sera. Revelar Viajero (drow) si suben o fallan 2 Investigaciones.` |
-
-**Misión 3 — Sangre en el umbral**
-
-| Campo               | Valor                                                                                                                                                                                                                                      |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **title**           | `Sangre en el umbral`                                                                                                                                                                                                                      |
-| **description**     | `Un grito en el establo. Edrin el Mozo, estrangulado. Cada huésped tiene un alibi roto y un motivo que no pidió.` |
-| **secret_dm_notes** | `Asesino real: Grakk (garrote fino, Zhentarim silencia testigo). Pista falsa: huella de mano medio-orco en heno — es de Grakk SIN guante, plantada después por Thorn al revolver el cuerpo buscando a Kaelen. Thorn NO mató a Edrin pero estuvo en el establo y miente el horario. Calistra confesó eutanasias a Edrin — parece confesión de asesinato. Sister Calistra NO mató al mozo. Sótano: CD 12 cerradura / CD 14 fuerza.` |
-
-**Misión 4 — El precio del cofre**
-
-| Campo               | Valor                                                                                                                                                                                                      |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **title**           | `El precio del cofre`                                                                                                                                                                                      |
-| **description**     | `El cofre atrae miradas como un cadáver a moscas. El sótano respira. Las ofertas son veneno envuelto en lógica.` |
-| **secret_dm_notes** | `Contenido: vial plaga + mapas Guerra Corona + cartas chantaje (un oficial es padre del bebé de Yselda). Abrir sin precaución: CD 14 CON. Huldra quiere mapas para vender a Luskan Y a Zhentarim — dos compradores, una traición. Sera quiere cumplir misión aunque la Alianza la desaparezca si falla. Viajero quiere destruir vial, no el cofre entero. Grakk vendió lista de huéspedes anoche. Tentación: ver sección J.` |
-
-**Misión 5 — El último trago**
-
-| Campo               | Valor                                                                                                                                                                                                      |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **title**           | `El último trago`                                                                                                                                                                                          |
-| **description**     | `Un trago por persona. Después, la verdad o la bala. Standoff en la sala común: todos apuntan a todos.` |
-| **secret_dm_notes** | `Post único standoff (sección K). Viajero puede revelar que aceptó contrato para «matar» a Sera y en realidad es escolta del legado de su padre Harper. Maelis confiesa avalancha de hace diez años si alguien la acusa de cobarde. Finales: (A) Alianza + vial destruido, (B) Zhentarim con mapas, (C) fuga túnel, (D) masacre, (E) tregua Harper con confesiones parciales. Nadie sale limpio.` |
-
-### `state_flags`
-
-| Campo                     | Valor inicial                                                 |
-| ------------------------- | ------------------------------------------------------------- |
-| **is_main_plot_derailed** | `false`                                                       |
-| **world_threat_level**    | `4` (subir +1 cada escena; `9` en standoff final)             |
+**Pregunta central:** *¿Quién mató a Selvyn Drask —y cambia algo que alguien lo hubiera evitado?*
 
 ---
 
-## C. 5 Escenas preparadas
+---
 
-Crear 5 escenas con estado **PREPARED**. Tras crear cada una, abrir el editor de preparación y pegar los campos.
-
-> **Nota:** Los `entity_id` y `location_id` son UUIDs reales de tu campaña. Sustituye `[UUID_…]` tras crear las entidades en Mundo.
-
-### Mapa de zonas (3 plantas + sótano)
-
-| Zona | ID sugerido | Uso en escenas |
-| ---- | ----------- | -------------- |
-| **Sala común y barra** | `[UUID_SALA_COMUN]` | Presentaciones, standoff final |
-| **Cocina y despensa** | `[UUID_COCINA]` | Grakk, Huldra, pistas Zhentarim |
-| **Pisos superiores (habitaciones)** | `[UUID_PISOS_SUPERIORES]` | Viajero, gotas de sangre, Yselda |
-| **Establo anexo** | `[UUID_ESTABLO]` | Muerte Edrin, huellas |
-| **Sótano y túnel** | `[UUID_SOTANO]` | Contrabando, veneno, escape |
+# 1. ESTRUCTURA DRAMÁTICA
 
 ---
 
-### Escena 1 — «Ventisca y presentaciones»
+## ESCENA 1 — «El Paso no perdona»
+**Función dramática:** Presentación claustrofóbica. Establecer que nadie dice la verdad sobre por qué está aquí. Sembrar el cofre, la herida de Renwick, y la deuda de Tamlin como señuelos. Selvyn debe ser visible, anotando cosas en su cuadernillo.
 
-| Campo prep          | Valor                                                                                                                                                                                                                                                    |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **status**          | `PREPARED`                                                                                                                                                                                                                                               |
-| **display_name**    | `Ventisca y presentaciones`                                                                                                                                                                                                                              |
-| **location_id**     | `[UUID_POSADA_DEL_PASO_HELADO]`                                                                                                                                                                                                                          |
-| **scene_objective** | `Presentar a todos los huéspedes, establecer desconfianza cordial, sembrar 3 pistas visibles (cofre sellado, mercenario herido, refugiada embarazada) y cerrar con la tormenta cortando toda salida.` |
+### QUÉ DEBE OCURRIR
+- Todos los PJs y NPCs llegan o ya están en la sala común cuando la tormenta bloquea toda salida.
+- Wenna anuncia que nadie sale hasta el amanecer. «La tormenta no pide permiso. Vosotros tampoco vais a empezar.»
+- El cofre de Caelith queda visible sobre la mesa esquinera —sello de la Alianza a la vista para quien sepa leerlo (Investigación CD 12).
+- Selvyn Drask ya está instalado, cuadernillo sobre la mesa, y hace preguntas de procedimiento a los recién llegados con la amabilidad chirriante de alguien que toma nota de todo.
+- Renwick baja a la barra con la mano derecha rígida y los nudillos vendados bajo el guante —alguien lo nota (Medicina CD 11).
+- Lysse Mourne ofrece infusiones a quien parezca cansado. Las infusiones son exactamente lo que parecen.
 
-**opening_narration**:
+### QUÉ PUEDE OCURRIR
+- Un PJ intenta leer el cuadernillo de Selvyn. Selvyn lo cierra con una sonrisa de funcionario. «Documento de uso oficial. Pero si tenéis algo que declarar voluntariamente, me ahorra tiempo.»
+- Borrakh Peñadiente entra mojado hasta los huesos y no mira a nadie. Pide solo agua.
+- Tamlin toca la mandolina —una canción de Neverwinter que Durvis Hakk reconoce (Perspicacia CD 13 para notar que Durvis se detiene una fracción de segundo).
+- Onno Grist propone una bendición de viaje. Es la segunda vez esta tarde. No deja de hablar.
+- Sira Veleth no solicita habitación. Paga por una silla en la sala común y no da más explicaciones.
 
-```
-El viento aúlla fuera como un lobo atrapado en un cepo, golpeando los muros de piedra de la Posada del Paso Helado. Dentro, el aire es denso, cargado de vapor de lana mojada, el hedor rancio de un guiso indigerible y un persistente fondo metálico que evoca sangre vieja incrustada en las grietas del suelo combado.
-
-Maelis Verdecuervo, la posadera de manos curtidas, arrastra una jarra de madera sobre el roble de la barra con una lentitud exasperante: «Quedan tres habitaciones habitables, diez bocas sedientas y una noche entera por delante. La tormenta no os va a preguntar si vuestros asuntos en Neverwinter eran urgentes». En la sala común, las siluetas alrededor del fuego se tensan. Una elfa del bosque se encoge de hombros acariciando un vientre prominente; un tiefling de mirada torva limpia sus uñas con una daga, descuidando una ballesta cargada apoyada contra su silla; una dracónida de escamas apagadas abraza un cofre de hierro como si fuera su propio hijo muerto. Nadie da su nombre verdadero. Nadie confía. Fuera, algo pesado choca contra el poste del umbral. El cuervo blanco sigue observando.
-```
-
-**master_prep_notes**:
-
-```
-Pista 1: Examen físico o visual de Sera Vann revela que el sello del maletín es de la Alianza de los Lordes (Investigación CD 12).
-
-Pista 2: Observar de cerca a Kaelen Ruin revela manchas oscuras que empapan su capa bajo el costado (Medicina CD 11).
-
-Pista 3: Si un PJ interactúa con Yselda, notará que se estremece si se acercan a su hombro izquierdo debido a una contusión fresca oculta (Percepción CD 13).
-
-Orin Keth intentará sonsacar secretos de los PJ ofreciendo canciones o trucos de cartas.
-
-Si un PJ se acerca a la cocina, una tirada de Percepción CD 14 le permitirá escuchar a Grakk mascullar una frase corta en argot criminal zhentarim.
-
-Cierre de la escena: Una vez que todos los PJ se hayan presentado o tomado una postura defensiva y la tormenta golpee con fuerza destructiva las ventanas (~15-20 mensajes).
-```
-
-**prepared_entity_refs**:
-
-| Entidad              | player_visibility | add_to_roster |
-| -------------------- | ----------------- | ------------- |
-| Todos los PCs        | `visible`         | `true`        |
-| Maelis Verdecuervo   | `visible`         | `true`        |
-| Orin Tres Dedos      | `visible`         | `true`        |
-| Sera Vann            | `visible`         | `true`        |
-| Thorn Blackmantle    | `visible`         | `true`        |
-| Sister Calistra      | `visible`         | `true`        |
-| Grakk Ironsnout      | `visible`         | `true`        |
-| Kaelen Ruin          | `visible`         | `true`        |
-| Huldra Voss          | `visible`         | `true`        |
-| Yselda Cuervonegro   | `visible`         | `true`        |
-| El Viajero de Ceniza | `hidden`          | `false`       |
-| Edrin el Mozo        | `unknown`         | `true`        |
-
-**Beats:** llegada → post cinematográfico (si no enviado) → presentaciones forzadas → Huldra/Orin roce → oferta Maelis → trueno bloquea puerta.
-
-**Cuándo cerrar:** Salida bloqueada + al menos un intercambio hostil + un PJ eligió a quién vigilar.
+### CIERRE DE ESCENA (CONTROLADO POR EL MÁSTER)
+La chimenea de la sala común se apaga de golpe —todas las llamas, simultáneamente, sin corriente visible. La sala queda en luz de lámpara. Del exterior, en dirección al establo, llega un grito de caballo: uno solo, agudo, sostenido, que se corta en seco. Borrakh se pone de pie a medias. Sira no levanta los ojos de su copa. Wenna dice, mirando la puerta del fondo: «Los caballos notan la tormenta antes que nosotros. Seguid bebiendo.» La chimenea se reavivia sola desde las brasas, treinta segundos después. **La jaula está cerrada.** → Avanzar a Escena 2 cuando todos los jugadores hayan establecido a quién vigilan.
 
 ---
 
-### Escena 2 — «La gota en el techo»
+## ESCENA 2 — «La gota en el techo»
+**Función dramática:** Primer cuerpo sin cadáver. La paranoia empieza antes de que haya víctima. Revelar capas ocultas bajo la superficie social. Selvyn empieza a desaparecer y reaparecer, demasiado satisfecho consigo mismo.
 
-| Campo prep          | Valor                                                                                                                                                                                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **status**          | `PREPARED`                                                                                                                                                                                                    |
-| **display_name**    | `La gota en el techo`                                                                                                                                                                                         |
-| **location_id**     | `[UUID_SALA_COMUN]`                                                                                                                                                                                           |
-| **scene_objective** | `Provocar descubrimiento de sangre goteando del piso superior; paranoia sin cadáver visible aún; forzar movimiento entre zonas.` |
+### QUÉ DEBE OCURRIR
+- Un líquido oscuro y viscoso gotea desde las vigas sobre la mesa central —es de Renwick, herida en la mano reabierta en la habitación 3.
+- Nadie admite haber subido. Borrakh miente el horario (estaba en el establo revisando su caballo).
+- Selvyn hace tres visitas breves y separadas a tres NPCs distintos —cada una en voz baja, con el mismo cuadernillo. En cada una, el NPC consultado se pone rígido. Nunca se queda con ninguno más de dos minutos.
+- Lysse prepara una segunda infusión. Esta vez para sí misma. La bebe despacio, de espaldas a la sala.
+- Onno anuncia que ha «bendecido el sótano» —sin que nadie se lo pidiera. Wenna lo mira como a alguien que acaba de entrar en territorio ajeno.
 
-**opening_narration**:
+### QUÉ PUEDE OCURRIR
+- Un PJ sube y encuentra la habitación 3 con sangre en el suelo y la puerta sin pestillo —Renwick estaba practicando con la mano herida.
+- Un PJ inspecciona la cocina y encuentra la puerta oculta detrás de la estantería entreabierta (CD Investigación 12). Los goznes no crujen —están recién aceitados.
+- Tamlin intenta venderle a un PJ información sobre el sello del cofre. Pide tres monedas de oro.
+- Durvis le susurra algo a Caelith que la hace apretar la mano sobre el cofre. Caelith niega que ocurrió algo si se le pregunta.
+- Borrakh revisa sus herramientas de herrero en la mochila. El sonido de metal es inconfundible.
 
-```
-La tormenta ha sepultado el mundo exterior tras un muro blanco y ensordecedor. Dentro, bebéis el alcohol malo de Maelis porque es lo único que mantiene el frío fuera de los huesos. De repente, un golpe seco y sordo resuena en la planta de arriba. No es la madera asentándose. No es el viento.
-
-Una gota densa, de un rojo brillante y viscoso, se filtra a través de la juntura de dos vigas ennegrecidas. Cae directamente sobre la mesa de roble común, estallando como una baya podrida. Dos segundos después, cae otra. Y otra. El inconfundible olor a hierro fresco inunda la sala más rápido que el pánico. Nadie ha bajado las escaleras en la última hora. Nadie ha gritado arriba. Pero el piso superior acaba de empezar a desangrarse.
-```
-
-**master_prep_notes**:
-
-```
-El origen es la herida de Kaelen en la Habitación 4. Su sangre se filtra por la trampilla que Grakk preparó previamente para espiar (Investigación CD 15 en la cocina revela una sierra de mano con restos de resina de viga).
-
-Yselda incurre en contradicciones: afirma haber estado dormida en el banco, pero si un PJ la confronta con Perspicacia CD 14, notará que su mirada esquiva la escalera porque vio a Thorn subir con guantes limpios minutos antes.
-
-Si los PJ deciden subir en grupo o si fallan dos tiradas consecutivas de rastreo, el Viajero drow se verá forzado a salir de las sombras de la Habitación 4, revelando su identidad.
-```
-
-**Beats:** gotas → pánico contenido → subir escaleras / acusaciones → pista techo hueco → Calistra ofrece curar «al herido».
-
-**Cuándo cerrar:** Teoría formulada + al menos 2 PNJs en actitud `hostile` o `cautelosa` hacia otro.
+### CIERRE DE ESCENA (CONTROLADO POR EL MÁSTER)
+Un sonido de algo pesado arrastrado en el piso de arriba —una vez, con esfuerzo, y luego nada. Luego: drip. Drip. Drip. El líquido oscuro sigue cayendo del techo sobre la mesa, pero ahora hay más. Una tabla del techo cruje. Algo cae al suelo arriba. Silencio total desde la planta superior. Luego, con una calma pasmosa, Selvyn Drask pasa por la sala en dirección a la cocina con el cuadernillo bajo el brazo. Sonríe al pasar. Nadie sabe a dónde va. → Avanzar a Escena 3.
 
 ---
 
-### Escena 3 — «Máscaras y sangre»
+## ESCENA 3 — «El trabajo de la noche»
+**Función dramática:** EL ASESINATO. Selvyn muere durante esta escena. La sala se convierte en un tribunal improvisado donde el culpable real conduce la acusación porque así cierra el círculo.
 
-| Campo prep          | Valor                                                                                                                                                                                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **status**          | `PREPARED`                                                                                                                                                                                                    |
-| **display_name**    | `Máscaras y sangre`                                                                                                                                                                                           |
-| **location_id**     | `[UUID_ESTABLO]`                                                                                                                                                                                              |
-| **scene_objective** | `Muerte de Edrin (o confirmación cadáver), investigación social y física, revelar 2–3 secretos parciales, abrir debate sobre sótano.` |
+### QUÉ DEBE OCURRIR
+- Un grito cortado llega del establo. Los caballos patean. No es el viento.
+- Selvyn yace en el heno del tercer pesebre con el cuello marcado por una ligadura fina. Ojos abiertos. En la mano todavía aprieta el cuadernillo, abierto en una página en blanco.
+- **Pista 1:** Fibra de cuerda vegetal trenzada en el cuello —no es cuerda de trabajo ni cuerda de mina. Es cuerda botánica, del tipo que usan los herbolarios para colgar manojos a secar. (Investigación CD 13.)
+- **Pista 2:** La puerta oculta de la cocina al establo está ligeramente desencajada —alguien la usó para entrar y salir sin pasar por la sala común. (Investigación CD 11 en la cocina.)
+- **Pista 3:** En los bolsillos de Selvyn: tres notas de chantaje dobladas, con tres nombres distintos. Una cuarta nota falta —se nota porque el cuadernillo tiene cuatro entradas y solo hay tres cartas. (Investigación CD 14 en el cadáver + cuadernillo.)
+- Borrakh aparece desde la puerta principal del establo, mojado. Dice que comprobaba su caballo. La sala lo mira como a lo que parece.
+- Lysse se ofrece a examinar el cadáver. Lo hace con calma metódica. Anuncia «muerte por estrangulación» sin vacilar. Correcto. Pero no menciona el olor a hierba sedante que ella misma reconocería.
 
-**opening_narration**:
+### QUÉ PUEDE OCURRIR
+- Un PJ con Medicina CD 13 detecta un olor residual extraño en los labios de Selvyn —herbal, no alcohólico. Lysse, si está presente, dice: «Infusión de camomila. La vendí yo. Le ayudaba con los nervios.» Verdad parcial.
+- Si los PJs acusan a Borrakh, Renwick dice en voz alta: «Estuvo fuera diez minutos. Lo conté.» Borrakh lo mira. No dice gracias.
+- Si los PJs inspeccionan el cuadernillo, ven tres nombres: Wenna Corren, Renwick Sorn, Durvis Hakk. Todos en la sala. La cuarta entrada está en blanco pero la página tiene la presión del bolígrafo de la hoja anterior —se puede leer con carbón (CD Investigación 15): «L.M.»
+- Sira, desde el umbral del establo, sin que nadie se lo pida: «El único que salió por la cocina esta noche fue alguien que conocía la puerta. Eso recorta la lista.»
 
-```
-La noche se vuelve más cerrada e implacable. Mientras la mesa común discute sobre las gotas del techo, un alarido cortado en seco —un espantoso estertor húmedo— llega desde el establo anexo que comunica con la cocina.
-
-La puerta lateral bate con violencia, dejando entrar ráfagas de nieve fina. Sobre la paja humedecida por los orines de las bestias yace Edrin el Mozo. Su lengua asoma entre los labios hinchados; su cuello está marcado por un surco violáceo y profundo que le ha roto la laringe. Tiene los ojos desorbitados, congelados en la última expresión de terror de quien vio venir su muerte de manos de un conocido. Los caballos patean los pesebres, inquietos por el olor a muerte. La posada ya no es un refugio; es un matadero cerrado por dentro.
-```
-
-**master_prep_notes**:
-
-```
-Edrin fue estrangulado con un garrote de seda trenzada fina (arma del crimen oculta por Grakk, comprada a Huldra).
-
-Pista física: Una marca de mano medio-orco sobre el lodo del pesebre. Es una trampa tosca plantada por Grakk para simular un descuido o un error de un tercero, pero Thorn complicó la escena al mover el cuerpo buscando las notas del chico sobre Kaelen.
-
-Sister Calistra sufre un colapso nervioso: confiesa a gritos que Edrin conocía «sus pecados de Calimport», lo que la posiciona como el chivo expiatorio perfecto de la sala común.
-```
-
-**Beats:** cadáver → acusaciones → interrogatorio → pista sótano → confesión parcial Calistra u Orin.
-
-**Cuándo cerrar:** Grupo tiene culpable (aunque erróneo) + tensión ≥ 7.
+### CIERRE DE ESCENA (CONTROLADO POR EL MÁSTER)
+Mientras el grupo forma sus primeras acusaciones junto al cadáver —la pared interior del establo emite un sonido de madera moviéndose. El panel oculto de la puerta del establo conectada a la cocina oscila solo, despacio, hacia adentro. El pasillo detrás está en sombras. Los goznes no crujen. Recién aceitados. Nadie visible al otro lado. → Avanzar a Escena 4.
 
 ---
 
-### Escena 4 — «El precio del cofre»
+## ESCENA 4 — «El precio del cofre»
+**Función dramática:** Las facciones salen del armario. El cofre se convierte en el centro gravitacional de toda traición pendiente. El contenido crea dilemas morales, no solo información.
 
-| Campo prep          | Valor                                                                                                                                                            |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **status**          | `PREPARED`                                                                                                                                                       |
-| **display_name**    | `El precio del cofre`                                                                                                                                            |
-| **location_id**     | `[UUID_SOTANO]` o sala si no bajan                                                                                                                               |
-| **scene_objective** | `Centrar conflicto en el cofre; revelar contenido parcial o total; túnel de contrabando; traiciones activas.` |
+### QUÉ DEBE OCURRIR
+- Durvis pone una bolsa de monedas sobre la mesa: «Ese cofre se abre esta noche o yo abro algo más. La única duda es cuántos de vosotros van a estar vivos para ver qué hay dentro.»
+- Sira baja la capucha por primera vez. Sus rasgos drow quedan visibles. «He esperado suficiente a que esto se resuelva solo.» Se sienta sin pedir permiso.
+- Si el cofre se abre: vial de plaga sellada + mapas de arsenales bajo el Paso + cartas de chantaje que nombran al Comandante Halvek Byrne como traidor de guerra. Renwick ve el nombre y no dice nada, pero cierra el puño bajo la mesa.
+- Onno Grist se vuelve llamativamente activo —empieza a moverse hacia la cocina. Si alguien lo observa (Percepción CD 12), va directamente hacia la trampilla.
 
-**opening_narration**:
+### QUÉ PUEDE OCURRIR
+- Sira revela que aceptó un contrato de información sobre Caelith para saber el contenido del cofre antes de que llegara a Neverwinter. «No vine a robarlo. Vine para que nadie más lo hiciera peor.»
+- Wenna confiesa el túnel si alguien la acusa directamente de encubrir el asesinato. Lo hace con calma clínica: «El túnel lleva tres años ahí. No lo construí para matar a nadie —lo construí para no morir de hambre. Durvis pagó. Yo abrí el suelo. Eso es todo lo que fue.»
+- Renwick, si alguien pronuncia el nombre «Byrne» en voz alta, se levanta despacio. «Mi familia vivía en el ramal norte del paso. Seis personas. Durvis vendió las rutas. Byrne firmó el informe que decía que el ataque fue un error de navegación.» Y espera a ver qué hace la sala.
+- Si Lysse es confrontada con la cuarta nota («L.M.»), sonríe con una calma que es peor que la hostilidad. «Selvyn tenía algo que me habría costado todo. Elegí qué valía más. Si eso os parece un crimen, contad los cuerpos de todos los presentes antes de pronunciar sentencia.»
 
-```
-El viento amaina ligeramente en el exterior, pero el frío se vuelve más denso, casi sólido. En mitad de la sala común, el maletín de hierro de Sera Vann reposa sobre la mesa de roble. Alguien ha intentado forzar el sello de lacre escarlata con un cuchillo sucio de grasa de cocina; hay una marca grasienta inconfundible cerca del cierre.
-
-Grakk ha dejado de sonreír detrás de la barra y acaricia abiertamente el pomo de su cuchillo de carnicero. En el rincón de la cocina, la trampilla mal encajada del sótano exhala una corriente helada con olor a tierra subterránea que nadie admite conocer. Huldra azota un saquito de cuero relleno de pólvora negra sobre el roble: «Ese cofre se va a abrir esta noche», dice la enana con la pipa apagada entre los dientes. «La única duda real es cuántos de vosotros vais a estar vivos para ver qué hay dentro».
-```
-
-**master_prep_notes**:
-
-```
-Si los PJ ceden ante Huldra y abren el cofre con la pólvora o herramientas sin desactivar el pestillo de seguridad, el vial libera una toxina (CD 14 CON para evitar infección latente).
-
-Las cartas del interior revelan que Halvek Crownsplitter (padre del hijo de Yselda) vendió posiciones de la Alianza a los Zhentarim.
-
-Grakk se vuelve hostil si se inspecciona la harina de la cocina, donde oculta la lista de huéspedes vendida que le incrimina como informador de la red criminal.
-```
-
-**Beats:** ultimátum cofre → bajada sótano → revelación contenido → ofertas cruzadas → traición visible.
-
-**Cuándo cerrar:** Destino del cofre decidido (no necesariamente final) + `world_threat_level` ≥ 8.
+### CIERRE DE ESCENA (CONTROLADO POR EL MÁSTER)
+Un golpe sordo desde debajo del suelo, en dirección a la cocina. Luego un BANG —pequeño, seco, percusivo— y la trampilla oculta detrás del hogar de la cocina salta medio palmo de su encaje, escupiendo humo acre y el olor inconfundible de pólvora. Onno Grist, en el umbral de la cocina, se detiene. La cara completamente neutral. «Alguien», dice despacio, «activó mi seguro.» → Avanzar a Escena 5.
 
 ---
 
-### Escena 5 — «El último trago»
+## ESCENA 5 — «El último trago»
+**Función dramática:** Standoff final. Un trago de licor sin etiqueta. La verdad o la bala. Nadie sale limpio; la pregunta es cuántos salen vivos.
 
-| Campo prep          | Valor                                                                                                                                                            |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **status**          | `PREPARED`                                                                                                                                                       |
-| **display_name**    | `El último trago`                                                                                                                                                |
-| **location_id**     | `[UUID_SALA_COMUN]`                                                                                                                                              |
-| **scene_objective** | `Standoff mexicano en un solo post; resolver traiciones; epílogo brutal o amargo.` |
+### QUÉ DEBE OCURRIR
+- Wenna saca de bajo la barra una botella sin etiqueta. «Un trago por cabeza. Después que los dioses decidan.»
+- Lysse, si no ha sido detenida, intenta salir por el túnel. Si el grupo lo nota (Percepción CD 11), se para. Si no, Wenna anuncia cuando ya tiene la mano en la trampilla reparada.
+- Post de standoff: cada jugador en un solo post declara posición, armas, a quién apunta y qué dice en voz alta.
 
-**opening_narration**:
+### QUÉ PUEDE OCURRIR
+- Sira revela el legado del mentor que le debe Caelith y que la deuda de silencio pasó al nombre del cofre, no al comandante.
+- Renwick, si Durvis sigue vivo, dice su nombre completo. «Durvis Hakk. Ramal Norte, invierno del año 1492 del Calendario del Dale. Mi hermano mayor tenía diecisiete años.» Y espera.
+- Onno ofrece neutralizar el vial si alguien le garantiza inmunidad para sus actividades en el sótano. «Tengo los reactivos. No soy un fraile —eso ya lo sabéis. Pero sé química.»
+- **Final A:** Los Harpers (Sira) se llevan el cofre —las cartas se exponen, Renwick obtiene justicia, Caelith desaparece en el archivo.
+- **Final B:** El vial se destruye —Onno lo hace, Wenna cierra el túnel, el escándalo queda enterrado con la nieve.
+- **Final C:** Fuga por el túnel —queda abierta la pregunta sobre Byrne y el ramal norte.
+- **Final D:** Masacre.
+- **Final E:** Tregua Harper con confesiones parciales —cada NPC paga un precio, ninguno el precio completo.
 
-```
-La tormenta da un respiro exterior, el suficiente para que el silencio dentro de la posada se vuelva absoluto. Podéis escuchar los latidos de vuestros propios corazones. Maelis Verdecuervo golpea el centro de la mesa con una botella de vidrio oscuro sin etiqueta: el licor que su abuelo guardaba para el día que alguien dijera una verdad entera en este paso de malditos.
-
-«Un trago por cabeza», murmura la posadera sin emoción alguna. «Y después de que baje, que los dioses decidan quién sale por esa puerta».
-
-Nadie se mueve, pero todas las armas están amartilladas bajo la luz moribunda del fuego.
-
-[MÁSTER: Activar de inmediato el post de STANDOFF MEXICANO de la Sección K. Un solo asalto de interacción asíncrona antes del cierre de campaña.]
-```
-
-**master_prep_notes**:
-
-```
-- NO prolongar tras standoff. Un post, una ronda de respuestas si aplica, resolución.
-- Finales: (A) Alianza se lleva cofre, (B) destrucción vial, (C) fuga túnel, (D) masacre, (E) tregua Harper.
-- Combate opcional: Thorn + Grakk nivel 2–3 vs grupo.
-- Epílogo: 1 línea por PJ vivo. Edrin enterrado o no según grupo.
-- ARC: current_act=5, derailed según resultado.
-```
-
-**Beats:** botella → standoff post → respuestas PJs → resolución violenta o negociada → epílogo.
-
-**Cuándo cerrar:** Inmediatamente tras resolución del standoff. Congelar RAG.
+### CIERRE DE CAMPAÑA
+Epílogo: una línea por PJ vivo. Selvyn Drask fue enterrado o no según lo que decidió el grupo. El cuervo blanco del umbral sigue en su poste. Nadie sabe si graznó durante la noche.
 
 ---
 
-## D. Ubicaciones (`LOCATION`)
+---
 
-### 1. Posada del Paso Helado (edificio padre)
-
-```yaml
-identity:
-  name: "Posada del Paso Helado"
-  location_type: "posada de montaña"
-  parent_location_id: null
-
-narrative_profile:
-  public_description: |
-    Posada de piedra y madera oscura en el Paso del Cuervo Blanco, a medio día de Neverwinter por senderos que en invierno son una sentencia. Tres plantas: sala común y barra en planta baja, cocina y despensa al fondo, ocho habitaciones en pisos superiores, establo anexo lateral. Maelis Verdecuervo la regenta con mano firme y pocas preguntas — si pagas antes de beber.
-  secret_lore_master: |
-    Sótano comunica con túnel de contrabando usado por Los Cuervos de Mirtul. Maelis fue exploradora Harper; el cuervo blanco del umbral es señal de contacto. Bajo la tercera tabla del suelo hay nicho con botella de veneno de sombra (1 dosis, CD 13 CON o 2d6 veneno). Entre vigas del techo hay hueco usado para espiar la sala — Grakk lo usó.
-  ambient_tone: "Calor falso, tablones que crujen, silencios largos, olor a lana mojada, cerveza rancia y hierro"
-  notable_features:
-    - "Chimenea de piedra negra"
-    - "Barra con botellas sin etiqueta"
-    - "Reloj de arena roto sobre la repisa"
-    - "Vigas con hueco de espionaje"
-    - "Establo anexo con puerta lateral"
-    - "Trampilla al sótano tras la barra"
-
-state_flags:
-  is_accessible_to_party: true
-  danger_level: 5
-  is_destroyed: false
-```
-
-**Prompt ilustración:** `Fantasy tavern interior, snowstorm outside windows, warm firelight, gritty realistic style, claustrophobic mountain inn, blood stain on ceiling beam, Faerûn Sword Coast, muted colors, cinematic composition, no text`
+# 2. EL MISTERIO — GUÍA DEL MÁSTER
+### 🔒 SOLO MÁSTER — NO COMPARTIR
 
 ---
 
-### 2. Sala común y barra (zona 1)
+## LA VERDAD COMPLETA DE LA NOCHE
 
-```yaml
-identity:
-  name: "Sala común de la Posada del Paso Helado"
-  location_type: "sala interior"
-  parent_location_id: "[UUID_POSADA_DEL_PASO_HELADO]"
+### Cronología hora a hora
 
-narrative_profile:
-  public_description: "Mesa larga de roble, ocho sillas, chimenea, barra con grifos que gotean. Centro de toda mentira y verdad de la noche."
-  secret_lore_master: "Tercera tabla del suelo levantable (Investigación CD 15). Veneno de sombra en nicho. Escena del standoff final."
-  ambient_tone: "Calor seco, crujido de fuego, voces bajas, tensión visible"
-  notable_features: ["Mesa central", "Botella sin etiqueta de Maelis", "Reloj de arena roto"]
+**Seis días antes:** Durvis Hakk envía al contacto zhentarim en Neverwinter la lista de huéspedes esperados. Entre ellos, Caelith Brynmar con el sello de la Alianza. Los Zhentarim ordenan recuperar el cofre a cualquier precio.
 
-state_flags:
-  is_accessible_to_party: true
-  danger_level: 6
-  is_destroyed: false
-```
+**Cuatro días antes:** Selvyn Drask recibe información de un informante en el archivo de Neverwinter: el notario lleva dos semanas investigando a Durvis Hakk. Esto lo sabe Durvis. También lo sabe Lysse —Selvyn se lo dijo sin querer en una conversación sobre «deudas pendientes de la guerra», creyendo que podía usarlo para presionarla. Error fatal.
 
----
+**Tres días antes:** Lysse Mourne decide que Selvyn va a hablar demasiado pronto. Prepara el compuesto sedante, calcula el método, planifica la ruta de salida. No hay rabia en esto. Es aritmética.
 
-### 3. Cocina y despensa (zona 2)
+**Dos días antes:** Sira Veleth recibe instrucción Harper: escoltar el cofre de Caelith de forma encubierta hasta que cruce el paso. Llega primero a la posada. No revela su misión a Wenna, aunque Wenna ya la sospecha.
 
-```yaml
-identity:
-  name: "Cocina de la Posada del Paso Helado"
-  location_type: "cocina"
-  parent_location_id: "[UUID_POSADA_DEL_PASO_HELADO]"
+**La mañana del día:** Selvyn llega temprano y pasa el día redactando cuatro notas de chantaje en su habitación: para Wenna (el túnel), para Durvis (sus actividades zhentarim), para Renwick (el incendio del ramal norte), y para Lysse (su identidad como Harper renegada). Entrega las tres primeras personalmente en la tarde. La de Lysse se la guarda para «el momento apropiado».
 
-narrative_profile:
-  public_description: "Cocina estrecha, ollas colgadas, olor a estofado y grasa. Grakk reina aquí con cuchillo siempre cerca."
-  secret_lore_master: "Lista de huéspedes vendida escondida en harina (Investigación CD 13). Señal zhentarim bajo delantal de Grakk. Puerta a sótano con cerradura oxidada."
-  ambient_tone: "Vapor, metal, susurros, cuchillos"
-  notable_features: ["Fogón de piedra", "Saco de harina con papeles", "Puerta al sótano"]
+**Hora primera (llegada, tarde):** Los viajeros van llegando. La tormenta se cierra. Selvyn empieza a circular por la sala haciendo visitas breves. Tres NPCs se tensan. Lysse recibe su nota —la última— en algún momento entre la cena y las campanadas. Lee. Dobla. La destruye en la lumbre de su cuarto.
 
-state_flags:
-  is_accessible_to_party: true
-  danger_level: 5
-  is_destroyed: false
-```
+**Hora segunda (noche temprana):** Selvyn le comunica a Lysse la hora de su cita en el establo: «La segunda campanada. Venid sola. Si no venís, el informe sobre vuestra identidad Harper llega a Skullport mañana por la mañana.» Lysse no dice nada. Se va a preparar infusiones en la cocina. Entre la cocina y su cuarto, encuentra y comprueba la puerta oculta al establo: los goznes los aceitó ella misma durante la tarde con aceite de linaza de la despensa, sin que nadie la viera.
+
+**Antes de las dos campanadas:** Lysse va a la cocina con la excusa de preparar una tisana para «el herido del tercer cuarto» —Renwick. Nadie lo verifica. En la cocina, prepara también una segunda taza con extracto de adormidera y verbena sedante. Entra al establo por la puerta oculta con las dos tazas. Pone la taza con el compuesto en el poste del tercer pesebre donde Selvyn la encontrará.
+
+**Las dos campanadas:** Selvyn entra al establo por la puerta principal del patio. Encuentra la taza. La bebe —es amarga, pero no más que su té habitual. Lysse sale del hueco del cuarto pesebre donde esperaba. La conversación dura tres minutos. Selvyn empieza a sentir los brazos pesados en el minuto cuatro. En el minuto seis, Lysse usa la cuerda botánica. El trabajo dura noventa segundos. Los caballos se agitan. Lysse pone el cuadernillo en la mano del cadáver —abierto en la página en blanco, como si todavía estuviera tomando notas. Destruye la cuarta nota del cuadernillo. Sale por el túnel desde el tercer pesebre. Tarda doce minutos en llegar a la cocina por el subsuelo.
+
+**Justo después:** Borrakh, que había bajado por la puerta principal del establo a revisar su yegua una hora antes, vuelve a pasar —oyó los caballos. Encuentra el cadáver. Lo toca para saber si respira. Se limpia la mano en el heno. Sale sin gritar porque no quiere ser el primer sospechoso. No grita. Se va a la sala común.
+
+**Tres minutos después:** Tamlin sube a la cocina a buscar agua. Encuentra a Lysse lavándose las manos en el cubo de la despensa. Ella dice: «No podía dormir.» Tamlin asienta y no dice nada —todavía.
+
+**Poco después:** El grito llega desde el establo. Alguien que salió a buscar a Selvyn encontró el cuerpo. El grupo baja.
 
 ---
 
-### 4. Pisos superiores — habitaciones (zona 3)
+## LOS ACCESOS AL ESTABLO — TRES RUTAS DOCUMENTADAS
 
-```yaml
-identity:
-  name: "Pisos superiores de la Posada del Paso Helado"
-  location_type: "habitaciones"
-  parent_location_id: "[UUID_POSADA_DEL_PASO_HELADO]"
-
-narrative_profile:
-  public_description: "Pasillo estrecho, ocho puertas, alfombra gastada que no amortigua pasos. Habitación del Viajero siempre con cerrojo."
-  secret_lore_master: "Sangre de Kaelen o cadáver Edrin según escena. Yselda comparte habitación con mentira de viuda. Hueco en suelo de habitación 4 comunica con vigas de sala."
-  ambient_tone: "Crujidos, pasos amortiguados, puertas que no cierran bien"
-  notable_features: ["Habitación 4 con tabla suelta", "Cerrojo del Viajero", "Ventana con hielo en cristal"]
-
-state_flags:
-  is_accessible_to_party: true
-  danger_level: 7
-  is_destroyed: false
-```
+| Ruta | Descripción | Quién la usó esta noche | Evidencia que deja |
+|---|---|---|---|
+| **1. Puerta principal del patio** | Puerta de madera norte del establo, da al patio interior cubierto de nieve | Selvyn (víctima), Borrakh (antes del crimen) | Barro en el umbral, huellas en el patio si hay luz; difícil con ventisca |
+| **2. Puerta oculta de la cocina** | Panel de madera detrás de la estantería del corredor trasero; pasillo de 4m hasta la pared lateral del establo | Lysse (asesina, ida y vuelta esta noche) | Ligero desencaje del panel; aceite de linaza fresco en los goznes (CD 11 Investigación en cocina) |
+| **3. Ventana este del piso superior** | Ventana de la habitación 5; da a la cubierta de pizarra del establo; salto de 2,5m hasta el heno interior (Atletismo CD 12) | Renwick (antes del crimen, para observar el patio) | Rasguños en el alféizar exterior; pizarras movidas en la cubierta (CD 14 Investigación) |
+| **4. Túnel de contrabando** | Desde la bodega oculta bajo la cocina → conducto subterráneo de 40m → emergen en el suelo del tercer pesebre | Lysse (regreso tras el crimen) | Tierra arcillosa rojiza del túnel en el suelo del pesebre (CD 12 Investigación); rastro de la misma tierra en la cocina si se busca (CD 13) |
 
 ---
 
-### 5. Sótano y túnel (zona 4)
+## EL CELLAR OCULTO — GUÍA DEL MÁSTER
 
-```yaml
-identity:
-  name: "Sótano de la Posada del Paso Helado"
-  location_type: "sótano"
-  parent_location_id: "[UUID_POSADA_DEL_PASO_HELADO]"
+**Acceso:** Trampilla de piedra detrás del hogar de la cocina, disimulada bajo una pila de leña. Requiere mover la leña (visible) y encontrar el mecanismo de palanca (CD 13 Investigación). Durvis Hakk tiene una llave para la cerradura inferior; sin llave, CD 14 para abrir con ganzúa.
 
-narrative_profile:
-  public_description: "Escaleras húmedas, olor a tierra y moho. Los huéspedes no deberían estar aquí."
-  secret_lore_master: "Túnel a Paso del Cuervo Blanco usado por Cuervos de Mirtul. Caja con contrabando menor. Salida de emergencia si tormenta cesa."
-  ambient_tone: "Frío, oscuro, goteo de agua, claustrofobia"
-  notable_features: ["Túnel de contrabando", "Cadenas oxidadas", "Marcas de botas recientes"]
+**Contenido:**
+- Veinte cajones de madera lacrada con sello zhentarim: documentos falsos, cartas de crédito, dos espadas cortas sin marcar, un frasco de veneno no identificado.
+- Correspondencia entre Durvis y dos contactos en Luskan —escrita en cifra zhentarim estándar (CD Arcana 15 para descifrar sin clave).
+- Mapa de las cuatro salidas del túnel: la cocina de la posada, el establo (tercer pesebre), una salida al barranco oriental (a 250m), y una entrada tapiada que apuntaba a las ruinas de un antiguo puesto del Paso.
+- Rastros de cuerda botánica trenzada en el suelo del pasillo del túnel hacia el establo —del tipo de Lysse (CD 13 Investigación, confirma la ruta de regreso).
+- Una pequeña carga de pólvora negra con detonador de percusión instalada por Onno Grist —trampa de seguridad que activó de forma remota durante la Escena 4 para crear distracción.
 
-state_flags:
-  is_accessible_to_party: false   # hasta Escena 4 salvo intrusión
-  danger_level: 8
-  is_destroyed: false
-```
+**Quién sabe que existe:**
+- Durvis Hakk: lo construyó, lo usa, lo mantiene.
+- Wenna Corren: consintió su construcción a cambio de dinero. Lo lamenta.
+- Onno Grist: lo descubrió durante una estancia anterior y colocó su trampa sin decírselo a nadie.
+- Lysse Mourne: lo usó esta noche por primera vez para escapar del establo.
+- Selvyn Drask (ya muerto): tenía referencias indirectas al túnel en su cuadernillo —era parte de su expediente sobre Wenna.
 
----
-
-### 6. Paso del Cuervo Blanco (región)
-
-```yaml
-identity:
-  name: "Paso del Cuervo Blanco"
-  location_type: "paso de montaña"
-  parent_location_id: null
-
-narrative_profile:
-  public_description: |
-    Paso alto entre Neverwinter y los valles interiores. En verano, caravanas; en invierno, solo locos y desesperados. Los cuervos anidan en los peñascos; los lugareños dicen que anuncian muertes que aún no ocurrieron.
-  secret_lore_master: |
-    Durante la Guerra de la Corona, aquí se enterró un convoy de la Alianza bajo avalancha provocada. El cofre de Sera contiene mapas para recuperar esas armas — y muestras de plaga usada como arma en ese conflicto.
-  ambient_tone: "Viento cortante, graznidos lejanos, blanco absoluto, aislamiento"
-  notable_features:
-    - "Senda estrecha con cornisa"
-    - "Peñasco del Cuervo Blanco"
-    - "Boca del túnel bajo posada"
-
-state_flags:
-  is_accessible_to_party: false
-  danger_level: 8
-  is_destroyed: false
-```
+**Qué revela sobre la trama mayor:** La operación zhentarim en el Paso del Cuervo Blanco no es de esta noche —lleva tres años activa, con Durvis como nodo de distribución. Los arsenales del cofre de Caelith conectan directamente con esta bodega: fueron diseñados para ser vaciados de armas a través de este mismo túnel. La bodega es la prueba de que el cofre no es solo evidencia de crímenes pasados —es evidencia de crímenes futuros planificados.
 
 ---
 
-### 7. Establo anexo
+## EL COFRE — QUÉ CONTIENE Y POR QUÉ IMPORTA
 
-```yaml
-identity:
-  name: "Establo anexo de la Posada del Paso Helado"
-  location_type: "establo"
-  parent_location_id: "[UUID_POSADA_DEL_PASO_HELADO]"
+**Contenido real:**
+1. **Vial de plaga sellada** — muestra de arma biológica usada en la Guerra de la Corona. No es arma funcional: es evidencia. Su existencia prueba que la Alianza usó plaga contra civiles en tres aldeas de la Costa del Norte. Destruirlo elimina la prueba. Conservarlo es un arma política de primer orden.
+2. **Mapas de arsenales** — ubicación de cuatro depósitos enterrados bajo el Paso del Cuervo Blanco. Conectan directamente con la bodega oculta de la posada. Quien los tenga puede desmantelar la operación —o completarla.
+3. **Cartas de chantaje** — correspondencia entre tres oficiales de la Alianza y agentes zhentarim, vendiendo posiciones durante la guerra. Una nombra al Comandante Halvek Byrne. Renwick Sorn lleva dos años buscando esa firma.
 
-narrative_profile:
-  public_description: "Establo pequeño con cuatro pesebres, heno húmedo y olor a bestia. Puerta lateral da al exterior — inútil mientras la ventisca sople."
-  secret_lore_master: "Bajo el pesebre tercero, trampilla a túnel (misma red del sótano). Edrin sabía y calló por miedo. Escena del cadáver."
-  ambient_tone: "Oscuro, húmedo, crujidos, miedo animal"
-  notable_features: ["Pesebres vacíos", "Huellas de sangre", "Farol apagado", "Cuerda fina en rincón"]
+**Por qué lo quiere cada facción:**
+- **La Alianza (Caelith):** Recuperar y destruir el vial + las cartas —silenciar el escándalo.
+- **Los Zhentarim (Durvis):** Vial de plaga + mapas. No les importan las cartas —ya saben lo que dicen.
+- **Los Cuervos de Mirtul (Onno):** Los mapas únicamente. Venderlos en Luskan y al contacto zhentarim. Dos compradores para el mismo objeto: precio máximo.
+- **Los Harpers (Sira):** Destruir el vial. Exponer las cartas —no silenciarlas, usarlas para purgar oficiales corruptos.
+- **Renwick Sorn (personal):** Las cartas específicamente. El comandante que vendió el ramal norte debe comparecer ante un tribunal.
 
-state_flags:
-  is_accessible_to_party: true
-  danger_level: 7
-  is_destroyed: false
-```
+**El dilema moral central:** Abrir el cofre expone la corrupción de la Alianza —justicia para civiles que murieron— pero destruye la carrera de personas que quizá cumplían órdenes. Destruir el vial protege al mundo de que llegue al mercado negro, pero elimina la única prueba física de los crímenes. No hay salida limpia.
 
 ---
 
-## E. NPCs (10 + 1 menor)
+## MATRIZ DE FALSAS PISTAS
 
-Para cada NPC: **raza D&D**, máscara pública vs verdad secreta, peculiaridad sensorial, motivo privado, mentira sostenida, culpa aparente vs real (ver tabla maestra sección I), **5+ líneas de diálogo** copy-paste, `secret_lore_master` en prosa completa. Ficha 5e ligera (nivel 1–3).
-
-### Tabla rápida — razas y culpabilidad
-
-| NPC | Raza | Parece culpable de… | Culpabilidad real (0–10) |
-| --- | ---- | ------------------- | ------------------------ |
-| Maelis Verdecuervo | Humana | Avalancha / encubrir asesinato | **6** (tres muertos hace 10 años; ninguno esta noche) |
-| Orin «Tres Dedos» Keth | Mediano (halfling) | Chantaje / vender a Sera | **5** (cobarde, no asesino) |
-| Sera Vann | Dracónida | Traición Alianza / abrir plaga | **4** (misión legal, contenido ilegal) |
-| Thorn Blackmantle | Tiefling | Asesinato Edrin / «paladín» falso | **7** (revolvió cadáver; no estranguló) |
-| Sister Calistra | Humana (Calimport) | Envenenar / matar Edrin | **5** (12 eutanasias pasadas; no mató al mozo) |
-| Grakk Ironsnout | Medio-orco | Estrangulamiento (correcto) | **9** (asesino del mozo + espía) |
-| Kaelen Ruin | Humano | Sangre del techo / Mere | **7** (encubrió muertes civiles) |
-| El Viajero de Ceniza | Drow | Contrato de muerte sobre Sera | **2** (menos culpable; protector encubierto) |
-| Huldra Voss | Enana | Vender explosivos / cómplice | **6** (suministró garrote «para minería») |
-| Yselda Cuervonegro | Elfa del bosque | Espía / padre corrupto | **3** (mentira de identidad, embarazo real) |
-| Edrin el Mozo | Humano | Espionaje (menor) | **2** (víctima) |
+| Quién parece culpable | Por qué parece culpable | Por qué no lo es (del asesinato) |
+|---|---|---|
+| **Borrakh Peñadiente** | Estuvo en el establo; huellas suyas en el heno; tiene un pasado violento | Llegó antes del crimen a revisar su yegua. Lo encontró sin gritar por cobardía, no por culpa. |
+| **Durvis Hakk** | Reacción demasiado calmada; tenía el motivo más obvio; conoce el túnel | Durvis quería a Selvyn controlado, no muerto —la exposición es más cara que el chantaje. |
+| **Renwick Sorn** | Estuvo en la ventana este; tiene herida reciente; dos de sus nombres están en el cuadernillo | Renwick estaba vigilando el patio buscando a Durvis. Tiene coartada de visión parcial. |
+| **Wenna Corren** | El túnel es suyo; Selvyn la chantajeaba; «calma excesiva» | Wenna no mató a Selvyn. Sabía que si moría, alguien investigaría la posada. Prefería pagar. |
+| **Onno Grist** | Acceso al sótano; trampa explosiva propia; activo y nervioso en Escena 4 | La trampa era de seguridad general, no relacionada con Selvyn. Onno solo mata conceptos, no personas. |
 
 ---
 
-### 1. Maelis Verdecuervo — Posadera
+## EL GIRO — LA REVELACIÓN QUE RECONTEXTUALIZA TODO
+
+**La revelación:** En la Escena 4, si los jugadores presionan a Sira Veleth, esta revela que Selvyn Drask no era solo un extorsionista. Llevaba seis meses construyendo un expediente para los Harpers —un caso real, con pruebas reales, contra la red zhentarim de Durvis. El chantaje era su mecanismo de protección: si alguien lo mataba antes de entregar el expediente, las notas automáticas en el archivo de Neverwinter se abriría solas. O eso creía él. Lysse lo sabía. Y sabía que Selvyn había mentido sobre el sistema de respaldo —no existía.
+
+**Lo que esto cambia:** Selvyn no era solo el villano de la noche. Era el único que estaba construyendo el caso que Renwick lleva dos años necesitando. Su muerte no es solo un asesinato —es el cierre de la única línea de acusación válida contra Byrne. Y Lysse lo sabía. Calculó cuánto valía el expediente versus cuánto le costaba su supervivencia. El expediente perdió.
+
+**La pregunta que se queda en la sala:** Lysse mató a alguien despreciable que hacía algo importante. ¿Cuánto pesa eso?
+
+---
+
+---
+
+# 3. NPCS
+
+---
+
+## WENNA CORREN — *Humana, posadera*
 
 | Campo | Valor |
-| ----- | ----- |
-| **identity.name** | `Maelis Verdecuervo` |
-| **identity.race** | `Humana` |
-| **identity.concept** | `Posadera de mirada cansada; controla la sala como quien conoce cada grieta y cada hueso bajo los cimientos` |
-| **identity.faction_id** | `[UUID_CUERVOS_MIRTUL]` |
-| **identity.current_location_id** | `[UUID_POSADA]` |
-| **máscara_pública** | `Viuda honesta de un paso maldito. Regenta la posada con mano firme, pocas preguntas, tarifa por adelantado.` |
-| **verdad_secreta** | `Ex-Harper. Hace diez años provocó una avalancha en el paso para enterrar un convoy zhentarim — tres hombres murieron; fue «accidente» firmado por la célula. Desde entonces no ha matado a nadie, pero sabe dónde está el veneno bajo la tercera tabla y coordinó con el Viajero la recepción del cofre.` |
-| **peculiaridad** | `Frota el pulgar contra el delantal cuando miente — ritmo lento, como amasar. Nunca levanta la voz; baja el volumen.` |
-| **personality_traits** | `Calculadora, protectora, seca, observadora, moralmente ambigua` |
-| **voice_and_tone** | `Frases cortas. Trata a todos de «viajero» hasta que demuestran lo contrario. El silencio es su amenaza.` |
-| **public_description** | `Humana de unos cuarenta años, cabello castaño con hebras plateadas, delantal de cuero manchado. Mueve jarras como piezas de tablero.` |
-| **secret_lore_master** | `Maelis Verdecuervo no es la bruja del paso que susurran los mercaderes: es peor y mejor a la vez. Entró en los Harpers tras ver quemar su aldea natal en la Guerra de la Corona; durante años usó la Posada del Paso Helado como nodo de contrabando «benigno» — medicinas, prisioneros políticos, mensajes. La avalancha del invierno de hace diez años no fue improvisación: un convoy zhentarim transportaba un vial de plaga menor robado a la Alianza. Maelis desencadenó la nieve con un artefacto Harper enterrado bajo el Peñasco del Cuervo Blanco. Tres zhents murieron; ella firmó el informe como «desprendimiento natural» y no durmió bien durante un año — luego durmió perfectamente, lo cual la aterroriza. El cuervo blanco del umbral es señal de contacto, no superstición. Conoce el veneno de sombra bajo la tercera tabla del suelo (1 dosis). Esta noche esperaba al Viajero y a Sera para cerrar el tránsito del cofre; la tormenta arruinó el calendario. No mató a Edrin. No protegerá a Grakk si el grupo lo descubre — pero tampoco entregará el túnel a la Alianza sin algo a cambio.` |
-| **motivo_privado_posada** | `Operación de tránsito acordada con Harper y Sera; la tormenta la convierte en carcelera involuntaria.` |
-| **mentira_que_sostiene** | `«Solo regento una posada honesta en un paso maldito.» Niega Harper, contrabando y el significado del cuervo blanco.` |
-| **parece_culpable_de** | `Encubrir al asesino; saber del túnel; «demasiada calma»` |
-| **attitude_towards_party** | `cautelosa` |
-| **player_visibility** | `visible` |
-| **compendium_tier** | `story` |
+|---|---|
+| **Físico** | Cuarenta y ocho años y ni uno de disculpas. Manos de alguien que ha cargado barriles, reparado tejados y enterrado a dos maridos. Los ojos grises lo cuentan todo si sabes leer a las personas que han aprendido a no contar nada. Tiene una cicatriz oblicua en el antebrazo derecho que no explica nunca. |
+| **Vestimenta** | Delantal de cuero teñido oscuro sobre camisa de lino gris. Llave de la bodega colgada al cuello —no la suelta jamás. Botas con suela reforzada de acero, aunque no está de obras. |
+| **Objetos** | Martillo de tablonar (herramienta, todavía). Botella sin etiqueta bajo la barra, reservada para el día que alguien diga una verdad entera. Una nota de Selvyn doblada en cuatro en el bolsillo del delantal —la chantajeaba con el túnel. |
+| **Actitud inicial** | Cordial como un cuchillo limpio. Llama a todos «viajero» hasta que dan un motivo para otra cosa. No pregunta por qué estás aquí —cobra por adelantado y asume lo peor. |
+| **Motivación** | Llegar al amanecer sin que la posada arda. Proteger el túnel que la salvó del hambre. Lidiar con el hecho de que Selvyn estaba muerto antes de que ella decidiera qué hacer con su nota. |
+| **Secreto** | Consintió la construcción del túnel zhentarim hace tres años a cambio de dinero. Nunca la usó para nada violento —pero la existencia del túnel convierte todo lo que ocurra esta noche en su responsabilidad legal. Sabe que Lysse es una ex-Harper renegada desde un informe de hace tres años que nadie más en la sala ha leído. No dijo nada porque no tenía respaldo. |
+| **Qué sabe de otros** | Sabe que Lysse figura en un informe Harper como «operativa renegada, peligrosidad máxima». Sabe que Durvis construyó el túnel con su complicidad. Sabe que Selvyn tenía notas sobre ambas cosas. |
+| **Coartada** | En la barra toda la noche —múltiples testigos. Sólida. |
+| **Culpabilidad** | **5/10.** No mató a Selvyn. Pero habría podido advertirle del informe sobre Lysse y eligió no hacerlo porque el problema era mutuo. |
 
-**Líneas de diálogo (copy-paste):**
+**Diálogos preparados:**
 
-- «La tormenta no pregunta si tenéis prisa. Yo tampoco.»
-- «He visto morir a gente con menos motivo que vosotros. No me miréis así — no fue esta noche.»
-- «El cuervo blanco es decoración. Si creéis en presagios, pagáis doble y dormís con un ojo abierto.»
-- «No abrís el sótano porque sí. Abriréis el sótano porque no os queda otra — y entonces negociamos.»
-- «Confiar es gratis. Equivocarse cuesta habitación y entierro.»
-- «Mi marido murió en esta cama. El que la manchó después pagó en monedas, no en disculpas.»
+*Coopera:*
+— «La tormenta no pide permiso. Vosotros tampoco vais a empezar.»
+— «Hay un túnel bajo esta posada. Lo abrieron unos hombres que pagaron bien y hacían preguntas malas. Sigo aquí. Ellos no.»
 
-**Ficha (nivel 2):** Guardia urbana reskin — AC 14, HP 22, espada corta +3 (1d6+1), Persuasión +4, Insight +3.
+*Neutral:*
+— «He visto morir a gente con menos razones que las vuestras. No me miréis así —no fue aquí.»
+— «El cuervo blanco del umbral es decoración. Si creéis en presagios, pagáis doble.»
+
+*Hostil:*
+— «No abrís el sótano por curiosidad. Lo abrís cuando no quede otra —y entonces negociamos.»
+— «Mis maridos murieron en esta cama. Nadie pagó en disculpas. Aprended.»
+
+*Bajo presión:*
+— «Sí. Dejé construir el túnel. Tenía deudas y tenía hambre. Eso tiene nombre —supervivencia. Lo que ocurrió esta noche tiene otro nombre. No son el mismo.»
+
+*Si descubren su secreto:*
+— «Sabía lo que era Lysse Mourne. No dije nada porque decirlo me habría puesto a mí en el centro. Me equivoqué. Eso es todo lo que tenéis de mí esta noche.»
+
+**Comportamiento con otros NPCs:**
+- *Con Sira:* La única persona de la sala de quien no recela. Coordinación sin afecto.
+- *Con Durvis:* Lo contrató por referencias que resultaron falsas. Lo sospecha desde hace semanas. No actuó porque el túnel dependía de no alterarlo.
+- *Con Lysse:* La única persona de la sala que sabe quién es Lysse de verdad. No la miró directamente desde que llegó.
 
 ---
 
-### 2. Orin «Tres Dedos» Keth — Bardo y jugador
+## SELVYN DRASK — *Humano, víctima*
 
 | Campo | Valor |
-| ----- | ----- |
-| **identity.name** | `Orin «Tres Dedos» Keth` |
-| **identity.race** | `Mediano (halfling)` |
-| **identity.concept** | `Halfling bardo que perdió dos dedos por una deuda de dados — sonríe como quien ya vendió tu secreto` |
-| **máscara_pública** | `Trovador de paso camino a ferias de Luskan. Encantador, inofensivo, siempre cerca del fuego.` |
-| **verdad_secreta** | `Debe quinientas piezas de oro a Los Cuervos de Mirtul. Vio el sello de Sera y calculó chantaje. Puede delatar a Kaelen a Thorn a cambio de impunidad — no porque sea malo, sino porque el miedo le come antes que la culpa.` |
-| **peculiaridad** | `Tararea una escala menor antes de cada mentira. El anillo de plata en el meñique que le falta tintinea contra la mandolina.` |
-| **personality_traits** | `Encantador, chismoso, cobarde bajo presión, irónico` |
-| **voice_and_tone** | `Ríe antes de hablar en serio. Metáforas de cartas y dados. Insulta con sonrisa.` |
-| **public_description** | `Halfling delgado, mandolina remendada, anillo de plata en el dedo fantasma. Ojos demasiado rápidos.` |
-| **secret_lore_master** | `Orin no es un villano de opereta: es un mediocre con deudas excelentes. Perdió los dedos en un juego trucado en el Puerto de Luskan — los Cuervos de Mirtul financiaron su recuperación a cambio de información. Lleva dos años vendiendo nombres a cambio de prórrogas. En Neverwinter reconoció el sello de la Alianza en el maletín de Sera y planeó un chantaje que aún no ha tenido valor para cobrar. Cree que Huldra vino por él (acierta) y que el tiefling de la capa negra es un demonio con ballesta (error a medias). Vio a Edrin espiando para Grakk y no dijo nada: le debía al mozo una copa de vino y pensó que no era asunto suyo. Esa omisión lo perseguirá si sobrevive la noche. No mató a nadie; sí puede matar una reputación con media frase.` |
-| **motivo_privado_posada** | `Huye de cobradores; la tormenta lo encerró con Huldra, su pesadilla con pipa.` |
-| **mentira_que_sostiene** | `«Solo paso rumbo a Luskan a tocar en ferias.» Oculta deuda y anillo de tres cuervos.` |
-| **parece_culpable_de** | `Vender secretos; provocar a Thorn; robar el cofre «por desesperación»` |
-| **attitude_towards_party** | `amistosa` |
-| **compendium_tier** | `story` |
+|---|---|
+| **Físico** | Cuarenta y cinco años con cara de funcionario veterano: calvicie incipiente, papada honesta, manos de escribiente con callos en el dedo índice derecho. Nada en él señala peligro. Eso es exactamente lo que es. El cuadernillo de cuero marrón siempre bajo el brazo como una extremidad extra. |
+| **Vestimenta** | Sobretodo azul marino con insignia de notario real —real, no robada. Camisa limpia. Botas buenas pero sin ostentación. El traje de alguien que quiere parecer autoridad sin parecer dinero. |
+| **Objetos** | Cuadernillo de cuero con cuatro entradas (tres notas de chantaje entregadas, una destruida). Bolsa interior con cartas de acreditación real. Frasco de tinta sellado en el bolsillo. Una daga pequeña que nunca alcanzó a usar. |
+| **Actitud inicial** | Amabilidad chirriante de inspector. Hace preguntas de procedimiento como si tomarlas en un registro oficial. «Solo por curiosidad burocrática» que no es curiosidad ni burocrática. |
+| **Motivación (oculta al grupo)** | Llevaba seis meses construyendo un expediente sobre la red zhentarim de Durvis Hakk para entregarlo a los Harpers. El chantaje era su financiación y su protección simultáneamente. Esta noche empujó demasiado y demasiado rápido. |
+| **Secreto** | Era un extorsionista funcional que estaba haciendo algo importante. Nadie en la sala lo sabe excepto Sira. |
+| **Coartada** | N/A — víctima. |
+| **Culpabilidad** | **1/10.** Hizo cosas malas por razones que la sala no entenderá hasta la Escena 4. Eso no lo salva. |
 
-**Líneas de diálogo:**
+**Diálogos preparados** *(solo Escenas 1–2, antes de morir)*:
 
-- «Dos dedos me costó aprender que la casa siempre gana — salvo cuando alguien en la mesa lleva ballesta.»
-- «No digo que confiéis en mí. Digo que me paguéis por no decir lo que sé. Es más barato.»
-- «La clériga reza mucho para alguien que huele a almizcle de Calimport y no a incienso.»
-- «Si el medio-orco te sonríe mientras corta cebolla, revisa dónde tenías los dedos.»
-- «Yo no mato. Yo… recomiendo a quién no invitar al día siguiente.»
-- «¿Chantaje? Qué palabra tan fea. Yo lo llamo «interés compuesto».»
+*Coopera:*
+— «¿Cuánto tiempo lleváis en el Paso? Pregunto por el registro —es rutina. No miréis así, todo el mundo tiene rutinas.»
+— «La posada tiene un historial interesante. Nada que no pueda resolverse con la documentación correcta.»
 
-**Ficha (nivel 1):** Bardo — AC 12, HP 9, Vicious mockery, espada corta 1d6.
+*Neutral:*
+— «No soy vuestro enemigo. Soy alguien que toma notas. Diferencia fundamental.»
+— «La tormenta es una excelente oportunidad para poner en orden asuntos que llevaban tiempo pendientes. Lo digo en general.»
+
+*Nervioso (Escena 2, si alguien lo observa de cerca):*
+— «Tengo que revisar algo en mi cuarto. Volveré en breve.» *(No vuelve en cinco minutos.)*
+— «¿Os ha dado infusiones la herbolaria? Sí. Buenas manos. Mucho cuidado con los que tienen buenas manos.»
+
+**Comportamiento con otros NPCs:**
+- *Con Lysse:* La subestimó. Eso lo mató.
+- *Con Durvis:* Sabía exactamente quién era. Lo tenía en su expediente. Cometió el error de decírselo.
+- *Con Wenna:* La chantajeaba pero con cierta consideración —le gustaba la posada.
 
 ---
 
-### 3. Sera Vann — Mensajera de la Alianza
+## BORRAKH PEÑADIENTE — *Medio-orco, herrero viajero*
 
 | Campo | Valor |
-| ----- | ----- |
-| **identity.name** | `Sera Vann` |
-| **identity.race** | `Dracónida (bronze, escamas apagadas)` |
-| **identity.concept** | `Mensajera de la Alianza con cofre que pesa más que el hierro y una conciencia que cruje en cada junta` |
-| **identity.faction_id** | `[UUID_ALIANZA_LORDES]` |
-| **máscara_pública** | `Oficial de rutas clasificadas. Formal, nerviosa, «por orden de la Alianza».` |
-| **verdad_secreta** | `Transporta plaga sellada, mapas de armas enterradas y cartas de chantaje sobre tres oficiales de Neverwinter — uno es padre del hijo de Yselda. Si falla, la Alianza la desaparece; si triunfa, sigue siendo cómplice de horrores legales.` |
-| **peculiaridad** | `Se muerde el interior de la mejilla hasta sangrar cuando miente. Las escamas junto al cuello cambian de tono con el estrés — bronce a gris plomo.` |
-| **personality_traits** | `Rígida, nerviosa, honorable en apariencia, territorial` |
-| **voice_and_tone** | `Lenguaje formal que se quiebra. «Por orden de la Alianza» como escudo roto.` |
-| **public_description** | `Dracónida de treinta años aparentes, capa azul con broche de Lord, maletín de hierro con lacre rojo.` |
-| **secret_lore_master** | `Sera Vann no es una fanática de la Alianza: es una superviviente que firmó un contrato con el diablo porque el diablo tenía raciones. Huérfana de la Guerra de la Corona, fue reclutada joven como mensajera de campo — eficiente, discreta, reemplazable. El cofre que porta no contiene oro: contiene un vial de plaga sellada de ese conflicto (muestra para «investigación»), mapas para recuperar arsenales enterrados bajo el Paso del Cuervo Blanco, y cartas que demuestran que tres oficiales de Neverwinter vendieron posiciones a Zhentarim. Una de esas cartas nombra al capitán Halvek Crownsplitter — padre biológico del bebé de Yselda, aunque Sera no lo sabe con certeza hasta que abran el cofre. La ruta por el paso evitaba checkpoints zhentarim en la Costa; Maelis era punto de relevo. Sera desconfía del drow del piso superior porque todo mensajero desconfía de un drow en la sombra — ironía cruel, porque él es la única escolta real que tiene sin saberlo.` |
-| **motivo_privado_posada** | `Relevo acordado con Maelis; tormenta convirtió misión en pesadilla.` |
-| **mentira_que_sostiene** | `«Solo documentos de rutas comerciales.» Nunca admite plaga ni chantaje.` |
-| **parece_culpable_de** | `Traición; traer la plaga; «sabía que alguien moriría»` |
-| **attitude_towards_party** | `neutral` |
-| **compendium_tier** | `story` |
+|---|---|
+| **Físico** | Medio-orco de treinta y ocho años, dos metros y anchura de puerta. Colmillos que nunca limó porque decidió que la gente que huye de su aspecto es gente con quien no vale la pena hablar. Manos marcadas de trabajo de fragua —no pueden sostener un vaso sin parecer que van a aplastarlo. Una cicatriz larga en la mejilla izquierda que termina exactamente donde empieza la mandíbula. |
+| **Vestimenta** | Cuero de trabajo con marcas de chispa que no salen. Camisa de malla ligera debajo —costumbre vieja, no precaución activa. Mochila con herramientas de herrero que suenan al moverse. |
+| **Objetos** | Martillo de trabajo (herramienta). Frasco de agua —solo agua, lleva ocho meses sin alcohol. Una carta sellada en el bolsillo interior que no ha abierto y no va a abrir. |
+| **Actitud inicial** | Habla despacio, eligiendo palabras como si costaran algo. No ocupa más espacio del necesario. Pide agua cuando todo el mundo pide cerveza —sin explicar por qué. |
+| **Motivación** | Llegar a Triboar donde lo espera trabajo honesto. Esta noche: no ser el primer sospechoso de nada. Ha aprendido que los medios-orcos son siempre el primer sospechoso. |
+| **Secreto** | Hace cuatro años fue responsable de un incendio en un depósito militar que mató a tres hombres. Fue descuido, no malicia. Renwick Sorn lo cubrió. Borrakh lleva cuatro años sin saber por qué —y sin querer saberlo, porque la respuesta implica que le debe algo. |
+| **Qué sabe de otros** | Vio a Renwick en la ventana este del piso superior cuando volvió del establo. Renwick estaba mirando hacia afuera, no hacia adentro. Borrakh no sabe qué buscaba. |
+| **Coartada** | Estuvo en el establo revisando su yegua antes del crimen —regresó a la sala cuando los caballos se agitaron, pero no avisó porque no quería ser el primero en explicar por qué estaba allí. Frágil por omisión. |
+| **Culpabilidad** | **3/10.** Encontró el cadáver y no dijo nada. Eso tiene peso moral aunque no sea el asesino. |
 
-**Líneas de diálogo:**
+**Diálogos preparados:**
 
-- «Por orden de la Alianza — y antes de que preguntéis, no, no vais a ver el contenido.»
-- «Lleváis tres preguntas de más en la cara. La cuarta os va a costar un diente.»
-- «No soy vuestro enemigo. Vuestro enemigo es quien creéis que soy.»
-- «Si abrís esto sin precaución, no moriréis heroicos. Moriréis feos y lentos.»
-- «El drow de arriba me mira como quien cuenta monedas sobre mi tumba. Preferiría que tuviera razón — al menos sería simple.»
-- «La Alianza no perdona el fracaso. Tampoco perdona el éxito si alguien habla demasiado.»
+*Coopera:*
+— «No voy... a causar problemas. No esta noche.» *(Pausa larga.)* «Estaba en el establo. Vi al hombre muerto. No grité porque gritar no cambia lo que está muerto.»
+— «Si alguien quiere saber qué herramientas hay en esa bolsa, puede mirar. No tengo nada que no sea acero y cuero.»
 
-**Ficha (nivel 2):** Veterana — AC 16, HP 20, espada larga +4, Persuasión +3.
+*Neutral:*
+— «Dadme agua o dadme silencio. Las dos cosas cuestan menos que lo que estáis pensando.»
+— «No soy el problema de esta noche. Probablemente.»
+
+*Hostil:*
+— «Si levantáis esa acusación sin prueba, preparaos para que la próxima vez sea con prueba.»
+— «Llevo cuatro años aprendiendo a no romper cosas. Esta noche no es excepción.»
+
+*Bajo presión:*
+— «Sí. Estuve en el establo. Lo encontré. No llamé porque soy un medio-orco con herramientas en la espalda en una posada cerrada por tormenta. Pensad en eso un momento antes de juzgar el instinto.»
+
+*Si descubren su secreto:*
+— «El depósito ardió. Tres hombres murieron. Fue mi error y no mi intención y eso es exactamente tan útil como suena. Renwick lo tapó. No sé por qué. Lleva cuatro años sin cobrarme.»
+
+**Comportamiento con otros NPCs:**
+- *Con Renwick:* Lo reconoció en cuanto entró. No ha cruzado ni una palabra. Lo vigila con el rabillo del ojo.
+- *Con Lysse:* No la sospecha. Dejó que le pusiera un vendaje en la mano izquierda. Eso la acerca demasiado.
+- *Con Wenna:* La única persona de la sala que no lo mira con recelo. Eso lo hace confiar en ella más de lo que debería.
 
 ---
 
-### 4. Thorn Blackmantle — «Paladín» de pacotilla
+## LYSSE MOURNE — *Elfa del bosque, herbolaria*
+### LA ASESINA
 
 | Campo | Valor |
-| ----- | ----- |
-| **identity.name** | `Thorn Blackmantle` |
-| **identity.race** | `Tiefling` |
-| **identity.concept** | `Cazarrecompensas con tabardo robado de Torm y obsesión por monedas que esconde una deuda de viuda` |
-| **máscara_pública** | `Paladín errante de Torm — o eso dice el tabardo blanco y dorado, demasiado limpio para este barro.` |
-| **verdad_secreta** | `Nunca juró a ningún dios. Robó el tabardo del cadáver de sir Aldric Vane en un campo de batalla para venderlo — y no pudo. La viuda le pidió devolver la honra del nombre a cambio de perdonar la «donación» tardía de la paga del marido. Thorn caza a Kaelen («carnicero de Mere de Tresvelas») porque el incendio mató a su hermana, no a su familia entera — mentira que él mismo repite para justificar la ballesta. Tiene orden falsa de la Alianza para el cofre, señuelo de un noble corrupto. Estuvo en el establo cuando murió Edrin; revolvió el cuerpo buscando a Kaelen y dejó huellas.` |
-| **peculiaridad** | `Cuenta monedas en voz baja mientras habla — tic nervioso, no codicia pura. Limpia uñas con cuchillo sin mirar.` |
-| **personality_traits** | `Implacable, orgulloso, violento acorralado, directo` |
-| **voice_and_tone** | `Pocas palabras. Frases como cuchilladas. No pide permiso para mirar a los ojos.` |
-| **public_description** | `Tiefling corpulento, cuernos limados, tabardo de Torm manchado de nieve, ballesta al hombro, cicatriz en el mentón.` |
-| **secret_lore_master** | `Thorn Blackmantle es la sátira de un paladín y su tragedia privada. Creció en los barrios de Neverwinter con la mitad del barrio creyendo que sus cuernos eran maldición y la otra mitad, negocio. Sir Aldric Vane cayó en una escaramuza menor; Thorn saqueó el cuerpo como saquea cualquier cuerpo — y encontró el tabardo intacto y una carta de la viuda pidiendo que alguien devolviera las medallas del regimiento. En lugar de vender el tabardo, Thorn se lo puso. No por fe: por deuda. Lleva tres años enviando el ochenta por ciento de lo que gana a la viuda Vane con notas sin firma. La caza de Kaelen Ruin es personal: su hermana pequeña murió en el incendio de Mere de Tresvelas; Kaelen firmó el informe que lo encubrió. Thorn no estranguló a Edrin — pero entró al establo creyendo que Kaelen tenía cita allí, encontró al mozo, lo tocó, vio que no era Kaelen, y huyó. Después volvió «a comprobar» y movió el cuerpo. Eso lo hace cómplice de escena y asesino en potencia, no del garrote. La orden de la Alianza para el cofre es falsa, comprada por el mismo oficial que aparece en las cartas de chantaje.` |
-| **motivo_privado_posada** | `Rastreó a Kaelen; la tormenta le regaló la jaula.` |
-| **mentira_que_sostiene** | `«Paladín de Torm en misión de Lord Neverember.» Oculta tabardo robado, viuda Vane y orden falsa.` |
-| **parece_culpable_de** | `Asesinato de Edrin (huellas, establo); fanatismo violento` |
-| **attitude_towards_party** | `hostil` (hacia quien proteja a Kaelen) |
-| **compendium_tier** | `combat` |
+|---|---|
+| **Físico** | Madera élfica de ciento veintitantos años con cara que el mundo lee como treinta y cinco. Piel de color nogal claro, cabello castaño rojizo recogido con fijadores botánicos —cuerda trenzada de hierbas, del tipo que usa para colgar manojos. Los ojos avellana son cálidos hasta que se fijan en algo. Entonces son otra cosa completamente. |
+| **Vestimenta** | Capa forestal sobre ropa de viaje funcional sin color. Bolsa de herbolaria de cuero marrón siempre al hombro —grande, ordenada, con olor a lavanda y algo más amargo debajo. Guantes de trabajo finos que se quita para examinar plantas o heridas. |
+| **Objetos** | Kit herbolario completo: manojos secos, mortero, viales sellados, cuerdas botánicas de varios calibres. Un extracto de adormidera y verbena en un frasco sin marcar —dosis sedante, no letal. La cuerda botánica que usó como garrote no está en el kit —la tiró en el túnel. |
+| **Actitud inicial** | Cálida, atenta, hace preguntas que parecen amabilidad pero son evaluación. Ofrece infusiones antes de que se las pidan. Escucha como alguien que necesita la información para curar, no para retenerla. |
+| **Motivación** | Sobrevivir esta noche y salir del paso con su identidad intacta. Selvyn tenía información que la habría expuesto a los Harpers (por renegada) y a los Zhentarim (por ex-Harper). Cualquiera de los dos habría sido su muerte. Hizo el cálculo. |
+| **Secreto** | Fue operativa Harper durante cuarenta años. Desertó cuando le ordenaron eliminar a un informante que tenía familia. Lleva doce años sola, trabajando en los márgenes. Selvyn encontró su historial en algún archivo de Neverwinter. Esta noche lo mató con una sedación y una cuerda de hierbas, y usó el túnel de contrabando para volver a la posada. No le temblaron las manos. Eso también lo sabe. |
+| **Qué sabe de otros** | Sabe que Onno Grist le compró un compuesto explosivo hace tres años usando otro nombre —pero era él. Sabe que Sira Veleth es una Harper activa asignada a vigilarla. |
+| **Coartada** | «Arriba toda la noche, sin bajar a la sala.» Tamlin la vio en la cocina de madrugada. La coartada tiene esa grieta. Además: sus cuerdas botánicas en la bolsa —¿cuántas quedan? Nadie pensó en contarlas todavía. |
+| **Culpabilidad** | **10/10.** La asesina. Sin ambigüedad. La única ambigüedad es si el grupo puede probarlo —y cuánto les importa una vez que saben a quién mató. |
 
-**Líneas de diálogo:**
+**Diálogos preparados:**
 
-- «Torm perdona. Yo cobro con intereses.»
-- «Ese tabardo costó más de lo que valgo. Callaros la boca sería el primer pago en especie.»
-- «No soy paladín. Llevo el uniforme de un hombre mejor que yo. Eso no me hace mejor — me hace visible.»
-- «Kaelen Ruin firmó la muerte de gente que no llevaba espada. Yo firmo la suya con ballesta.»
-- «Estuve en el establo. Sí. No preguntes qué buscaba si no quieres la respuesta en la frente.»
-- «Las monedas no son codicia. Son la cuenta atrás de alguien que aún cree que existen hombres buenos.»
+*Coopera:*
+— «Esa herida necesita tiempo, como las raíces de invierno. ¿Os importa que eche un vistazo?»
+— «Puedo examinar el cadáver. Tengo algo de conocimiento de anatomía. Más que suficiente para esto.»
 
-**Ficha (nivel 3):** Explorador — AC 15, HP 28, ballesta +5 (1d8+3), dos espadas cortas.
+*Neutral:*
+— «Las plantas no mienten. Las personas sí. Prefiero las plantas, en general.»
+— «No soy vuestro enemigo. Soy la única persona en esta sala que quiere que todos salgáis vivos.» *(Verdad técnica.)*
+
+*Hostil:*
+— «Podéis acusarme. Pero si lo hacéis sin prueba, perderéis el tiempo que necesitáis para encontrar la prueba real.»
+— «Cuarenta años haciendo trabajo difícil en lugares oscuros enseñan una cosa: la persona que señala primero raramente es la que tiene las manos sucias.»
+
+*Bajo presión:*
+— «Selvyn tenía algo que me habría destruido. Hice lo que hice. Si queréis llamarlo crimen, llamadlo. Si queréis llamarlo aritmética, también es correcto.»
+
+*Si descubren su secreto:*
+— «Sí. Con compuesto sedante y cuerda botánica. En el establo. Volví por el túnel. Me lavé las manos en la cocina y fui a la cama. El chico de la mandolina me vio —ya lo sé. Decidid si eso me hace un monstruo o un problema de matemáticas con patas.»
+
+**Comportamiento con otros NPCs:**
+- *Con Onno:* Sabe que no es fraile. Lo observa con la misma calma con que se observa una planta potencialmente tóxica —sin miedo, con atención.
+- *Con Sira:* La única persona de la sala que la pone nerviosa. Sira lo nota.
+- *Con Borrakh:* Lo usa como escudo de sospecha inconsciente —cuanto más lo miren a él, menos la miran a ella. No le dijo esto; simplemente lo calcula.
 
 ---
 
-### 5. Sister Calistra — «Hermana» de Ilmater
+## DURVIS HAKK — *Enano, mercader de gemas*
 
 | Campo | Valor |
-| ----- | ----- |
-| **identity.name** | `Sister Calistra` |
-| **identity.race** | `Humana (Calimport)` |
-| **identity.concept** | `Envenenadora de salones calishitas con símbolo de Ilmater como camuflaje — y manos que esta noche salvan un parto prematuro` |
-| **máscara_pública** | `Hermana de Ilmater en peregrinación al sur. Compasiva, susurra oraciones, huele a incienso barato.` |
-| **verdad_secreta** | `Aprendió venenos en los salones de Calimport bajo nombre de «Mira la Suave». Usa el símbolo de Ilmater porque nadie cachea a una penitente. En Neverwinter realizó eutanasias no autorizadas en doce soldados moribundos de fiebre — bendición y almohada. NO mató a Edrin. Confesó sus doce muertes al mozo; él confesó espiar para Grakk. Esta noche administra antídoto a Yselda contra toxina que alguien puso en el pozo — el mismo veneno que robó de su bolsa hace horas.` |
-| **peculiaridad** | `Reza en susurro constante — pero las palabras son en calishita arcaico, no en común. Se humedece los labios antes de mentir.` |
-| **personality_traits** | `Compasiva en público, culpable en privado, evasiva, valiente tarde` |
-| **voice_and_tone** | `Voz suave que se endurece al mentir. Proverbios de Ilmater mal aplicados.` |
-| **public_description** | `Humana de mediana edad, piel bronceada, símbolo de cadena rota de Ilmater, manos con callos químicos disimulados.` |
-| **secret_lore_master** | `Sister Calistra es el tipo de santo que la iglesia no sabe si canonizar o quemar. Hija de perfumistas en Calimport, aprendió que el dolor se puede medir en gotas antes de aprender a rezar. Emigró a la Costa de la Espada huyendo de un cliente noble envenenado por error — no fue error, pero ella aún lo cuenta así. En el hospital de campaña de Neverwinter, durante la fiebre del año pasado, doce soldados pedían muerte con los ojos; la iglesia pedía oración. Calistra bendijo y luego ahogó con almohada — rápido, sin teatro. Huye hacia el sur con identidad falsa de hermana de Ilmater porque Ilmater perdona el sufrimiento, no el método. En la posada reconoció síntomas de aborto inducido en Yselda — alguien envenenó el pozo con extracto de raíz de sangre, robado de su propio kit. Está tratando a la elfa en secreto mientras deja que la posada crea que es nervios de embarazada. Confesó a Edrin su pasado; él confesó espionaje. Cuando Edrin murió, ella rompió porque cree que Dios la castiga por la confesión cruzada — no porque lo mató.` |
-| **motivo_privado_posada** | `Fugitiva con cobertura de peregrina; parada anónima que dejó de serlo.` |
-| **mentira_que_sostiene** | `«Voy a un santuario de Ilmater en Amn.» Oculta venenos, eutanasias y tratamiento a Yselda.` |
-| **parece_culpable_de** | `Envenenar el pozo; matar Edrin tras «confesión»` |
-| **attitude_towards_party** | `amistosa` |
-| **compendium_tier** | `story` |
+|---|---|
+| **Físico** | Enano de sesenta años con barba gris corta y bien recortada —no la barba de un herrero, sino la de alguien que come bien y duerme cómodo. Manos sorprendentemente finas para un mercader. Los ojos azul acero evalúan el precio de todo lo que hay en una habitación antes de decir buenos días. |
+| **Vestimenta** | Capa de viaje de paño oscuro de calidad sobre ropa de trabajo de cuero. Sin joyas —llama la atención. Un mercader de gemas sin joyas es alguien que no quiere ser un mercader de gemas. |
+| **Objetos** | Libro de contabilidad con cifras en código Zhentarim. Llave del sótano de la posada (copia que nadie debería tener). Dos gemas reales como justificación de la historia si alguien registra la bolsa. |
+| **Actitud inicial** | Pragmático. Pone precio a todo antes de hablar. Usa el silencio como oferta —espera a que el otro llene el vacío. |
+| **Motivación** | Recuperar el cofre para los Zhentarim. Mantener el túnel operativo. Eliminar a Selvyn Drask del problema —aunque alguien se le adelantó. |
+| **Secreto** | Dirigió la operación Zhentarim que vendió las posiciones del ramal norte del Paso hace cuatro años. Seis personas murieron, incluyendo la familia de Renwick Sorn. Lleva cuatro años esperando que eso no cruce el mismo pasillo que él. Esta noche cruzó. |
+| **Qué sabe de otros** | Sabe que el cofre de Caelith fue abierto y reselado por su red en Neverwinter —conoce el contenido exacto. Sabe que Tamlin Pell es su peón: la deuda es un instrumento Zhentarim que él diseñó. |
+| **Coartada** | En la sala común toda la noche —múltiples testigos. Sólida. Pero su reacción demasiado calmada a la noticia de la muerte de Selvyn es una pista emocional que los PJs con Perspicacia CD 13 pueden leer. |
+| **Culpabilidad** | **6/10.** No mató a Selvyn esta noche. Pero construyó todas las condiciones para que alguien lo hiciera. Y lo que hizo en el ramal norte pesa más que esta noche. |
 
-**Líneas de diálogo:**
+**Diálogos preparados:**
 
-- «Ilmater carga el dolor del mundo. Yo solo… lo reparto con más precisión.»
-- «No soy clériga. Soy una mujer con un símbolo y doce fantasmas que no aceptan oración.»
-- «El mozo me confesó espiar. Yo le confesé matar con misericordia. Ninguno de los dos llamó a Maelis. Somos cobardes de distinto calibre.»
-- «Si bebéis del pozo esta noche, bebed del barril. No porque Dios lo diga — porque yo lo digo.»
-- «Puedo salvar a la elfa y a su hijo. No puedo salvaros de lo que haréis cuando lo sepáis.»
-- «¿Veneno? Tengo veneno. También tengo lo contrario. En Calimport eso se llama negocio. Aquí se llama herejía.»
+*Coopera:*
+— «Un buen cofre. Sello de la Alianza. Vale más abierto que cerrado —eso ya lo sabéis.»
+— «Os doy información sobre el túnel a cambio de que nadie abra ese libro de contabilidad. Es una oferta justa.»
 
-**Ficha (nivel 2):** Clérigo (Trickery) reskin — AC 15, HP 18, maza +4, *cure wounds*, kit de venenos (CD 13).
+*Neutral:*
+— «El notario tenía una manera peculiar de hacer amigos. Eso le pasó.»
+— «Los Zhentarim, los Harpers, la Alianza —todos cocinan en la misma grasa. Yo solo elijo la sartén.»
+
+*Hostil:*
+— «No sacáis nada acusándome sin prueba. Tengo tres testigos de que estuve aquí toda la noche.»
+— «Ese cofre se abre o explota. La única variable es cuánto tiempo nos queda para elegir.»
+
+*Bajo presión:*
+— «¿El ramal norte? Eso fue hace cuatro años. Órdenes superiores, guerra activa, información incompleta.» *(Pausa.)* «No digo que esté bien. Digo que no es lo que ocurrió esta noche.»
+
+*Si descubren su secreto:*
+— «Seis personas. Sí. Las cartas tienen mi cifra, no mi nombre. Eso tiene diferente peso en un tribunal.» *(No dice más.)*
+
+**Comportamiento con otros NPCs:**
+- *Con Tamlin:* Lo usa como herramienta sin disimulo. Tamlin lo sabe. Ninguno de los dos menciona el arreglo.
+- *Con Caelith:* Sabe lo que lleva. No le ha dicho que lo sabe. La observa con la paciencia de alguien que espera el momento correcto.
+- *Con Renwick:* No lo reconoció al principio. En la Escena 3, cuando Renwick dice su nombre de familia, Durvis lo recuerda. Y es el único momento en que su cara cambia.
 
 ---
 
-### 6. Grakk Ironsnout — Cocinero
+## ONNO GRIST — *Gnomo, «fray Onno de Ilmater»*
 
 | Campo | Valor |
-| ----- | ----- |
-| **identity.name** | `Grakk Ironsnout` |
-| **identity.race** | `Medio-orco` |
-| **identity.concept** | `Cocinero de sonrisa amplia y garrote fino — el lobo obvio que la sala necesita para no mirar al resto` |
-| **identity.faction_id** | `[UUID_ZHENTARIM]` |
-| **máscara_pública** | `Cocinero leal de posadas de la Costa. Servicial, risa gutural, cuchillo siempre cerca.` |
-| **verdad_secreta** | `Informante Zhentarim. Vendió lista de huéspedes. Estranguló a Edrin cuando el mozo amenazó con contar a Maelis sobre el túnel y el espionaje. Usó hueco del techo para espiar. Huldra le vendió el garrote «para minería». Lleva diez años sin matar antes de esta noche — la posadera humana tiene récord peor en avalanchas.` |
-| **peculiaridad** | `Lame el cuchillo tras cortar carne — gesto que incomoda. Habla de estofado cuando la conversación se pone política.` |
-| **personality_traits** | `Servicial en superficie, calculador, leal al mejor postor` |
-| **voice_and_tone** | `Tonos bajos, risa gutural. Comida como cortina de humo.` |
-| **public_description** | `Medio-orco enorme, colmillos limados, delantal manchado, cuchillo de cocina siempre a mano.` |
-| **secret_lore_master** | `Grakk Ironsnout es el villano que la habitación quiere ver — y no se decepciona, pero tampoco es el único monstruo. Llegó a la posada hace seis meses con referencias falsas de Baldur's Gate, infiltrado zhentarim para interceptar tráfico Harper por el paso. Vendió la lista de huéspedes de anoche a su contacto en Neverwinter por doscientas piezas de oro y una promesa de ascenso. El hueco entre vigas lo usó para espiar la sala común — vio a Sera con el cofre, a Thorn contando monedas, a Calistra rezar en calishita. Edrin, el mozo humano de dieciséis años, nació en la posada y creció mirando demasiado: Grakk lo reclutó con monedas y promesas de «trabajo real». Cuando Edrin amenazó con contárselo todo a Maelis la noche del crimen, Grakk usó el garrote fino que Huldra le vendió como «cuerda de mina». Lo hizo en el establo. Antes de esta noche llevaba diez años sin matar a nadie — un dato que usará Maelis para dividir al grupo si la acusan a ella. Grakk no es bruto: es eficiente. Quiere el vial de plaga o los mapas; preferiría ambos y un túnel limpio.` |
-| **motivo_privado_posada** | `Infiltración de seis meses esperando envío Alianza.` |
-| **mentira_que_sostiene** | `«Solo cocino. Antes trabajé en posadas de Baldur's Gate.»` |
-| **parece_culpable_de** | `Estrangulamiento (correcto); espionaje; huella en heno` |
-| **attitude_towards_party** | `neutral` (falsa cordialidad) |
-| **compendium_tier** | `combat` |
+|---|---|
+| **Físico** | Gnomo de cincuenta y cinco años con la energía de alguien que duerme menos horas de las que debería y se alimenta de conversación. Pelo blanco caótico que nunca está en el mismo lugar dos veces. Dedos negros en las yemas izquierdas —tinte de pólvora, no de tinta, aunque los confunde hábilmente. Sonríe con demasiados dientes para inspirar solo confianza. |
+| **Vestimenta** | Hábito gris remendado de penitente de Ilmater, auténtico pero pequeño para él —heredado de alguien más alto. Símbolo de cadena rota al cuello, funcional. Una bolsa interior de cuero bajo el hábito que abombea de forma inconsistente con la vida de un fraile. |
+| **Objetos** | Kit de «hierbas medicinales» que contiene tres cosas medicinales y seis que no lo son. Símbolo de Ilmater funcional. Un pequeño detonador de percusión remota que ya no tiene —lo activó en la Escena 4. Libro de deudas cifrado de los Cuervos de Mirtul bajo las costuras del hábito. |
+| **Actitud inicial** | Habla en ráfagas, cambia de tema a mitad de frase, hace tres conversaciones simultáneamente. Parece inofensivo por exceso de presencia —nadie que planeara algo malo hablaría tanto. |
+| **Motivación** | Los mapas del cofre. Solo los mapas. Venderlos en Luskan a dos compradores distintos antes de que alguien los reclame. Cobrar la deuda de Tamlin como pago parcial. Salir vivo de una posada cerrada con demasiada gente peligrosa. |
+| **Secreto** | Es el agente de los Cuervos de Mirtul en el norte. Su «bendición del sótano» de la Escena 2 fue para instalar la trampa explosiva de seguridad. La activó remotamente en la Escena 4 para crear caos y evaluar las reacciones. No mató a Selvyn —pero tenía planificado un segundo uso para la trampa si Selvyn resultaba problemático para su misión. Alguien se adelantó. |
+| **Qué sabe de otros** | Sabe que el túnel existe —lo descubrió en una visita anterior. Lo usa como palanca informal con Wenna sin haberlo mencionado explícitamente. Sabe que él mismo es el acreedor real de Tamlin Pell —la deuda es una operación de los Cuervos. |
+| **Coartada** | En la sala común o en el corredor de arriba toda la noche. Sin movimientos al establo. Sólida. |
+| **Culpabilidad** | **5/10.** Cómplice de las condiciones. La trampa explosiva era para «control de situación» y la activó en el peor momento posible. No es el asesino. Pero su concepto de daño colateral es flexible. |
 
-**Líneas de diálogo:**
+**Diálogos preparados:**
 
-- «El estofado está amargo. Como las conversaciones que no son de comida.»
-- «¿Maté al chico? Preguntadme como si ya supierais la respuesta. Eso os ahorra tiempo y me ahorra teatro.»
-- «Huldra me vendió cuerda. Yo le vendí silencio. El mercado funciona.»
-- «La posadera sabe del túnel. El mozo iba a decírselo. Yo cerré la cuenta.»
-- «No sonreís cuando corto cebolla. Sonreís cuando creéis que sois más listos que el cuchillo.»
-- «Zhentarim, Harper, Alianza — todos cocinan con la misma grasa. Yo solo frio en la sartén correcta.»
+*Coopera:*
+— «¡Bendición para esta tormenta! Que es, en mi experiencia —¿habéis probado el estofado? Tiene algo que no es vaca— como os decía: los túneles de esta región son fascinantes desde un punto de vista estructural y espiritual simultáneamente—»
+— «Sé quién hizo esto. Tengo parte de la evidencia. Pero la evidencia cuesta monedas, no moral.»
 
-**Ficha (nivel 2):** Bárbaro — AC 13, HP 24, hacha +4 (1d8+2), Rage 1/día.
+*Neutral:*
+— «Ilmater carga el dolor del mundo. Yo cargo los mapas del dolor del mundo. Es parecido.»
+— «El interés es por noche. La tormenta cuenta como dos.» *(A Tamlin, sin mirarle.)*
+
+*Hostil:*
+— «Explotar algo pequeño es una señal. Explotar algo grande es una respuesta. Espero que hayamos llegado a un entendimiento.»
+— «No me acuséis de nada que no podáis probar en menos de una hora. Tengo un tren de pensamiento muy rápido y abogados en Luskan.»
+
+*Bajo presión:*
+— «La trampa era de seguridad general. Lo juro por Ilmater, que es decir mucho. No la instalé para Selvyn específicamente —la instalé para el concepto de Selvyn. Hay una diferencia.»
+
+*Si descubren su secreto:*
+— «Los Cuervos de Mirtul son una organización de comercio de información y recursos energéticos. La pólvora es un recurso energético. El fraile es un disfraz. Tamlin me debe quinientas monedas de oro que amablemente no menciono en voz alta. Todo esto es menos criminal de lo que parece si cambiáis de ángulo.»
+
+**Comportamiento con otros NPCs:**
+- *Con Tamlin:* El acreedor real. Lo trata con afecto genuino de la forma en que se trata a un instrumento favorito.
+- *Con Lysse:* Sabe que ella le vendió explosivos. No lo menciona. Los dos se saben en situación de tablas.
+- *Con Wenna:* El túnel le da palanca informal que usa con suavidad —no necesita decir que lo sabe; basta con que ella sepa que él sabe.
 
 ---
 
-### 7. Kaelen Ruin — Mercenario herido
+## CAELITH BRYNMAR — *Dracónida (plata), mensajera de la Alianza*
 
 | Campo | Valor |
-| ----- | ----- |
-| **identity.name** | `Kaelen Ruin` |
-| **identity.race** | `Humano` |
-| **identity.concept** | `Mercenario herido que sangra arriba y gotea paranoia abajo` |
-| **máscara_pública** | `Soldado de fortuna con herida de lobo en el sendero. Ronca, bebe, evita miradas.` |
-| **verdad_secreta** | `Capataz en Mere de Tresvelas. Encubrió incendio que mató civiles por orden de contratista. Thorn le clavó un cuchillo en Neverwinter hace dos días — la sangre del techo es suya. No mató a Edrin. Sabe que Thorn está en la sala y que una palabra («Mere») lo delata.` |
-| **peculiaridad** | `No sostiene miradas más de tres segundos. Pide «whisky» y bebe cualquier cosa con alcohol — la cara no cambia.` |
-| **personality_traits** | `Paranoico, culpable, desesperado, ocasionalmente honesto` |
-| **voice_and_tone** | `Voz ronca, frases a medias.` |
-| **public_description** | `Humano delgado, treinta y pocos, vendajes en costado, ojos que no descansan.` |
-| **secret_lore_master** | `Kaelen Ruin es culpable de algo peor que la mayoría sospecha — y inocente de lo que la noche acusa. En Mere de Tresvelas supervisó la demolición «controlada» de un almacén rebelde; el contratista ordenó sellar las salidas. El incendio mató civiles que no figuraban en el contrato. Kaelen firmó el informe porque tenía madre enferma y deuda de cirujano. Thorn lo persigue por la hermana del tiefling, no por justicia abstracta. Hace dos días Thorn lo encontró en un callejón de Neverwinter y le clavó un cuchillo en el costado; Kaelen escapó y eligió el Paso del Cuervo Blanco por anonimato. La herida se reabrió arriba — gotas en el techo — y él lo ocultó por miedo a Thorn más que a la sangre. En el establo no estuvo cuando murió Edrin; oyó el grito y no bajó: cobardía pura. Si alguien pronuncia «Mere de Tresvelas», Thorn dejará de fingir y Kaelen probablemente llorará antes de pelear.` |
-| **motivo_privado_posada** | `Huye de Thorn; anonimato del paso.` |
-| **mentira_que_sostiene** | `«Me hirió un lobo.»` |
-| **parece_culpable_de** | `Sangre del techo; venganza en establo; «carnicero de Mere»` |
-| **attitude_towards_party** | `cautelosa` |
-| **compendium_tier** | `story` |
+|---|---|
+| **Físico** | Dracónida de escamas plateadas que en la luz de chimenea recogen el naranja y lo convierten en bronce. Treinta años —joven para su estirpe, lo que significa que alguien la envió porque era prescindible. Mandíbula cuadrada que aprieta cuando piensa. Las escamas del cuello se rizan hacia atrás involuntariamente cuando miente —solo si alguien la observa muy de cerca. |
+| **Vestimenta** | Capa azul con broche de Lord —real. Cuero de viaje reforzado debajo. Botas con un compartimento sellado en el interior del muslo izquierdo que no menciona. |
+| **Objetos** | Cofre de hierro con sello de lacre escarlata de la Alianza. Espada corta. Instrucciones de misión selladas en el bolsillo interior —ha dejado de releerlas porque ya sabe lo que dicen. |
+| **Actitud inicial** | Formal hasta rozar la brusquedad. «Por mandato de la Alianza» como escudo. Ocupa siempre posición con la espalda a la pared. |
+| **Motivación** | Completar la misión: entregar el cofre. Llegar viva. Ir a casa, si todavía sabe dónde queda. |
+| **Secreto** | Abrió el cofre en Neverwinter, contra órdenes. Leyó las cartas. Su propio comandante de brigada está citado como fuente secundaria de información filtrada. No lo reportó porque reportarlo la haría desaparecer antes de que la misión terminara. Lleva cuatro días cargando esto. |
+| **Qué sabe de otros** | Sospecha que Sira es Harper —su briefing la describe como «fricción tolerable.» No lo confirmó todavía. No lo ha confrontado porque no tiene instrucciones para eso. |
+| **Coartada** | En la sala común con el cofre a la vista toda la noche —no puede separarse de él. Sólida. |
+| **Culpabilidad** | **3/10.** Cómplice de sistema. No autor de ningún crimen esta noche. Pero lo que sabe y no dice tiene peso. |
 
-**Líneas de diálogo:**
+**Diálogos preparados:**
 
-- «No miréis al techo. Miradme a mí. Es peor, pero al menos estoy de pie.»
-- «Si oís el nombre de un pueblo que empieza por M—, cerrad la boca o abrid la tumba.»
-- «No maté al mozo. Maté otras cosas. No me deis esa mirada de alivio — no lo merezco.»
-- «Thorn está aquí. Lo sé porque el aire huele a tabardo limpio y culpa barata.»
-- «Dadme alcohol o dadme silencio. Las dos cosas cuestan menos que la verdad.»
-- «Firmé un papel. La gente ardió igual. El papel sigue en algún archivo con mi nombre bonito.»
+*Coopera:*
+— «Por mandato de la Alianza de los Lordes, solicito garantía de no interferencia. El cofre llega a Neverwinter intacto. Todo lo demás es negociable.»
+— «Si me ayudáis a llegar al amanecer, tenéis mi palabra de que la Alianza no os debe nada. Eso vale más que una carta de agradecimiento.»
 
-**Ficha (nivel 1):** Guerrero — AC 14, HP 12, espada larga +3, desventaja Fuerza hasta curación.
+*Neutral:*
+— «Lleváis tres preguntas de más en la cara. La cuarta os va a costar una explicación que no queréis dar.»
+— «No soy vuestro enemigo. Vuestro enemigo es quien creéis que soy.»
+
+*Hostil:*
+— «Si abrís esto sin precaución, no moriréis heroicos. Moriréis feos y lentos. Una advertencia.»
+— «El drow de la esquina lleva dos horas contando monedas encima de mi tumba. Preferiría que tuviera razón —al menos sería simple.»
+
+*Bajo presión:*
+— «No sé qué hay en el vial. Sé para qué lo usan. Eso es peor. Y aun así estoy aquí porque no tengo otro trabajo.»
+
+*Si descubren su secreto:*
+— «Sí. Lo abrí. Vi el nombre. No lo reporté porque reportarlo me habría matado antes que esta tormenta. La Alianza no perdona la inconveniencia del conocimiento. Elegid si eso me hace cómplice o superviviente.»
+
+**Comportamiento con otros NPCs:**
+- *Con Sira:* Desconfía instintivamente. No sabe que Sira es su escolta. La ironía la destruirá si alguien se lo dice.
+- *Con Durvis:* No come nada que él haya servido o tocado. Sin explicación.
+- *Con Lysse:* La aceptó como «la herbolaria» sin segundas lecturas. Eso la convierte en el único NPC que Lysse no tiene que manejar activamente.
 
 ---
 
-### 8. El Viajero de Ceniza — Drow en la sombra
+## RENWICK SORN — *Tiefling, ex-soldado*
 
 | Campo | Valor |
-| ----- | ----- |
-| **identity.name** | `El Viajero de Ceniza` |
-| **identity.race** | `Drow` |
-| **identity.concept** | `Cazarrecompensas de subasta pública que aceptó el contrato para que nadie más lo hiciera` |
-| **máscara_pública** | `Peregrino de monasterio de ceniza en el interior. Capa gris, rostro en sombra, silencio educado.` |
-| **verdad_secreta** | `Se hace llamar Vaelith Ashstep. Aceptó en Skullport un contrato para «eliminar» a Sera Vann — la hija del agente Harper muerto Aldric Thornweave (no relación con Thorn el tiefling). Lo hizo para espantar a cazadores reales y escoltarla en secreto hasta Maelis. Es el menos culpable de la sala (2/10): no mató al mozo, no abrió el cofre, no vendió la lista. Su mayor pecado: dejar que Edrin muriera porque intervención habría quemado su cobertura.` |
-| **peculiaridad** | `Nunca parpadea cuando miente — parpadea cuando dice verdad. Susurro claro, sin acento de superficie.` |
-| **personality_traits** | `Silencioso, observador, educado de forma inquietante` |
-| **voice_and_tone** | `Habla como quien ya conoce tu respuesta.` |
-| **public_description** | `Capa gris cenicienta, piel ébano, ojos lavanda pálido cuando la luz los atrapa. Sin equipaje visible.` |
-| **secret_lore_master** | `El Viajero de Ceniza es la inversión que la mesa no verá venir si jugáis los tropos por defecto. Vaelith Ashstep creció en Menzoberranzan y lo abandonó antes de que el matriarcado decidiera si era activo o cadáver. En la superficie construyó reputación de «limpiador» discreto — no sadista, profesional. Cuando el agente Harper Aldric Thornweave murió en una emboscada zhentarim dejando a su hija Sera (no biológica — la crió el agente) expuesta en la red de mensajeros, Vaelith publicó en Skullport un contrato falso sobre su cabeza. La lógica: los cazadores reales pensarían que el trabajo ya está tomado. Lleva dos semanas siguiendo a Sera desde lejos, coordinado con Maelis por carta de tránsito Harper. En la posada no bajó cuando goteó sangre — creyó que era trampa zhentarim. Vio a Thorn salir del establo y registró cada detalle. No salvó a Edrin porque romper cobertura habría puesto a Sera en la mira de Grakk antes de tiempo — decisión que lo perseguirá si un PJ con Insight lo confronta. Puede mediar el standoff final si el grupo demostró honor (no tortura, protegió a Yselda). Es el drow menos culpable de la noche — y el más odiado por apariencia.` |
-| **motivo_privado_posada** | `Escolta encubierta de Sera / legado de Aldric Thornweave.` |
-| **mentira_que_sostiene** | `«Peregrino de monasterio de ceniza.»` |
-| **parece_culpable_de** | `Contrato de asesinato; «el drow de arriba»; no intervenir` |
-| **attitude_towards_party** | `neutral` |
-| **player_visibility** | `hidden` → `unknown` → `visible` |
-| **compendium_tier** | `story` |
+|---|---|
+| **Físico** | Tiefling de treinta y dos años, cuernos en espiral larga hacia atrás —no los limó. La cicatriz en la mano derecha vendada tiene la forma exacta de una astilla de madera, no de un cuchillo. La mandíbula cuadrada mastica silencios con eficiencia. Cuando está en reposo, parece que está contando algo. |
+| **Vestimenta** | Capa de viaje sin insignias. Cuero oscuro. Ballesta plegada en la mochila —desmontada pero accesible en treinta segundos. Un guantelete de cuero fino, solo en la mano izquierda. |
+| **Objetos** | Ballesta desmontada. Bolsa de monedas que cuenta en voz baja como mecanismo de ansiedad. Una carta con el nombre «Durvis Hakk» escrita dentro —la lleva desde hace dos años. No la necesitaba. Ya llegó. |
+| **Actitud inicial** | Pocas palabras. Frases como cuchilladas. No pide permiso para mirar a los ojos. Limpia las uñas con el cuchillo. Sardónico cuando habla, que no es frecuente. |
+| **Motivación** | Durvis Hakk está en esta sala. La operación zhentarim que vendió las posiciones del ramal norte mató a su hermano mayor y a su familia. Lleva dos años siguiendo el rastro. La tormenta le regaló la jaula que buscaba. |
+| **Secreto** | Cubrió a Borrakh Peñadiente después de un accidente que mató a tres hombres en un depósito militar. Lo hizo porque Borrakh le había dado su propia ración durante tres semanas cuando Renwick tenía fiebre en el campo. No se lo pidió. Renwick decidió que eso valía tres cadáveres. No está seguro de que fuera la cuenta correcta. |
+| **Qué sabe de otros** | Sabe que Borrakh fue responsable del incendio del depósito —y que Borrakh lo sabe que él lo sabe. Esta es la deuda silenciosa entre ellos. |
+| **Coartada** | Dice estar en la sala toda la noche. Parcialmente mentira —estuvo en la ventana este observando el patio. Llegó al establo DESPUÉS del crimen, no durante. Borrakh lo vio en la ventana (CD Perspicacia 14 para que Borrakh lo confirme si se le pregunta bien). |
+| **Culpabilidad** | **4/10.** No mató a Selvyn. Pero estaba dispuesto a matar a alguien esta noche, y eso deja una huella de intención que los PJs pueden leer. |
 
-**Líneas de diálogo:**
+**Diálogos preparados:**
 
-- «En Menzoberranzan enseñan que la superficie es ciega. Esta noche estáis demostrando el currículum.»
-- «Sí. Acepté un contrato sobre la dracónida. No para cumplirlo — para que otro no lo hiciera peor.»
-- «El mozo gritó. Yo escuché. Calculé. Eso también es sangre en las manos — solo que no mancha el cuello.»
-- «Matarme por mi piel ahorra pensar. Es cómodo. Por eso fracasan las alianzas.»
-- «Aldric Thornweave me debía un favor. Él murió. La deuda pasó a su hija. Yo cobro en silencio.»
-- «Si me pedís confianza, pedidla mañana. Esta noche solo vendo información a cambio de que no me disparéis.»
+*Coopera:*
+— «Soy el tiefling de la historia. Ya sé lo que estáis pensando. Tenéis razón —sobre algunas cosas.»
+— «Durvis Hakk dirigió una operación que mató a seis personas del ramal norte. Estoy aquí para hacer que lo diga en voz alta.»
 
-**Ficha (nivel 3):** Monje — AC 16, HP 22, ataques desarmados +5, Stunning Strike 1/día.
+*Neutral:*
+— «No soy paladín. Solo soy alguien con una lista muy corta y una noche muy larga.»
+— «Las monedas no son codicia. Son la cuenta atrás de alguien que todavía cree en la posibilidad de la justicia.»
+
+*Hostil:*
+— «Si me ponéis en el centro de esto sin prueba, os pido que lo hagáis bien. Porque si lo hacéis mal, os voy a demostrar que la primera vez no bastó.»
+— «No busco al notario muerto. Al notario muerto me da igual. Buscad al que tiene el libro de contabilidad.»
+
+*Bajo presión:*
+— «Estaba en la ventana. Miraba el patio —buscaba a Durvis, no a Selvyn. Vi que había luz en el establo. No bajé porque la ballesta estaba en la mochila. Ese es el único motivo por el que Selvyn no fue mi problema esta noche.»
+
+*Si descubren su secreto:*
+— «Cubrí a Borrakh. Tres hombres muertos. Lo hice porque me había dado de comer cuando yo no podía darme de comer solo. Decidid si eso equilibra la cuenta. Yo llevo cuatro años sin llegar a conclusión.»
+
+**Comportamiento con otros NPCs:**
+- *Con Borrakh:* No pronuncia su nombre. Lo tiene localizado en todo momento.
+- *Con Durvis:* Cuando Durvis habla, Renwick para de cualquier cosa que estuviera haciendo. Solo lo hace con él.
+- *Con Lysse:* No la sospecha. Dejó que le examinara la mano herida. Error que no sabe que cometió.
 
 ---
 
-### 9. Huldra Voss — Mercadera de pólvora
+## TAMLIN PELL — *Mediano (halfling), músico*
 
 | Campo | Valor |
-| ----- | ----- |
-| **identity.name** | `Huldra Voss` |
-| **identity.race** | `Enana` |
-| **identity.concept** | `Cobradora de deudas y vendedora de explosivos que mide el miedo en onzas de pólvora` |
-| **identity.faction_id** | `[UUID_CUERVOS_MIRTUL]` |
-| **máscara_pública** | `Mercadera de suministros de minería. Pragmática, pipa eterna, números en voz alta.` |
-| **verdad_secreta** | `Cobradora de Los Cuervos de Mirtul — vino por Orin. Vendió garrote fino a Grakk «para minería» sabiendo que no era para roca. Vende pólvora a Zhentarim y a Cuervos. Quiere mapas del cofre para revender en Luskan Y entregar copia a Zhentarim — dos compradores, traición garantizada.` |
-| **peculiaridad** | `Cuenta monedas en voz alta para intimidar. La pipa nunca se apaga del todo — olor a tabaco rancio y azufre.` |
-| **personality_traits** | `Pragmática, sádica en economía, paciente` |
-| **voice_and_tone** | `Ronca, directa. «El interés es por noche. La tormenta cuenta.»` |
-| **public_description** | `Enana robusta, alforje con olor a azufre, dedos negros de pólvora, barba trenzada con cable de cobre.` |
-| **secret_lore_master** | `Huldra Voss no cree en dioses ni en causas — cree en balances. Cobradora oficial de Los Cuervos de Mirtul, vino al paso porque Orin «Tres Dedos» debe quinientas piezas de oro y la tormenta es el interés compuesto perfecto. Vendió a Grakk un garrote de seda reforzada hace tres días; sabía que el medio-orco no minaba carbón. Cuando Edrin murió, Huldra entendió el negocio antes que el crimen — y escondió el recibo. También trafica pólvora negra a Zhentarim con marca de minería falsa; Grakk le debe un favor que puede cobrar incriminándolo o salvándolo, según quién pague más. Quiere los mapas del cofre para revender en Luskan al precio de una casa y entregar copia a su contacto zhentarim en Neverwinter — no le importa quién muera siempre que el cadáver no sea el suyo. Con Thorn tiene trato viejo: le vendió pernos de ballesta «defectuosos» que no lo son. Con Calistra compartió vagón hace un mes y reconoció olor a laudano — no dijo nada: negocio ajeno.` |
-| **motivo_privado_posada** | `Cobrar a Orin; evaluar mercancía del cofre.` |
-| **mentira_que_sostiene** | `«Solo suministros de minería.»` |
-| **parece_culpable_de** | `Proveer arma del asesinato; incendiar la posada con pólvora` |
-| **attitude_towards_party** | `cautelosa` |
-| **compendium_tier** | `combat` |
+|---|---|
+| **Físico** | Halfling de veinticuatro años, constitución de alguien que come irregularmente pero bien cuando puede. Ojos castaños rápidos que no se quedan quietos —hábito de apostador. Los pies descalzos dentro de las botas porque le ampollaron en las últimas dos jornadas. Toca la mandolina como si la estuviera interrogando. |
+| **Vestimenta** | Jubón burdeos con tres remiendos de tela que no coinciden en color —los necesita pero no sabe coser bien. Capa corta con forro descosido. Botas que han visto más países que él. |
+| **Objetos** | Mandolina con una cuerda remendada que da un tono ligeramente plano. Bolsa con menos monedas de las que hace sonar. Un documento de deuda con la firma «Onno Grist» que creyó que era de un prestamista de Luskan llamado de otra forma. |
+| **Actitud inicial** | Todo banter, ninguna sustancia hasta que se le arrincona. Ofrece canciones antes de que nadie las pida. Invita a rondas que no puede pagar. Ríe antes de hablar en serio —mecanismo de defensa tan antiguo que ya no lo nota. |
+| **Motivación** | Quinientas monedas de oro que debe. Onno Grist está en esta sala. La tormenta lo encerró con su peor pesadilla con hábito de fraile. Calcula si puede comprar su deuda entregando información sobre el cofre. |
+| **Secreto** | Vio a Lysse Mourne salir de la cocina de madrugada con las manos mojadas. No lo dijo de inmediato porque no entendía qué significaba. En la Escena 3, cuando ve el cadáver, lo entiende. Y entonces tiene que decidir qué vale esa información. |
+| **Qué sabe de otros** | Vio a Lysse en la cocina de madrugada con las manos mojadas. Sabe que Onno Grist es su acreedor real —lo descubrió comparando documentos. |
+| **Coartada** | En la sala común cuando murió Selvyn —tocaba la mandolina, varios testigos. Sólida. |
+| **Culpabilidad** | **4/10.** Cobarde, no asesino. Pero sabe lo que sabe desde la Escena 3 y no lo dice —ese silencio tiene peso y él lo siente. |
 
-**Líneas de diálogo:**
+**Diálogos preparados:**
 
-- «El interés es por noche. La tormenta cuenta como dos.»
-- «Vendí cuerda al cocinero. No le pregunté para qué. Eso cuesta extra si queréis que mienta en tribunal.»
-- «Orin, cariño: tus dedos faltantes valen más que tu vida. Agradece que solo venga por las monedas.»
-- «La pólvora no distingue héroes de cabrones. Por eso me gusta.»
-- «Dos compradores para los mismos mapas. El precio sube. La ética no figura en el albarán.»
-- «Si prendéis fuego a la posada, hacedlo con mi mercancía. Al menos cobro el seguro.»
+*Coopera:*
+— «Os doy lo que sé. Gratis. Porque esa es la segunda opción más barata disponible esta noche.»
+— «Dos cosas cuestan. Una: la información sobre la puerta de la cocina. Dos: que no diga a Onno que sé quién es. Precio especial si lo pagáis junto.»
 
-**Ficha (nivel 2):** Artífice — AC 15, HP 16, pistola de pólvora (1d10, 1/corto descanso), granada de humo 1/día.
+*Neutral:*
+— «El problema con los líos de dinero es que son como las canciones —siempre tiene más versos de los que recuerdas.»
+— «No digo que confiéis en mí. Digo que soy el único en esta sala que no quiere nada del cofre.»
+
+*Hostil:*
+— «Si el gnomo sonríe cuando te explica la cláusula del contrato, revisad dónde teníais los dedos.»
+— «Yo no mato. Yo... recomiendo a quién no invitar al día siguiente.»
+
+*Bajo presión:*
+— «Vi a la herbolaria salir de la cocina con las manos mojadas. Tarde. Noche. No dije nada porque no quería ser el siguiente. Eso me hace cobarde. No me hace asesino. Esa diferencia me importa más de lo que os parece.»
+
+*Si descubren su secreto:*
+— «Sí. El fraile es Onno Grist de los Cuervos de Mirtul. La deuda es su. Lo vi en el documento. No lo dije porque eso me habría hecho útil —y los útiles desaparecen deprisa en las noches así.»
+
+**Comportamiento con otros NPCs:**
+- *Con Onno:* Terror controlado. Lo llama «Hermano Grist» con una cortesía que le corta la respiración.
+- *Con Lysse:* Desde la Escena 3 no puede mirarla directamente. Ella lo nota. Ella sabe que él sabe.
+- *Con Durvis:* No sabe que es Zhentarim. Sospecha que es peligroso de la manera en que son peligrosas las personas que cuentan monedas ajenas.
 
 ---
 
-### 10. Yselda Cuervonegro — Refugiada embarazada
+## SIRA VELETH — *Drow, operativa Harper*
 
 | Campo | Valor |
-| ----- | ----- |
-| **identity.name** | `Yselda Cuervonegro` |
-| **identity.race** | `Elfa del bosque` |
-| **identity.concept** | `Viuda ensayada con vientre real y misión de contravigilancia que no pidió` |
-| **máscara_pública** | `Joven viuda de soldado, rumbo a tía en Triboar. Frágil, cortés, manos en el vientre.` |
-| **verdad_secreta** | `Espía menor de la Alianza enviada a vigilar a Sera. El padre del bebé es el capitán Halvek Crownsplitter — nombre en las cartas del cofre. Moretón: Thorn la agarró creyendo que ocultaba a Kaelen. Alguien envenenó el pozo para abortar el embarazo — Calistra la trata en secreto. Vio a Thorn salir del establo.` |
-| **peculiaridad** | `Acaricia el vientre cuando miente. Ojos verdes que no bajan — demasiado steady para víctima.` |
-| **personality_traits** | `Aparentemente frágil, observadora, mentirosa compulsiva bajo presión` |
-| **voice_and_tone** | `Voz temblorosa ensayada. Pide agua caliente con demasiada cortesía.` |
-| **public_description** | `Elfa del bosque de veintidós años aparentes, vestido remendado, vientre de seis meses, orejas discretamente ocultas bajo pañuelo.` |
-| **secret_lore_master** | `Yselda Cuervonegro es la pieza que convierte el cofre de «arma política» en tragedia doméstica. Criada en el bosque cerca de Neverwinter, fue reclutada por la Alianza no por talento de espía sino por un error administrativo — y por el embarazo que no debía existir. El padre es el capitán Halvek Crownsplitter, oficial mencionado en las cartas de chantaje del cofre; la Alianza quiere saber si Sera Vann ocultará esas cartas para proteger a un compañero o las entregará. Yselda comparte misión con Sera sin que Sera lo sepa. El moretón en el hombro es de Thorn, quien la agarró en el pasillo creyendo que escondía a Kaelen. En la noche del crimen vio al tiefling salir del establo con guantes manchados — miente el horario para no revelar que estaba espiando a Sera. Alguien envenenó el pozo con extracto abortivo — posiblemente un oficial que no quiere heredero de Crownsplitter, o Zhentarim sembrando caos. Calistra la está tratando en secreto. Si el grupo la protege, puede romper y entregar la verdad sobre el padre antes de abrir el cofre — cambiando quién «merece» el vial de plaga.` |
-| **motivo_privado_posada** | `Contravigilancia de Sera Vann.` |
-| **mentira_que_sostiene** | `«Mi marido murió en la guerra; voy a casa de mi tía.»` |
-| **parece_culpable_de** | `Espía; cómplice del padre corrupto; «sabía del veneno»` |
-| **attitude_towards_party** | `amistosa` (fingida) |
-| **compendium_tier** | `story` |
+|---|---|
+| **Físico** | Piel ébano, ojos violeta pálido que la luz de chimenea convierte en lavanda. Estatura media, casi delgada, pero los movimientos tienen la economía de alguien que sabe exactamente cuánta fuerza necesita cada cosa. La única señal de edad —docenas de años— son las manos: callos que no corresponden a un mercader de seda. |
+| **Vestimenta** | Capa plateada sin marca de facción, capucha normalmente alta. Bajo la capa: ropa de trabajo funcional sin color. Sin equipaje ostensible en la sala común. |
+| **Objetos** | Carta de tránsito Harper —encriptada, cosida en el forro de la capa. Dos cuchillos de trabajo que declararía como «instrumentos de corte de telas» (CD Percepción 16 para detectarlos). |
+| **Actitud inicial** | Mínima. Mide cada palabra. Cuando habla, la gente para. Usa el silencio como puntuación. Frases enteras a veces sin sujeto. |
+| **Motivación** | Escoltar el cofre de Caelith de forma encubierta hasta que cruce el paso. Destruir el vial de plaga. Exponer las cartas sobre Byrne. Y, en segundo plano, decidir qué hacer con Lysse Mourne ahora que sabe que es la asesina. |
+| **Secreto** | Llegó con instrucciones secundarias de los Harpers: si encontraba a Lysse Mourne, evaluar si podía ser reincorporada o debía ser eliminada. Ahora Lysse acaba de matar a un hombre, y eso simplifica la decisión hacia un lado que Sira no estaba segura de querer tomar. |
+| **Qué sabe de otros** | Sabe la identidad real de Lysse Mourne y que es la asesina de esta noche. Ha identificado a Durvis Hakk como el operativo zhentarim que los Harpers llevan tres años buscando. Sabe que Selvyn trabajaba para los Harpers, aunque Selvyn no lo supiera. |
+| **Coartada** | En su silla en la sala común toda la noche. Múltiples testigos. Sólida. |
+| **Culpabilidad** | **2/10.** La persona con menos sangre en las manos esta noche. La más odiada por apariencia. |
 
-**Líneas de diálogo:**
+**Diálogos preparados:**
 
-- «Perdonadme si tiemblo. El frío entra por las costuras del vestido. El bebé no debería notarlo tanto.»
-- «Mi marido murió en la guerra. Voy a casa de mi tía en Triboar. Es… lo único que tengo escrito.»
-- «Vi al tiefling salir del establo. No vi su cara. Vi sus guantes. Elegid qué parte me creéis.»
-- «La «hermana» me da infusiones que huelen a hierba y culpa. Bebo porque el bebé no tiene voto.»
-- «Sera no sabe quién soy. Si lo supiera, quizá confiara. Eso es lo más triste de la noche.»
-- «No maté al mozo. Solo… no grité a tiempo. Eso también cuenta, ¿verdad?»
+*Coopera:*
+— «El hombre que abrió el cofre en Neverwinter trabajaba para los Zhentarim. Eso lo sabéis ahora. Lo que no sabéis: el notario muerto llevaba seis meses construyendo el caso para demostrarlo.»
+— «Pedidme confianza mañana. Esta noche solo vendo hechos a cambio de que no me apuntéis nada.»
 
-**Ficha (nivel 1):** Espía — AC 12, HP 8, daga +3, ventaja en Engaño.
+*Neutral:*
+— «Menzoberranzan enseña que la superficie es ciega. Esta noche estáis demostrando el plan de estudios.»
+— «La herbolaria salió por la cocina. Eso es un hecho.» *(Dicho en voz lo suficientemente alta para que todos oigan.)*
 
----
+*Hostil:*
+— «Matar un drow por el aspecto ahorra pensar. Es cómodo. Es también la razón por la que fracasan las alianzas.»
+— «Acepté información sobre la dracónida. No para usarla en su contra —para que nadie más la usara peor.»
 
-### 11. Edrin el Mozo (NPC menor)
+*Bajo presión:*
+— «No bajé cuando oí los caballos. Calculé el coste de la cobertura antes de calcular el coste del notario. Ese orden me va a costar más que esta noche.»
 
-| Campo | Valor |
-| ----- | ----- |
-| **identity.name** | `Edrin el Mozo` |
-| **identity.race** | `Humano` |
-| **identity.concept** | `Adolescente con ojos demasiado rápidos para su delantal` |
-| **máscara_pública** | `Sirve cerveza. Nació en la posada. Invisible hasta que deja de estarlo.` |
-| **verdad_secreta** | `Espía menor de Grakk. Sabía del túnel. Amenazó con contar a Maelis. Confesó a Calistra; ella le confesó eutanasias. Grakk lo estranguló en el establo.` |
-| **public_description** | `Humano de dieciséis años, delantal corto, siempre cerca de la barra.` |
-| **secret_lore_master** | `Edrin creció entre tablones y secretos — hijo de una cocinera muerta y de «padres» que eran la posada. Grakk lo reclutó con monedas y la promesa de ser «algo más que mozo». Anotaba quién entraba al sótano y qué decían en la barra. Confesó a Sister Calistra en un intercambio de culpas que ninguno de los dos reportó. La noche de su muerte amenazó con llevar todo a Maelis; Grakk actuó con garrote de Huldra. En el cuerpo: nota ilegible de Calistra (bendición) y anotación con hora del túnel.` |
-| **motivo_privado_posada** | `Trabajo y espionaje — nació aquí.` |
-| **mentira_que_sostiene** | `«Solo sirvo cerveza.»` |
-| **player_visibility** | `unknown` |
-| **is_dead** | `false` → `true` tras Escena 3 |
+*Si descubren su secreto:*
+— «Sí. Sé quién mató a Selvyn. Sé por qué. Estaba evaluando si el coste de decirlo supera el beneficio. Esta sala me ayudó a decidir.»
 
-**Ficha (nivel 0):** Commoner — HP 4.
+**Comportamiento con otros NPCs:**
+- *Con Caelith:* La protege sin que ella lo sepa. La ironía de que Caelith la tema no se le escapa.
+- *Con Lysse:* La observa. Lysse lo sabe. Los dos esperan a ver quién parpadea primero.
+- *Con Durvis:* Lo tiene identificado como objetivo primario desde hace cuatro horas. Espera el momento correcto para actuar.
 
 ---
 
-## F. Facciones (`FACTION`)
+---
 
-### 1. Alianza de los Lordes — Neverwinter
-
-```yaml
-identity:
-  name: "Alianza de los Lordes — Neverwinter"
-  faction_type: "gobierno / militar"
-  headquarters_location_id: null
-
-narrative_profile:
-  public_description: "Orden político-militar que mantiene rutas seguras en la Costa de la Espada. Sera Vann porta su autoridad en el paso."
-  secret_lore_master: "Recupera armamento y muestras de plaga de la Guerra de la Corona. Yselda es contravigilancia interna. Tres oficiales en las cartas del cofre son traidores no procesados."
-  goals:
-    - "Recuperar cofre intacto"
-    - "Evitar filtración a Zhentarim"
-    - "Silenciar escándalo de chantaje"
-
-state_flags:
-  attitude_towards_party: "neutral"
-  influence_level: 7
-  is_active: true
-```
+# 4. UBICACIONES
 
 ---
 
-### 2. Zhentarim — célula del Paso Helado
+## SALA COMÚN Y BARRA
 
-```yaml
-identity:
-  name: "Zhentarim — célula del Paso Helado"
-  faction_type: "crimen organizado"
-  headquarters_location_id: null
+El calor de la sala no viene de la chimenea sino de nueve cuerpos con secretos. La chimenea de piedra negra distribuye sombras que alargan todo lo que no debería alargarse —el martillo de Wenna detrás de la barra, la mochila que suena a metal de Borrakh, la bolsa demasiado abultada de Onno. La mesa de roble tiene una mancha antigua que nadie describe. La barra tiene botellas sin etiqueta que Wenna sirve con la misma cara para todo. El reloj de arena sobre la repisa lleva roto tres años; nadie lo quitó porque la posada funciona mejor sin que nadie sepa qué hora es exactamente.
 
-narrative_profile:
-  public_description: "Red criminal en sombras; nadie admite pertenecer."
-  secret_lore_master: "Grakk es activo principal. Huldra vende pólvora a ambos bandos. Quieren vial de plaga o mapas."
-  goals:
-    - "Obtener cofre o contenido"
-    - "Silenciar testigos"
-    - "Mantener túnel operativo"
+**Secretos del Máster:**
+- Tercera tabla del suelo: levantable (CD Investigación 15). Nicho con veneno de sombra —1 dosis, incoloro, inodoro.
+- Botella sin etiqueta de Wenna: no es veneno. Es el licor del abuelo. «Para el día que alguien diga una verdad entera en este paso.»
+- La nota de chantaje de Selvyn a Wenna sigue en el bolsillo del delantal si alguien la busca (CD Investigación 16 o registro físico con permiso).
 
-state_flags:
-  attitude_towards_party: "hostil"
-  influence_level: 4
-  is_active: true
-```
+**Puntos de interacción:**
+| CD | Qué se encuentra |
+|---|---|
+| CD 10 Investigación | Mancha de sangre seca bajo la mesa —antigua, no de esta noche |
+| CD 12 Investigación | Sello de la Alianza de los Lordes en el cofre de Caelith |
+| CD 13 Perspicacia | Reacción de Durvis a la noticia de la muerte —demasiado calmada |
+| CD 13 Perspicacia | Tamlin no puede mirar a Lysse directamente desde la Escena 3 |
+| CD 15 Investigación | Tercera tabla del suelo, nicho con veneno |
 
 ---
 
-### 3. Los Cuervos de Mirtul
+## COCINA Y DESPENSA
 
-```yaml
-identity:
-  name: "Los Cuervos de Mirtul"
-  faction_type: "contrabandistas"
-  headquarters_location_id: "[UUID_POSADA]"
+Estrecha como un corredor de pesadilla, con ollas colgadas que oscilan sin viento visible. El fogón siempre encendido. El cubo de agua de la despensa tiene residuos de aceite de linaza en el borde —alguien se lavó las manos aquí esta noche. La estantería del corredor trasero está ligeramente desencajada, un centímetro, y los goznes de lo que hay detrás tienen aceite fresco que destella con la luz.
 
-narrative_profile:
-  public_description: "Contrabandistas del paso; rumores, no pruebas. Maelis niega vínculos."
-  secret_lore_master: "Maelis financia rescates Harper. Orin debe dinero. Huldra cobra con intereses violentos."
-  goals:
-    - "Mantener ruta de contrabando"
-    - "Cobrar deudas"
-    - "No atraer Alianza"
+**Secretos del Máster:**
+- La puerta oculta al establo está detrás de la estantería: mecanismo visible con CD 12 Investigación. Los goznes recién aceitados: CD 11 si se busca específicamente.
+- El cubo de agua: aceite de linaza en el borde (CD 13 Investigación). Residuo que coincide con el aceite de los goznes.
+- Puerta a la trampilla del sótano: al fondo de la cocina, detrás del hogar, oculta bajo leña apilada. CD 13 para encontrar el mecanismo, CD 14 para abrir sin llave.
 
-state_flags:
-  attitude_towards_party: "cautelosa"
-  influence_level: 5
-  is_active: true
-```
+**Puntos de interacción:**
+| CD | Qué se encuentra |
+|---|---|
+| CD 11 Investigación | Goznes de la puerta oculta, recién aceitados |
+| CD 12 Investigación | El panel detrás de la estantería —la puerta oculta |
+| CD 13 Investigación | Aceite de linaza en el cubo de la despensa |
+| CD 13 Investigación | Mecanismo de la trampilla al sótano bajo la leña |
 
 ---
 
-### 4. Harpers — célula Costa de la Espada
+## ESTABLO ANEXO
 
-```yaml
-identity:
-  name: "Harpers — célula Costa de la Espada"
-  faction_type: "red de información"
-  headquarters_location_id: null
+Cuatro pesebres. Heno húmedo de orina animal. El farol está apagado. Los caballos ya no se calman del todo. El cadáver de Selvyn Drask está contra la pared del tercer pesebre, los ojos abiertos, el cuadernillo todavía en la mano —abierto en una página en blanco, como si todavía tomara notas.
 
-narrative_profile:
-  public_description: "Casi mito entre campesinos. Nadie confirma agentes."
-  secret_lore_master: "Maelis y Vaelith Ashstep (Viajero) coordinan destrucción del vial de plaga. El drow no es Harper oficial — es deuda personal con el agente muerto Aldric Thornweave."
-  goals:
-    - "Evitar que plaga o mapas lleguen a mercado negro"
-    - "Proteger a inocentes del paso"
-    - "Exponer oficiales corruptos de las cartas"
+**Secretos del Máster:**
+- Fibra de cuerda vegetal trenzada en el cuello: CD 13 Investigación. Corresponde a cuerda botánica de herbolario, no a cuerda de trabajo ni de mina.
+- Olor residual herbal en los labios de Selvyn: CD 13 Medicina. «Infusión con componente sedante —camamilla de base, pero algo más amargo debajo.»
+- Cuadernillo abierto en página en blanco: CD 14 Investigación para detectar la presión del bolígrafo de la hoja anterior —con carbón, puede leerse «L.M.»
+- Tierras arcillosas rojizas en el suelo del tercer pesebre, distintas al barro del suelo: CD 12 Investigación. Solo se encuentran en el sistema de túneles.
+- La trampilla al túnel bajo el tercer pesebre: CD 13 Investigación para encontrarla bajo el heno.
+- El panel de la puerta oculta de la cocina, en la pared oeste: CD 11 Investigación para notar que está ligeramente desencajado desde dentro.
 
-state_flags:
-  attitude_towards_party: "cautelosa"
-  influence_level: 3
-  is_active: true
-```
-
----
-
-## G. Red de relaciones ocultas (`RELATIONSHIP`)
-
-Crear **mínimo 8** entidades RELATIONSHIP. Incluyen vínculos PNJ↔PNJ y PNJ↔PC (plantillas).
+**Puntos de interacción:**
+| CD | Qué se encuentra |
+|---|---|
+| CD 11 Investigación | Panel de la puerta oculta —lado establo, ligeramente desencajado |
+| CD 12 Investigación | Tierra arcillosa rojiza del túnel en el suelo del tercer pesebre |
+| CD 13 Investigación | Fibras de cuerda botánica en el cuello del cadáver |
+| CD 13 Medicina | Olor sedante residual en los labios de Selvyn |
+| CD 13 Investigación | Trampilla al túnel en el suelo del tercer pesebre |
+| CD 14 Investigación | Impronta de «L.M.» en el cuadernillo (con carbón) |
 
 ---
 
-### REL-01: Thorn → Kaelen
+## PISO SUPERIOR
 
-```yaml
-connection:
-  source_entity_id: "[UUID_THORN]"
-  target_entity_id: "[UUID_KAELEN]"
-  bond_type: "venganza"
-  public_status: "Cazarrecompensas y mercenario herido sin relación previa"
+Cinco habitaciones. Puertas que no cierran bien. Suelo de tablas que avisa de cada paso. La habitación 3 de Renwick tiene sangre en el tablón junto a la cama —de la herida en la mano, anterior al crimen. La habitación 5, al fondo este, tiene la ventana con rasguños en el alféizar exterior y pizarras movidas en la cubierta del establo (CD 14 Investigación desde dentro o desde el tejado).
 
-narrative_bond:
-  secret_nuance: "Thorn perdió esposa e hijo en incendio de Mere de Tresvelas. Kaelen firmó el informe que lo encubrió."
-  tension_level: 9
-  reveal_trigger: "Nombre Mere pronunciado o Insight CD 14 en confrontación"
-
-ai_behavior_guidelines:
-  if_source_acts: "Thorn escala a amenaza directa o violencia si Kaelen es identificado."
-  if_target_acts: "Kaelen miente primero; confiesa tarde si Calistra u otro PJ ofrece protección."
-
-state_flags:
-  is_revealed_to_party: false
-```
+**Secretos del Máster:**
+- Ventana este de habitación 5: alféizar con rasguños recientes (CD 14 Investigación). Confirma uso de la ruta 3 (Renwick, antes del crimen).
+- Habitación 2, Lysse: en la bolsa herbolaria, contar las cuerdas botánicas si los PJs lo piensan (CD 12 Investigación + acceso a la habitación). Falta una de calibre mediano —la que usó como garrote.
+- Sangre de Renwick en habitación 3: de la herida en la mano, no relacionada con el crimen.
 
 ---
 
-### REL-02: Grakk → Sera
+## EL SÓTANO OCULTO Y EL TÚNEL
 
-```yaml
-connection:
-  source_entity_id: "[UUID_GRAKK]"
-  target_entity_id: "[UUID_SERA]"
-  bond_type: "espionaje"
-  public_status: "Cocinero sirve comida a mensajera — nada más"
+Un nivel subterráneo completo bajo la cocina. Techo bajo, humedad de piedra, olor a pólvora y madera lacrada. La trampilla explosiva de Onno está ahora abierta y humeante. El contenido de los cajones zhentarim es visible para quien entre.
 
-narrative_bond:
-  secret_nuance: "Grakk reporta cada movimiento de Sera a Zhentarim desde hace una semana."
-  tension_level: 7
-  reveal_trigger: "Papeles en cocina o confesión bajo presión"
+**Descripción del túnel:**
+El túnel tiene 40 metros de longitud, suelo de tierra arcillosa rojiza (característica y reconocible), paredes de piedra sin acabar. Conecta la bodega de la posada con el tercer pesebre del establo (pasando por debajo) y continúa hasta una salida disimulada en la pared del barranco oriental, a 250 metros al este. Una cuarta ramificación, tapiada, apuntaba a las ruinas de un antiguo puesto del Paso.
 
-ai_behavior_guidelines:
-  if_source_acts: "Grakk sabotea comida o puertas si Sera intenta huir con cofre."
-  if_target_acts: "Sera sospecha de todos; si sospecha de Grakk, no come nada de cocina."
+**Evidencias en el túnel:**
+- Tierra rojiza pisoteada en ambas direcciones (múltiples usuarios históricos).
+- Fibra de cuerda botánica en el suelo del pasaje entre la bodega y el establo —del garrote de Lysse, caída al regresar (CD 13 Investigación).
+- Un vial vacío de extracto de adormidera, tirado contra la pared —compuesto sedante que Lysse usó en la taza (CD 12 Investigación).
+- El libro de deudas de Onno, escondido bajo una tabla suelta, inidentificable sin clave (CD 14 Arcana para descifrar parcialmente).
 
-state_flags:
-  is_revealed_to_party: false
-```
-
----
-
-### REL-03: Maelis → Viajero de Ceniza
-
-```yaml
-connection:
-  source_entity_id: "[UUID_MAELIS]"
-  target_entity_id: "[UUID_VIAJERO]"
-  bond_type: "contacto Harper"
-  public_status: "Posadera y huésped silencioso"
-
-narrative_bond:
-  secret_nuance: "Operación coordinada para destruir vial de plaga. Carta de tránsito en poder del Viajero. La mentira en medio: Maelis le dijo al grupo que el Viajero es «peregrino»; el Viajero le dijo a Maelis que su contrato en Skullport era real."
-  tension_level: 4
-  reveal_trigger: "Habitación superior Escena 2+ o confesión de Maelis en Escena 4"
-
-ai_behavior_guidelines:
-  if_source_acts: "Maelis desvía sospechas del Viajero hacia Grakk u Orin."
-  if_target_acts: "Viajero interviene solo si el grupo demuestra honor — salva inocentes, no tortura."
-
-state_flags:
-  is_revealed_to_party: false
-```
+**Puntos de interacción:**
+| CD | Qué se encuentra |
+|---|---|
+| CD 11 Investigación | Cajones zhentarim con sello, documentos cifrados |
+| CD 12 Investigación | Vial vacío de extracto sedante de Lysse |
+| CD 13 Investigación | Fibra de cuerda botánica en el pasaje establo |
+| CD 14 Investigación | Mapa del sistema de túneles con cuatro salidas |
+| CD 14 Arcana | Descifrado parcial del libro de deudas de Onno |
+| CD 15 Investigación | Correspondencia Durvis-Luskan en los cajones |
 
 ---
 
-### REL-04: Orin → Huldra
+---
 
-```yaml
-connection:
-  source_entity_id: "[UUID_ORIN]"
-  target_entity_id: "[UUID_HULDRA]"
-  bond_type: "deuda"
-  public_status: "Huésped y mercadera de paso"
+# 5. GANCHOS DE PJ
 
-narrative_bond:
-  secret_nuance: "Quinientas piezas de oro. Huldra puede perdonar deuda si Orin entrega mapas del cofre."
-  tension_level: 8
-  reveal_trigger: "Huldra menciona tres cuervos; Orin palidece"
-
-ai_behavior_guidelines:
-  if_source_acts: "Orin delata secretos ajenos para salvar piel."
-  if_target_acts: "Huldra ofrece «prórroga» a cambio de traición explícita."
-
-state_flags:
-  is_revealed_to_party: false
-```
+*(Cuatro conceptos de personaje. Cada jugador elige uno o crea variante con el Máster.)*
 
 ---
 
-### REL-05: Calistra → Edrin
+## GANCHO 1 — El Testigo Incómodo
 
-```yaml
-connection:
-  source_entity_id: "[UUID_CALISTRA]"
-  target_entity_id: "[UUID_EDRIN]"
-  bond_type: "confesión"
-  public_status: "Hermana de Ilmater bondadosa con el mozo"
+**Concepto:** Cualquier clase. Alguien que vio algo que no debería en Neverwinter y lleva semanas tratando de olvidarlo.
 
-narrative_bond:
-  secret_nuance: "Edrin confesó espionaje; Calistra confesó eutanasias y venenos de Calimport. Ninguno delató. La mentira en medio: Calistra dijo a Edrin que ya no envenena; Edrin dijo que solo anotaba nombres."
-  tension_level: 8
-  reveal_trigger: "Tras muerte Edrin; Calistra rompe en Escena 3"
+**Por qué está en la posada:** Huyendo hacia el norte. La tormenta lo cerró aquí antes de cruzar el paso.
 
-ai_behavior_guidelines:
-  if_source_acts: "Calistra protege memoria de Edrin aunque él espiara."
-  if_target_acts: "Edrin (vivo) evita mirarla; si muerto, su cuerpo tiene nota ilegible de ella"
+**Secreto:** Vio a un oficial de la Alianza reunirse en las sombras con alguien en Neverwinter. No supo qué intercambiaron. Podría ser la transferencia de las cartas del cofre —o podría ser irrelevante. No puede saberlo sin verlas.
 
-state_flags:
-  is_revealed_to_party: false
-```
+**Conexión oculta:** Wenna lo reconoció —el oficial que vio es Comandante Byrne, mencionado en las cartas. Wenna no lo dice de entrada, pero lo observa con más atención que al resto.
+
+**Tentación:** Las cartas del cofre nombran al oficial. Si las usa, tiene poder sobre alguien poderoso. Si las destruye, se queda sin prueba y sin protección. Si las entrega a Renwick, alguien obtiene justicia y el PJ tiene un aliado improbable.
+
+**Stake personal:** El oficial sabe que fue visto. Ya no es seguro para este PJ en ningún lado al sur del Paso.
 
 ---
 
-### REL-06: Yselda → Sera
+## GANCHO 2 — El Deudor
 
-```yaml
-connection:
-  source_entity_id: "[UUID_YSELDA]"
-  target_entity_id: "[UUID_SERA]"
-  bond_type: "vigilancia"
-  public_status: "Refugiada embarazada y mensajera sin lazo"
+**Concepto:** Cualquier clase con historia en el mundo criminal o político.
 
-narrative_bond:
-  secret_nuance: "Yselda espía a Sera por orden de capítulo Alianza. El padre de su hijo está en las cartas del cofre."
-  tension_level: 6
-  reveal_trigger: "Yselda defiende cofre con demasiada vehemencia; Insight CD 15"
+**Por qué está en la posada:** Transporta un paquete para los Cuervos de Mirtul —mensaje, objeto menor, promesa. Pago parcial de deuda. No sabía que su acreedor estaría aquí esta noche.
 
-ai_behavior_guidelines:
-  if_source_acts: "Yselda desvía acusaciones hacia forasteros."
-  if_target_acts: "Sera desconfía de embarazadas «casuales» — Persuasión CD 13 para ganar confianza."
+**Secreto:** La deuda es con Onno Grist. Cuando lo ve con el hábito de Ilmater, no sabe si reír o salir corriendo. Elige no hacer ninguna de las dos cosas, y eso es peor.
 
-state_flags:
-  is_revealed_to_party: false
-```
+**Conexión oculta:** Tamlin lo reconoce de una sala de juego en Neverwinter. Tamlin nunca olvida una cara endeudada —hace que los suyos parezcan poca cosa.
+
+**Tentación:** Onno le ofrece cancelar la deuda a cambio de los mapas del cofre. Solo los mapas. «Fácil. En realidad, bastante fácil, si pensáis en las alternativas.»
+
+**Stake personal:** Si no paga en un mes, la deuda se activa de otra forma. Onno no dice de cuál forma. Esa vaguedad es el método.
 
 ---
 
-### REL-07: Huldra → Grakk
+## GANCHO 3 — El Soldado de la Guerra de la Corona
 
-```yaml
-connection:
-  source_entity_id: "[UUID_HULDRA]"
-  target_entity_id: "[UUID_GRAKK]"
-  bond_type: "comercio ilegal"
-  public_status: "Mercadera y cocinero — intercambio profesional"
+**Concepto:** Guerrero, paladín, explorador. Veterano con historia activa.
 
-narrative_bond:
-  secret_nuance: "Huldra vendió garrote fino y pólvora a Grakk. Grakk debe favor. La mentira en medio: Huldra dijo que el garrote era para «mina»; Grakk dijo que era para «ataduras de saco»."
-  tension_level: 5
-  reveal_trigger: "Cocina: polvo negro en estante alto (Investigación CD 12)"
+**Por qué está en la posada:** Viaja siguiendo un rumor sobre un arsenal enterrado bajo el Paso del Cuervo Blanco. Uno de los cuatro que marcan los mapas del cofre. No sabe que el cofre ya está aquí.
 
-ai_behavior_guidelines:
-  if_source_acts: "Huldra no delata a Grakk salvo que su vida dependa."
-  if_target_acts: "Grakk puede incriminar a Huldra si necesita chivo expiatorio."
+**Secreto:** Participó en la campaña donde se usó la plaga. No lo ordenó —lo vio. Y no lo reportó porque el oficial que lo ordenó le salvó la vida dos días antes. El nombre del oficial está en las cartas.
 
-state_flags:
-  is_revealed_to_party: false
-```
+**Conexión oculta:** Renwick Sorn lo conoce —no de la guerra, sino del rumor que los trajo al mismo lugar. Renwick lo evaluó como aliado posible. La pregunta es si lo sigue siendo cuando salga el nombre del cofre.
+
+**Tentación:** El vial de plaga es evidencia de algo que él tapó. Destruirlo lo salva. Entregarlo lo destruye. Dejarlo en manos de los Zhentarim es una tercera catástrofe.
+
+**Stake personal:** Sira lo identificó en Neverwinter como testigo potencial de los crímenes de guerra. No lo dice, todavía.
 
 ---
 
-### REL-08: Thorn → Yselda
+## GANCHO 4 — El Mensajero Sin Mensaje
 
-```yaml
-connection:
-  source_entity_id: "[UUID_THORN]"
-  target_entity_id: "[UUID_YSELDA]"
-  bond_type: "sospecha violenta"
-  public_status: "Sin relación conocida"
+**Concepto:** Pícaro, explorador, monje. Alguien ágil con información parcial.
 
-narrative_bond:
-  secret_nuance: "Thorn agarró a Yselda creyendo que ocultaba a Kaelen — dejó moretón. Ella lo vio en el establo la noche del crimen."
-  tension_level: 7
-  reveal_trigger: "Yselda acusa a Thorn con detalle del establo"
+**Por qué está en la posada:** Llevaba un mensaje para Caelith Brynmar interceptado en Neverwinter. La destinataria ya está aquí, pero el mensaje no llega —alguien lo sustituyó por una copia falsificada. La copia la lleva este PJ sin saberlo.
 
-ai_behavior_guidelines:
-  if_source_acts: "Thorn subestima a Yselda por embarazo — error táctico."
-  if_target_acts: "Yselda miente sobre hora del moretón para proteger su cover."
+**Secreto:** El mensaje real era de un alto oficial de la Alianza que avisaba a Caelith de que el cofre había sido comprometido en ruta. La copia falsa dice lo contrario. Alguien —probablemente Durvis— quería que Caelith llegara creyendo que el cofre estaba seguro.
 
-state_flags:
-  is_revealed_to_party: false
-```
+**Conexión oculta:** Sira lo busca. Sabe que existe el mensaje original. No sabe que este PJ lleva la copia. Cuando lo descubra, la reacción de Sira dirá mucho sobre sus prioridades reales.
+
+**Tentación:** Entregar el mensaje falso a Caelith da información sobre quién comprometió la ruta. Retener el mensaje da control del tablero. Venderlo a Durvis es oro y riesgo de muerte en ese orden exacto.
 
 ---
 
-### REL-09: PC Hook 1 → Orin (plantilla)
+---
 
-```yaml
-connection:
-  source_entity_id: "[UUID_PC_COBRADOR]"
-  target_entity_id: "[UUID_ORIN]"
-  bond_type: "deuda ajena"
-  public_status: "Forasteros sin lazo aparente"
-
-narrative_bond:
-  secret_nuance: "PJ cobrador reconoce anillo de tres cuervos — puede ser aliado de Huldra o rival independiente."
-  tension_level: 6
-  reveal_trigger: "PJ menciona deuda o marca de cuervos"
-
-ai_behavior_guidelines:
-  if_source_acts: "Orin intenta comprar silencio con secretos ajenos."
-  if_target_acts: "PJ decide extorsionar, perdonar o entregar a Huldra."
-
-state_flags:
-  is_revealed_to_party: false
-```
+# 6. MECÁNICAS DE TENSIÓN — PBP ESPECÍFICO
 
 ---
 
-### REL-10: PC Hook 4 → Kaelen (plantilla)
+## EL RELOJ DE SOSPECHA
 
-```yaml
-connection:
-  source_entity_id: "[UUID_PC_VETERANO]"
-  target_entity_id: "[UUID_KAELEN]"
-  bond_type: "pasado compartido"
-  public_status: "Desconocidos"
+**Qué es:** Una escala invisible de 0 a 10 que el Máster gestiona internamente. Cuando llega a 10, alguien hace algo que no puede deshacerse —una acusación sin prueba, una agresión, un intento de huida.
 
-narrative_bond:
-  secret_nuance: "PJ estuvo en Mere de Tresvelas o perdió camarada allí. Puede reconocer a Kaelen por voz o cicatriz."
-  tension_level: 8
-  reveal_trigger: "Nombre Mere o relato del incendio"
+**Qué sube el reloj (+1 cada uno):**
+- Un NPC miente y es sorprendido en la mentira
+- Un PJ acusa a alguien sin prueba suficiente
+- Alguien intenta abrir el cofre sin permiso de Caelith
+- Un NPC revela información que implica a otro NPC
+- El grupo se divide en dos facciones de sospecha claramente opuestas
+- Cualquier acto de violencia física, aunque sea menor
+- Un PJ usa Intimidación contra un NPC
 
-ai_behavior_guidelines:
-  if_source_acts: "PJ elige venganza, perdón o exposición pública."
-  if_target_acts: "Kaelen suplica que no pronuncien Mere delante de Thorn."
+**Qué baja el reloj (–1 cada uno):**
+- Un PJ protege activamente a un NPC vulnerable
+- Alguien consigue que dos NPCs hostiles hablen sin violencia
+- Un PJ comparte información con la sala sin ventaja personal visible
 
-state_flags:
-  is_revealed_to_party: false
-```
-
----
-
-## H. 4 Hooks para PJs (plantillas completas)
-
-Cada PJ llega solo por la ventisca. Campos RolePBP: `identity.*`, `public_profile.*`, `system_mechanics.sheet`, `state_flags.*`.
+**Efectos por nivel:**
+- **0–3:** Hostilidad controlada. Los NPCs mienten con elegancia.
+- **4–6:** Las máscaras se agrietan. Los NPCs cometen errores verbales.
+- **7–8:** Dos NPCs se acusan mutuamente. La sala toma partido.
+- **9:** Lysse intenta salir por la cocina hacia el túnel. Si nadie lo nota, llega al sótano.
+- **10:** Standoff. Activar Escena 5 inmediatamente.
 
 ---
 
-### Hook 1 — «La deuda del paso» (Cobrador)
+## SISTEMA DE ZONAS
 
-| Campo | Valor |
-| ----- | ----- |
-| **identity.race** | `Enano` o `Tiefling` (sugerido) |
-| **identity.concept** | `Cobrador que reconoce la marca de tres cuervos` |
-| **máscara_pública** | `Viajero con factura en el alforje. Profesional, frío.` |
-| **verdad_secreta** | `Cobra para un noble de Neverwinter que quiere los mapas antes que la Alianza. Huldra es competencia, no aliada.` |
-| **peculiaridad** | `Toca cada moneda con el pulgar — busca falsificaciones.` |
-| **culpabilidad_real** | `3` |
+| Zona | Tono | Quién suele estar aquí | Pistas disponibles |
+|---|---|---|---|
+| **Sala común** | Vigilancia mutua, tensión social | Todos los NPCs de mesa | Cofre, reloj roto, tabla del suelo, deudas visibles |
+| **Cocina** | Territorio neutro con secretos propios | Wenna, Lysse (después del crimen) | Puerta oculta, cubo de agua, trampilla del sótano |
+| **Piso superior** | Privado, crujidos, puertas que no cierran | Renwick, Caelith, Lysse (su habitación) | Sangre de Renwick, ventana este, bolsa herbolaria de Lysse |
+| **Establo** | Oscuro, frío animal, muerte | Nadie (después del crimen) | Cadáver de Selvyn, fibras botánicas, tierra del túnel, trampilla |
+| **Sótano** | Claustrofóbico, húmedo, revelaciones | Nadie hasta Escena 4 | Túnel de contrabando, vial sedante de Lysse, cajones zhentarim |
 
-**Líneas:** «El anillo de tres cuervos no es joyería. Es factura con intereses.» · «Huldra y yo somos el mismo cuchillo en distintas manos.» · «Orin, te faltan dedos y tiempo.» · «Si el tiefling lleva tabardo de paladín, yo llevo papeles de juez.» · «No me importa quién mató al mozo. Me importa quién paga el silencio.»
-
-**REL-09** con Orin. Cooperación oculta con Hook 2.
+**Para posts PBP:** El Máster describe qué siente el personaje al entrar a cada zona antes de que el jugador declare acción. Esto establece ritmo y permite que el jugador reaccione al ambiente antes de actuar.
 
 ---
 
-### Hook 2 — «Carta sin destinatario» (Mensajero)
+## CÓMO MANEJAR POSTS DE INVESTIGACIÓN
 
-| Campo | Valor |
-| ----- | ----- |
-| **identity.race** | `Humana` o `Semielfa` |
-| **identity.concept** | `Mensajero con carta para la posadera — pluma partida por espada` |
-| **verdad_secreta** | `La carta autoriza entregar el cofre al Viajero si Sera falla — pero el lacre puede estar falsificado por Grakk.` |
-| **peculiaridad** | `Habla en tercera persona cuando miente.` |
-| **culpabilidad_real** | `2` |
+**Principio base:** El jugador que investiga bien recibe información confirmada, no solo resultado de dado. El dado determina cuánto, no si algo existe.
 
-**Líneas:** «La carta no es para vosotros.» · «Maelis reconoce el lacre y odia quién lo trajo.» · «El drow no pidió correo. Eso me preocupa.» · «Puedo vender esta entrega al cocinero.» · «Elegir el contrato correcto es supervivencia.»
+**Protocolo:**
+1. El jugador describe la acción concreta («examino el cadáver buscando marcas en el cuello»).
+2. El Máster determina la CD relevante y la declara.
+3. **Éxito:** El Máster da la pista directamente como hecho narrativo. «Las marcas en el cuello son de cuerda vegetal trenzada —fibra botánica, no de trabajo. El herbolario que la vende la reconocería al primer vistazo.»
+4. **Fallo:** El Máster da información incompleta o ambigua. «El cuello tiene marcas de presión, pero la iluminación del establo no permite determinar el material del instrumento.»
+5. **Éxito crítico (5+ sobre CD):** El Máster añade una pista bonus no solicitada. «Además, nota un olor residual en los labios del cadáver —herbal, amargo. Como si hubiera bebido algo en los últimos minutos antes de morir.»
 
----
-
-### Hook 3 — «Ceniza en la lengua» (Rastreador)
-
-| Campo | Valor |
-| ----- | ----- |
-| **identity.race** | `Gnomo` o `Humano` |
-| **identity.concept** | `Superviviente de veneno de sombra — reconoce olores` |
-| **verdad_secreta** | `Envenenaron su equipo en misión Harper fallida. Sospecha que el vial del cofre es la misma cepa.` |
-| **peculiaridad** | `Espirra cerca de incienso calishita (delata a Calistra sin saberlo).` |
-| **culpabilidad_real** | `4` |
-
-**Líneas:** «Ese olor bajo las tablas no es rata.» · «Ilmater no usa ese almizcle.» · «Si el cofre respira, retroceded.» · «Hay un olor en esta sala que no debería estar en una posada de montaña.» · «Quemar todo suena bien hasta que el humo os mate.»
+**Nunca:** «Fallas la tirada, no encuentras nada.» Siempre hay algo que encontrar; el dado determina qué tanto.
 
 ---
 
-### Hook 4 — «El nombre quemado» (Veterano)
+## PROTOCOLO DE STANDOFF MEXICANO — ESCENA 5
 
-| Campo | Valor |
-| ----- | ----- |
-| **identity.race** | `Humano` o `Medio-orco` |
-| **identity.concept** | `Mercenario con cuenta pendiente en Mere de Tresvelas` |
-| **verdad_secreta** | `Sabe que Thorn miente: no murió «toda su familia», solo su hermana. Puede inclinar la balanza entre venganza y verdad.` |
-| **peculiaridad** | `Escribe «Mere» en la mesa con agua en lugar de decirlo.` |
-| **culpabilidad_real** | `6` |
+**Formato de un solo post:**
 
-**Líneas:** «Escribo con agua lo que no digo con voz.» · «Thorn y Kaelen no cuentan los mismos muertos.» · «El tabardo del tiefling lo saqueó en un campo.» · «Puedo entregar a Kaelen y dormir mal.» · «La venganza solo vacía habitaciones.»
+El Máster escribe la descripción del momento de silencio con todas las armas a la vista. Luego cada jugador escribe UN post con:
+- **Posición:** Dónde está su personaje físicamente.
+- **Arma:** Qué tiene en la mano o preparado.
+- **Objetivo:** A quién apunta o vigila.
+- **Línea:** Lo que dice en voz alta en este momento.
 
-**REL-10** con Kaelen.
+El Máster resuelve en un post de narración que toma en cuenta todas las declaraciones simultáneamente. No hay iniciativa. No hay rondas. Es cine.
 
----
-
-### Pregens sugeridos
-
-| PJ | Raza/clase/nivel | Hook |
-| -- | ---------------- | ---- |
-| Cobrador | Enano Pícaro 2 | 1 |
-| Mensajera | Humana Exploradora 1 | 2 |
-| Rastreador | Gnomo Explorador 2 | 3 |
-| Veterano | Medio-orco Guerrero 2 | 4 |
-
-### Matriz PC ↔ PC (Escena 1)
-
-| Situación | Semilla |
-| --------- | ------- |
-| Hook 1 + Orin | Reconocen anillo de cuervos — uno miente, otro sonríe |
-| Hook 2 + Maelis | Miradas al lacre antes de hablar |
-| Hook 3 + Calistra | PJ estornuda; ella palidece |
-| Hook 4 + Thorn | Miden armas; Thorn cuenta monedas |
+**Regla de oro:** Si un jugador declara ataque, el objetivo puede declarar respuesta en réplica antes de que se resuelva el daño. Un solo intercambio. Luego resolución simultánea.
 
 ---
 
-## I. Matriz de pistas falsas (false leads) — 🔒 SOLO MÁSTER — no compartir con jugadores
+## RECOMPENSAR LA DEDUCCIÓN
 
-Quién **apunta** a quién, **por qué**, y **la mentira en el medio**. Los diálogos principales están en sección E.
+**Cuándo un jugador conecta dos pistas correctamente:**
+El Máster confirma la deducción narrativamente, no con un dado. «Sí, la fibra botánica del cuello y la cuerda que falta en la bolsa de Lysse coinciden. Eso es un hecho.»
 
-| Acusador → Objetivo | Motivo público | Por qué es creíble | Verdad parcial | Mentira en el medio |
-| ------------------- | -------------- | ------------------ | -------------- | ------------------- |
-| Thorn → Kaelen | Carnicero de Mere; sangre en techo | Herida real | Sangre del techo es suya | No mató a Edrin |
-| Thorn → Yselda | Ocultaba a Kaelen | Moretón | La agarró por error | No es cómplice |
-| Yselda → Thorn | Lo vi en el establo | Guantes manchados | Estuvo allí | No estranguló |
-| Grakk → Thorn | Huella medio-orco | Huella en heno | Huella existe | Es de Grakk |
-| Grakk → Calistra | Veneno en pozo | Olor calishita | Tiene venenos | No envenenó pozo |
-| Orin → Viajero | Drow cobra cabeza | Rumor Skullport | Contrato existe | Es escolta falsa |
-| Sera → Viajero | Asesino a sueldo | Precio publicado | Contrato real | Objetivo es proteger |
-| Calistra → Grakk | Mozo le temía | Edrin espiaba | Grakk culpable | Calistra oculta confesión |
-| Huldra → Orin | Deudor delator | Deuda real | Orin delataría | Huldra ya lo vendió |
-| Viajero → Grakk | Espía en vigas | Papeles en harina | Espionaje | Omitió salvar a Edrin |
-| PC Hook 3 → Calistra | Alergia = culpa | Espirra cerca | Usa químicos | Salva a Yselda |
-| PC Hook 4 → Kaelen | Firmó Mere | Testigo | Informe falso | PJ también desertó |
+**Cuándo un jugador llega a una conclusión incorrecta pero plausible:**
+El Máster no la contradice directamente —planta una pista que la complica. El jugador llegará solo a la corrección.
 
-### Cadenas de desinformación (3 eslabones)
-
-1. **Huella en heno** → Thorn → en realidad Grakk con guante fallido.
-2. **Confesión Calistra–Edrin** → parece asesinato → intercambio de culpas distintas.
-3. **Contrato Skullport** → Viajero asesino → señuelo contra cazadores peores.
-
-### Tabla maestra de culpabilidad (0–10)
-
-| NPC | Culpabilidad | Nota |
-| --- | ------------ | ---- |
-| Grakk Ironsnout | 9 | Asesino de Edrin |
-| Thorn Blackmantle | 7 | Revolvió cadáver; caza Kaelen |
-| Kaelen Ruin | 7 | Encubridor Mere |
-| Maelis Verdecuervo | 6 | Avalancha hace 10 años |
-| Huldra Voss | 6 | Vendió garrote |
-| Sister Calistra | 5 | 12 eutanasias; no mató mozo |
-| Orin Tres Dedos | 5 | Chantaje; omisión |
-| Sera Vann | 4 | Porta plaga legalmente |
-| Yselda Cuervonegro | 3 | Espía; embarazo real |
-| El Viajero de Ceniza | 2 | Menos culpable; no intervino |
-| Edrin el Mozo | 2 | Víctima |
+**Cuándo un jugador hace la pregunta correcta al NPC equivocado:**
+El NPC responde desde su perspectiva incompleta. Eso es información también. La sala tiene acceso a versiones parciales de la verdad; la deducción es ensamblar versiones.
 
 ---
 
-## J. Tabla de secretos y traiciones — 🔒 SOLO MÁSTER — no compartir con jugadores
+---
 
-| Secreto | Quién sabe | Cómo se descubre | Impacto |
-| ------- | ---------- | ---------------- | ------- |
-| Túnel bajo posada | Maelis, Grakk, Edrin (muerto) | Sótano / establo | Rutas escape |
-| Cofre = plaga + mapas + chantaje | Sera, Viajero, Yselda (parcial) | Abrir cofre CD 18 | Padre de Yselda en cartas |
-| Kaelen = encubridor Mere | Thorn, Orin, Hook 4 | Nombre Mere | Thorn escala |
-| Grakk = asesino Edrin + Zhent | Grakk, Huldra | Cuerda establo CD 13 | Traidor principal |
-| Calistra = venenosa + eutanasias | Calistra, Edrin (muerto) | Confesión Escena 3 | NO mató mozo; salva Yselda |
-| Viajero = escolta falsa drow | Maelis, Viajero | Escena 4–5 | Menos culpable |
-| Thorn = tabardo robado + viuda Vane | Thorn, Viajero (sabe) | Cartas cofre / confesión | No es paladín |
-| Veneno pozo abortivo | Calistra, atacante offscreen | Medicina CD 13 Yselda | Facción Alianza interna |
-| Lista huéspedes vendida | Grakk, Huldra | Harina cocina CD 13 | Prueba traición |
-| Avalancha Maelis hace 10 años | Maelis | Confesión standoff | Redefine «quién no mató» |
-
-### Matriz de traición
-
-| NPC | Objetivo | Traiciona a |
-| --- | -------- | ----------- |
-| Maelis | Túnel / destruir vial | Grakk si conviene |
-| Orin | Piel | Kaelen, grupo |
-| Sera | Cofre intacto | Grupo si falla |
-| Thorn | Kaelen / tabardo | Kaelen, orden falsa |
-| Calistra | Yselda / redención | Sí misma |
-| Grakk | Cofre Zhent | Todos |
-| Huldra | Mapas × 2 compradores | Cualquiera |
-| Yselda | Vigilar Sera | Sera si orden |
-| Viajero | Legado Aldric | Nadie (omisión Edrin) |
+# 7. REFERENCIA RÁPIDA — UNA PÁGINA
 
 ---
 
-## J-bis. Tabla de tentaciones (trampas morales — no binarias)
+## MATRIZ DE CULPABILIDAD
 
-| Tentación | Quién empuja | Trampa moral | Consecuencia si caes | Consecuencia si resistes |
-| --------- | ------------ | ------------ | -------------------- | ------------------------ |
-| **Abrir cofre sin precaución** | Huldra, curiosidad | «Solo un vistazo» | CD 14 CON; infectado | Sera confía más |
-| **Confiar en Viajero por ser «menos malo»** | Maelis | Perdonar omisión con Edrin | Vial confiscado; Grakk hostil | Viajero media standoff |
-| **Entregar Orin a Huldra** | Hook 1 | Justicia vs crueldad | Orin delata o muere callado | Huldra debe favor |
-| **Dejar que Thorn mate a Kaelen** | Thorn, Hook 4 | Venganza vs verdad | Kaelen muerto; Thorn puede irse | Testigo Mere perdido |
-| **Usar veneno bajo tabla en Grakk** | Maelis (si confiesa) | Eficiencia vs método | Grakk muerto; Maelis hostil | Juicio posible |
-| **Quemar cofre entero** | Hook 3, pánico | Destruir mal vs perder pruebas | Plaga muerta; mapas perdidos | Alianza persigue |
-| **Vender mapas a Huldra Y quedarte vial** | Orin | Doble traición imposible | Dos facciones enemigas | Oro temporal |
-| **Forzar confesión a Calistra con pozo** | Sospecha veneno | Acusar a quien salva Yselda | Bebé en riesgo; Calistra rompe | Verdad parcial |
-| **Proteger identidad drow del Viajero** | Prejuicio mesa | «El drow es culpable» | Mata escolta real | Sera muere después |
-| **Destruir cartas de chantaje** | Sera, padre Yselda | Proteger bebé vs justicia | Oficial libre; Yselda agradecida | Escándalo Neverwinter |
-| **Torturar a Grakk** | Desesperación | Información vs monstruosidad | Verdad + trauma; Calistra abandona | Grakk calla más |
-| **Beber trago de Maelis sin preguntar** | Standoff | Confianza vs veneno | 50% whisky / 50% sombra CD 13 | Maelis respeta |
-| **Fingir embarazo (PJ)** | Caos | Humor negro / límites mesa | Grupo pierde confianza en PJs | — |
-| **Salvar a Grakk por «no ser el único monstruo»** | Maelis argument | Maelis mató 3 hace 10 años | Zhent vive; túnel comprometido | Moral gris explícita |
-| **Aceptar orden falsa de Thorn** | Noble offscreen | Oro fácil | Cofre al enemigo | Thorn respeta o dispara |
+| NPC | Parece culpable de… | Culpabilidad real | Coartada | Secreto clave |
+|---|---|---|---|---|
+| Wenna Corren | Encubrir al asesino, saber del túnel | **5/10** — Conocía la identidad de Lysse, no dijo nada | En la barra toda la noche — sólida | Consintió el túnel zhentarim; sabía que Lysse era renegada |
+| Selvyn Drask | N/A — víctima | **1/10** | N/A | Trabajaba para los Harpers mientras chantajeaba |
+| Borrakh Peñadiente | Asesinato; huellas en establo; pasado violento | **3/10** — Encontró el cadáver y calló | Estuvo antes del crimen — frágil por omisión | Incendio del depósito cubierto por Renwick |
+| Lysse Mourne | Aparentemente nada — «solo la herbolaria» | **10/10** — **LA ASESINA** | «Arriba toda la noche» — MENTIRA; Tamlin la vio; cuerdas que faltan | Ex-Harper renegada; mató con sedante + cuerda botánica; usó el túnel |
+| Durvis Hakk | Todo lo relacionado con el cofre; reacción calmada | **6/10** — Construyó las condiciones; ramal norte | En sala toda la noche — sólida | Operativo Zhentarim; ramal norte; cofre comprometido |
+| Onno Grist | Trampa explosiva; identidad falsa; movimientos sospechosos | **5/10** — Cómplice indirecto; trampa era general | En sala o corredor — sólida | Cuervos de Mirtul; acreedor de Tamlin; trampa de seguridad propia |
+| Caelith Brynmar | «Trajo la plaga»; tensión con todos | **3/10** — Cómplice de sistema; no crimen de esta noche | Con el cofre en sala — sólida | Abrió el cofre; su comandante está en las cartas |
+| Renwick Sorn | Estuvo en zona de acceso; herida; dos nombres en el cuadernillo | **4/10** — Buscaba a Durvis, no a Selvyn; llegó después | «En sala toda la noche» — PARCIALMENTE MENTIRA; ventana este | Cubrió el incendio de Borrakh; buscaba a Durvis Hakk |
+| Tamlin Pell | Vende información; en deuda; movimientos nocturnos | **4/10** — Cobarde que sabe demasiado desde la Escena 3 | En sala tocando — sólida | Vio a Lysse con las manos mojadas |
+| Sira Veleth | Drow con posibles contratos; no habla; sin equipaje | **2/10** — La persona menos culpable de la sala | En silla en sala — sólida | Harper activa; sabe quién es la asesina desde la Escena 3 |
 
 ---
 
-## K. Mecánicas PBP, standoff mexicano y checklist
+## RASTREADOR DE PISTAS FALSAS
 
-### Post único — Standoff mexicano (Escena 5)
-
-Copiar como **un solo mensaje** del máster. Cada PJ responde **una acción** en su siguiente post. Resolver en un post de cierre del máster.
-
-```
-[STANDOFF — RONDA ÚNICA]
-
-La botella de Maelis está en el centro. El fuego cruje. Nadie ha bebido.
-
-• Thorn (tiefling): ballesta al pecho de Kaelen. Tabardo de Torm demasiado limpio. «Un movimiento y firmo el informe de Mere con tu sangre — y devuelvo el tabardo a la viuda en sobre negro.»
-• Kaelen: espada temblorosa, espalda a la chimenea. «Dispara. Ya estoy muerto desde Tresvelas.»
-• Grakk: cuchillo en el lacre del cofre, no en Sera — todavía. «Mapas. O la dracónida respira peor.»
-• Sera (dracónida): mano en empuñadura, cofre entre rodillas. Escamas gris plomo. «Alianza. Un paso y Neverwinter os entierra.»
-• Huldra: mechero al barril. «Pólvora barata. Noche cara. Elegid si ardéis por principios o por frío.»
-• Yselda (elfa): cuchillo de mesa, mano en vientre. «Mi hijo no nace en un matadero.»
-• Calistra: bloquea escalera sin arma. «El primero que mate no recibe mis infusiones. Ni las de Ilmater — porque no soy suya.»
-• Maelis: dos vasos idénticos. «Un trago por persona. El que llegue tarde paga la ronda — y la habitación.»
-• El Viajero (drow): baja la escalera por primera vez. Sin arma visible. «Destruid el vial. Leed las cartas en voz alta. O seguid apuntando al moreno de la cocina porque es fácil. Hay tercera opción. Preguntad.»
-
-Los PJs están donde los dejasteis. Una acción cada uno. Sin orden de iniciativa — el más rápido en postear actúa primero en narración.
-
-¿Qué hacéis?
-```
-
-**Resolución máster (guía):**
-
-| Si el grupo… | Resultado |
-| ------------ | --------- |
-| Negocia con Viajero | Vial destruido; mapas a Harper; Grakk fugado o atado |
-| Apoya a Sera | Cofre a Alianza; Yselda reporta; Thorn puede morir o huir |
-| Deja a Thorn matar Kaelen | Venganza cumplida; epílogo amargo; cofre sigue en disputa |
-| Detona / combate | Combate opcional; posada dañada; bajas según PJs |
-| Entrega Grakk a Zhentarim (vía Huldra) | Oro; enemigo futuro; reputación manchada |
+| Pista | Apunta a… | Verdad |
+|---|---|---|
+| Borrakh en el establo antes del crimen | Borrakh como asesino | Llegó a revisar su yegua; encontró el cadáver; calló por miedo a ser primer sospechoso |
+| Reacción calmada de Durvis a la muerte | Durvis como asesino o cómplice | Durvis quería a Selvyn vivo y controlado; muerto es más difícil de gestionar |
+| Renwick en la ventana este | Renwick usando la ruta del tejado para el crimen | Renwick observaba el patio buscando a Durvis |
+| Onno activo y nervioso en Escena 4 | Onno como cómplice del crimen | Va hacia su trampa propia, no al escenario del crimen |
+| Lysse examina el cadáver voluntariamente | Lysse como persona sin nada que ocultar | Controla qué información se revela desde la «pericia médica» |
+| Cuadernillo de Selvyn con tres nombres | Tres sospechosos obvios | El cuarto nombre (L.M.) fue destruido por la asesina |
 
 ---
 
-### Ritmo async — recordatorio
+## LISTA DE CDs CLAVE
 
-| Escena | Latidos sugeridos (cada 15–20 min reales) |
-| ------ | ----------------------------------------- |
-| 1 | Trueno; jarra vacía; crujido arriba |
-| 2 | Gota sangre acelera; cerrojo habitación 4 |
-| 3 | Grito establo; ladrido caballo muerto |
-| 4 | Olor plaga si cofre abierto; pasos en sótano |
-| 5 | Standoff — sin latidos, solo tensión |
-
----
-
-### Checklist del máster
-
-#### Orden de creación en la app
-
-1. [ ] **Crear campaña** — nombre, tono (sección A), `dnd5e`
-2. [ ] **Invitar 3–4 jugadores** (Ajustes → Jugadores)
-3. [ ] **ARC_MANIFEST** — sección B (5 misiones)
-4. [ ] **LOCATION** × 7 — sección D (posada + zonas + paso + establo)
-5. [ ] **FACTION** × 4 — sección F
-6. [ ] **NPC** × 10 + Edrin — sección E
-7. [ ] **RELATIONSHIP** × 14 — sección G
-8. [ ] **PC** × 4 — hooks sección H + fichas D&D 5e
-9. [ ] **Escenas PREPARED** × 5 — sección C
-10. [ ] **Post cinematográfico** — sección A (antes de Escena 1)
-11. [ ] **Ilustraciones** (opcional) — prompts sección D/E
-
-#### Activación de escenas
-
-1. [ ] Enviar post cinematográfico
-2. [ ] Activar **Escena 1** — `opening_narration`, roster completo
-3. [ ] Jugar ~15–20 msgs → **Cerrar** → `current_act = 2`
-4. [ ] Activar **Escena 2** — gotas de sangre
-5. [ ] Cerrar → `current_act = 3`
-6. [ ] Activar **Escena 3** — Edrin muerto
-7. [ ] Cerrar → `current_act = 4`
-8. [ ] Activar **Escena 4** — cofre / sótano
-9. [ ] Cerrar → `current_act = 5`, `world_threat_level = 9`
-10. [ ] Activar **Escena 5** — standoff único → epílogo → fin playtest
-
-#### Qué probar en RolePBP
-
-| Feature | Cómo probarlo |
-| ------- | ------------- |
-| **Chat + apertura cinematográfica** | Post A + activar Escena 1 |
-| **Imágenes** | Ilustración posada al activar Escena 1 |
-| **Entidades prep** | Viajero hidden; Edrin unknown |
-| **Roster / presencia** | 10 PNJs + 4 PCs |
-| **Shadow Master `campaign`** | Secretos sección J sin revelar |
-| **Shadow Master `narrative`** | Latidos cada 15–20 min |
-| **Shadow Master `rules`** | CD cofre, plaga, combate Escena 5 |
-| **Foco entidad** | Thorn, Grakk, Yselda |
-| **Tiradas desde ficha** | Investigación cocina / establo |
-| **Cerrar escena** | Tras cada acto; buffer ~20 msgs |
-| **Compendio** | Tiers story vs combat |
-| **Visibilidad** | Viajero hidden → unknown → visible |
-| **ARC_MANIFEST** | 5 quests; act 1–5 |
-| **RELATIONSHIP** | Revelar 2+ en juego antes Escena 4 |
-| **Tabla tentaciones** | Al menos 1 tentación activada por PJ |
-
-#### Consultas Shadow Master por escena
-
-**Escena 1 (narrative, foco Maelis):**  
-«Un PJ ofrece ayuda en cocina para hablar con Grakk. ¿Qué hace Grakk sin delatarse?»
-
-**Escena 2 (campaign):**  
-«¿De dónde viene la sangre del techo sin revelar aún al asesino de Edrin?»
-
-**Escena 3 (narrative, foco Calistra):**  
-«Calistra confiesa eutanasias pero no asesinato. ¿Cómo reaccionan los PJs?»
-
-**Escena 4 (rules):**  
-«CD y consecuencias si abren cofre con guantes improvisados.»
-
-**Escena 5 (campaign):**  
-«Si dos PJs eligen acciones contradictorias en standoff, ¿quién actúa primero narrativamente?»
+| CD | Acción | Pista o resultado |
+|---|---|---|
+| CD 10 Investigación | Sala común, tabla del suelo | Mancha de sangre antigua, no de esta noche |
+| CD 11 Investigación | Cocina, goznes puerta oculta | Aceite de linaza fresco —usada esta noche |
+| CD 11 Medicina | Observar a Renwick | Vendajes en la mano derecha, herida reciente |
+| CD 12 Investigación | Cofre de Caelith | Sello de la Alianza de los Lordes |
+| CD 12 Investigación | Suelo del tercer pesebre | Tierra arcillosa rojiza del túnel |
+| CD 12 Investigación | Establo, pared oeste | Panel de la puerta oculta, ligeramente desencajado |
+| CD 12 Investigación | Sótano | Vial vacío de extracto sedante de Lysse |
+| CD 13 Perspicacia | Observar a Tamlin desde Escena 3 | Incapaz de mirar a Lysse directamente |
+| CD 13 Perspicacia | Observar a Durvis, noticia de la muerte | Reacción demasiado neutral para alguien que tiene motivo |
+| CD 13 Investigación | Establo, cuello de Selvyn | Fibras de cuerda botánica herbolaria |
+| CD 13 Medicina | Examinar labios de Selvyn | Olor residual sedante —bebió algo en los últimos minutos |
+| CD 13 Investigación | Establo, suelo del tercer pesebre | Trampilla al túnel bajo el heno |
+| CD 13 Investigación | Cocina, cubo de agua | Aceite de linaza en el borde —alguien se lavó las manos |
+| CD 14 Investigación | Establo, cadáver de Selvyn | Huella de bolígrafo en cuadernillo —con carbón, «L.M.» |
+| CD 14 Investigación | Ventana este, habitación 5 | Rasguños en alféizar exterior; pizarras movidas |
+| CD 14 Investigación | Sótano, cajones | Mapa del sistema de túneles con cuatro salidas |
+| CD 14 Arcana | Libro de Onno bajo tabla suelta | Descifrado parcial de las cuentas de los Cuervos de Mirtul |
+| CD 15 Investigación | Sala común, tercera tabla del suelo | Nicho con veneno de sombra |
+| CD 15 Investigación | Sótano, cajones zhentarim | Correspondencia Durvis-Luskan |
+| CD 16 Perspicacia | Observar a Lysse, bolsa herbolaria | Número de cuerdas botánicas —una de calibre medio falta |
 
 ---
 
-## Notas de tono y límites de contenido
+## INTERESES DE FACCIONES EN EL COFRE
 
-- **Violencia:** visceral pero con consecuencia. Sangre en techo, estrangulamiento, heridas abiertas — sí. Gratificación sin coste — no.
-- **Tortura:** permitida si PJ la elige; NPCs responden con información mezclada y trauma. Calistra puede retirar apoyo al torturador.
-- **Temas:** venganza, culpa, traición, eutanasia, embarazo bajo amenaza, prejuicio racial contra drow — todos con motivo comprensible.
-- **Faerûn:** Neverwinter, Alianza, Zhentarim, Ilmater, Harper — sin contradecir lore mayor.
-- **Async PBP:** decisiones claras por mensaje; máster pregunta «¿A quién habláis?» entre beats.
-- **Límites de mesa:** daño dirigido al embarazo de Yselda solo si el grupo estableció límites; tabla J-bis marca bandera roja.
+| Facción | Quiere | No quiere que ocurra |
+|---|---|---|
+| **Alianza de los Lordes** (Caelith) | Recuperar vial + mapas + destruir cartas | Que las cartas se lean en voz alta |
+| **Zhentarim** (Durvis) | Vial de plaga + mapas | Que el vial se destruya; que el túnel se cierre |
+| **Cuervos de Mirtul** (Onno) | Solo los mapas (para revender × 2) | Que alguien abra el cofre sin él delante |
+| **Harpers** (Sira) | Destruir el vial. Exponer las cartas | Que el vial llegue al mercado negro |
+| **Renwick Sorn** (personal) | Las cartas específicamente —nombran a Byrne | Que las cartas desaparezcan sin proceso judicial |
+| **Lysse Mourne** (personal) | Salir viva de la posada con identidad intacta | Que alguien conecte la cuerda botánica con su bolsa |
 
 ---
 
-*Pack v3 para playtest RolePBP — campaña autocontenida, 5 escenas, 10 PNJs (9 razas distintas), 14 relaciones, mapeo completo secciones A–K. Sin clones Gemini.*
+## ACCESOS AL ESTABLO — RESUMEN OPERATIVO
 
+| Ruta | CD acceso | Usada por | Evidencia que deja |
+|---|---|---|---|
+| Puerta principal del patio | Sin CD | Selvyn (víctima), Borrakh (antes crimen) | Barro en umbral; difícil con ventisca |
+| Puerta oculta cocina–establo | CD 12 Investigación para encontrar | Lysse (asesina, ida esta noche) | Goznes aceitados; panel desencajado |
+| Ventana este piso superior | CD 12 Atletismo para usar | Renwick (antes crimen, solo observación) | Rasguños en alféizar; pizarras movidas |
+| Túnel sótano–tercer pesebre | CD 13 Investigación para encontrar trampilla | Lysse (asesina, regreso por aquí) | Tierra arcillosa rojiza; vial sedante; fibra botánica |
+
+---
+
+*Fin del documento. El cuervo blanco del umbral sigue en su poste. Nadie sabe si graznó durante la noche.*
