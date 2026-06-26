@@ -21,7 +21,7 @@ import {
 } from "./schema";
 import { DND5E_DAMAGE_TYPE_GROUPS, DND5E_DAMAGE_TYPE_VALUES, damageTypeLabel } from "./damageTypes";
 import type { Dnd5eDamageType } from "./damageTypes";
-import { InspirationBox, InspirationSpendToggle, InspirationStatus } from "./InspirationBox";
+import { InspirationBox, InspirationSpendToggle } from "./InspirationBox";
 import { Dnd5eSpellcastingPanel } from "./Dnd5eSpellcastingPanel";
 
 type Dnd5eSheetFormProps = {
@@ -318,15 +318,12 @@ export function Dnd5eSheetForm({
       </div>
 
       <div className="sheet-header-stats">
-        {canGrantInspiration ? (
-          <InspirationBox
-            active={hasInspiration}
-            disabled={disabled}
-            onToggle={toggleInspiration}
-          />
-        ) : (
-          <InspirationStatus active={hasInspiration} />
-        )}
+        <InspirationBox
+          active={hasInspiration}
+          disabled={disabled}
+          readOnly={!canGrantInspiration}
+          onToggle={toggleInspiration}
+        />
         <div className="sheet-passive-perception" aria-label="Percepción pasiva">
           <span className="sheet-passive-perception__label">Percepción pasiva (Sab)</span>
           <strong className="sheet-passive-perception__value">{passiveWisdom}</strong>

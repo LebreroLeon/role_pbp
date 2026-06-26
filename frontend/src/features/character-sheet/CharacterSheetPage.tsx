@@ -284,12 +284,6 @@ export function CharacterSheetPage() {
 
   const sheetDefaults = parseSheetForSystem(gameSystem, extracted?.sheet);
 
-  const pcName =
-
-    (myPc?.document.identity as { name?: string } | undefined)?.name ?? "Sin nombre";
-
-
-
   return (
 
     <div className="character-sheet-page">
@@ -452,12 +446,6 @@ export function CharacterSheetPage() {
         {myPc && hasSheetEditor && (
 
           <>
-
-            <p className="sheet-pc-name">
-
-              <strong>{pcName}</strong>
-
-            </p>
 
             {gameSystem === "dnd5e" && (
 

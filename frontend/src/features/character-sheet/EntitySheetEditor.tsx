@@ -330,9 +330,7 @@ export function EntitySheetEditor({
       </CollapsibleSection>
 
       {hasSheetEditor ? (
-        <section className="sheet-mechanics-section">
-          <h3>Ficha mecánica — {gameSystemLabel(gameSystem)}</h3>
-          <p className="muted">Vista Máster: stats, PV, ataques y secretos mecánicos visibles.</p>
+        <>
           {entity.entity_type === "NPC" && (
             <MasterOnlyField
               label="Tirada en secreto"
@@ -379,7 +377,7 @@ export function EntitySheetEditor({
               isRolling={rollMutation.isPending}
             />
           )}
-        </section>
+        </>
       ) : (
         <p className="muted">
           Esta campaña usa un sistema sin plantilla mecánica ({gameSystemLabel(gameSystem)}).

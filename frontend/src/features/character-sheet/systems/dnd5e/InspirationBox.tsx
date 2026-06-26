@@ -3,55 +3,64 @@ import { Tooltip } from "../../../../components/ui";
 type InspirationBoxProps = {
   active: boolean;
   disabled?: boolean;
-  onToggle: (active: boolean) => void;
+  /** Player view: same visual, cannot grant or revoke inspiration. */
+  readOnly?: boolean;
+  onToggle?: (active: boolean) => void;
 };
 
-export function InspirationBox({ active, disabled, onToggle }: InspirationBoxProps) {
+function inspirationTooltip(active: boolean, readOnly: boolean): string {
+  if (readOnly) {
+    return active
+      ? "Inspiración concedida por el Máster. Puedes gastarla con «Gastar inspiración»."
+      : "Sin inspiración. El Máster puede concedértela por buen rol.";
+  }
+
+  return active
+    ? "Inspiración concedida. El jugador puede gastarla para ventaja en una tirada."
+    : "Concede inspiración al personaje (típicamente el Máster la otorga por buen rol).";
+}
+
+function InspirationBoxContent({ active }: { active: boolean }) {
   return (
-    <Tooltip
-      content={
-        active
-          ? "Inspiración concedida. El jugador puede gastarla para ventaja en una tirada."
-          : "Concede inspiración al personaje (típicamente el Máster la otorga por buen rol)."
-      }
-    >
-      <button
-        type="button"
-        className={`sheet-inspiration${active ? " is-active" : ""}`}
-        disabled={disabled}
-        aria-pressed={active}
-        aria-label={active ? "Inspiración activa — pulsa para quitar" : "Sin inspiración — pulsa para conceder"}
-        onClick={() => onToggle(!active)}
-      >
-        <span className="sheet-inspiration__symbol" aria-hidden>
-          ✦
-        </span>
-        <span className="sheet-inspiration__label">Inspiración</span>
-        <span className="sheet-inspiration__hint">{active ? "Disponible" : "Sin usar"}</span>
-      </button>
-    </Tooltip>
+    <>
+      <span className="sheet-inspiration__symbol" aria-hidden>
+        ✦
+      </span>
+      <span className="sheet-inspiration__label">Inspiración</span>
+      <span className="sheet-inspiration__hint">{active ? "Disponible" : "Sin usar"}</span>
+    </>
   );
 }
 
-type InspirationStatusProps = {
-  active: boolean;
-};
+export function InspirationBox({ active, disabled, readOnly = false, onToggle }: InspirationBoxProps) {
+  const className = `sheet-inspiration${active ? " is-active" : ""}${readOnly ? " sheet-inspiration--readonly" : ""}`;
+  const tooltip = inspirationTooltip(active, readOnly);
 
-export function InspirationStatus({ active }: InspirationStatusProps) {
-  if (!active) return null;
+  if (readOnly) {
+    return (
+      <Tooltip content={tooltip}>
+        <span
+          className={className}
+          aria-label={active ? "Inspiración disponible" : "Sin inspiración"}
+        >
+          <InspirationBoxContent active={active} />
+        </span>
+      </Tooltip>
+    );
+  }
 
   return (
-    <Tooltip content="Inspiración concedida por el Máster. Puedes gastarla en la barra de tiradas.">
-      <span
-        className="sheet-inspiration sheet-inspiration--readonly is-active"
-        aria-label="Inspiración disponible"
+    <Tooltip content={tooltip}>
+      <button
+        type="button"
+        className={className}
+        disabled={disabled}
+        aria-pressed={active}
+        aria-label={active ? "Inspiración activa — pulsa para quitar" : "Sin inspiración — pulsa para conceder"}
+        onClick={() => onToggle?.(!active)}
       >
-        <span className="sheet-inspiration__symbol" aria-hidden>
-          ✦
-        </span>
-        <span className="sheet-inspiration__label">Inspiración</span>
-        <span className="sheet-inspiration__hint">Disponible</span>
-      </span>
+        <InspirationBoxContent active={active} />
+      </button>
     </Tooltip>
   );
 }

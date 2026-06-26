@@ -2031,9 +2031,13 @@
 
 .sheet-form {
   display: grid;
-  gap: 1.25rem;
+  gap: 0;
   min-width: 0;
   max-width: 100%;
+}
+
+.sheet-form > .actions {
+  margin-top: 1.25rem;
 }
 
 .sheet-mechanics-collapsible,
@@ -2042,7 +2046,45 @@
 }
 
 .sheet-narrative-collapsible {
-  margin-bottom: 1rem;
+  margin-bottom: 0;
+}
+
+.character-sheet-page .panel > .collapsible-section,
+.entity-sheet-editor > .collapsible-section,
+.sheet-form > .collapsible-section {
+  box-shadow: none;
+}
+
+.character-sheet-page .panel > .collapsible-section ~ .sheet-form,
+.entity-sheet-editor .collapsible-section ~ .sheet-form {
+  margin-top: -1px;
+}
+
+.character-sheet-page .sheet-narrative-collapsible,
+.entity-sheet-editor .sheet-narrative-collapsible {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.character-sheet-page .sheet-narrative-collapsible ~ .sheet-form > .collapsible-section:first-child,
+.entity-sheet-editor .sheet-narrative-collapsible ~ .sheet-form > .collapsible-section:first-child {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.sheet-form > .collapsible-section + .collapsible-section {
+  margin-top: -1px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.sheet-form > .collapsible-section:not(:last-of-type) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.collapsible-section:not([open]) .collapsible-section__header {
+  margin-bottom: 0;
 }
 
 .sheet-spellcasting {
