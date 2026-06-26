@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { useParams } from "react-router-dom";
 
@@ -8,9 +8,9 @@ import { ApiError } from "../../api/http";
 
 import type { SheetRollRequest } from "../../api/types";
 
-import { Scroll } from "../../components/icons";
+import { Scroll, User } from "../../components/icons";
 
-import { Button, ErrorBanner, Input, Panel, PanelHeader } from "../../components/ui";
+import { Button, CollapsibleSection, ErrorBanner, Input, Panel, PanelHeader } from "../../components/ui";
 
 import { gameSystemLabel, getGameSystemProfile, hasSheetTemplate } from "../campaign/gameSystems";
 
@@ -23,6 +23,9 @@ import { useMySheetQuery } from "../../hooks/queries/useMySheetQueries";
 import { useEntitiesQuery } from "../../hooks/queries/useEntityQueries";
 import { EntityRefFields } from "../entities/EntityRefFields";
 import type { CampaignEntity } from "../entities/entityDefaults";
+import { getEntityDisplayName, normalizeEntityRefId } from "../entities/entityDefaults";
+import { extractAvatarUrl } from "../entities/entityAvatar";
+import { extractIllustrationUrl } from "../entities/entityIllustration";
 
 import { useAuthStore } from "../../stores/authStore";
 
@@ -41,6 +44,9 @@ import {
   type GameSheet,
 
 } from "./pcDocument";
+
+import { EntityAvatarField } from "./EntityAvatarField";
+import { EntityIllustrationField } from "../entities/EntityIllustrationField";
 
 import { CyberpunkSheetForm } from "./systems/cyberpunk_red/CyberpunkSheetForm";
 
@@ -114,6 +120,37 @@ export function CharacterSheetPage() {
 
   const [rollSummary, setRollSummary] = useState<string | null>(null);
 
+  // Narrative edit state (shown when PC exists)
+  const [name, setName] = useState("");
+  const [concept, setConcept] = useState("");
+  const [publicDescription, setPublicDescription] = useState("");
+  const [factionId, setFactionId] = useState("");
+  const [locationId, setLocationId] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [illustrationUrl, setIllustrationUrl] = useState("");
+
+  const factionOptions = useMemo(
+    () => entities.filter((item) => item.entity_type === "FACTION"),
+    [entities],
+  );
+  const locationOptions = useMemo(
+    () => entities.filter((item) => item.entity_type === "LOCATION"),
+    [entities],
+  );
+
+  useEffect(() => {
+    if (!myPc) return;
+    const identity = myPc.document.identity as { name?: string; concept?: string; faction_id?: string | null; current_location_id?: string } | undefined;
+    const publicProfile = myPc.document.public_profile as { description?: string } | undefined;
+    setName(identity?.name ?? "");
+    setConcept(identity?.concept ?? "");
+    setPublicDescription(publicProfile?.description ?? "");
+    setFactionId(normalizeEntityRefId(identity?.faction_id));
+    setLocationId(normalizeEntityRefId(identity?.current_location_id));
+    setAvatarUrl(extractAvatarUrl(myPc) ?? "");
+    setIllustrationUrl(extractIllustrationUrl(myPc) ?? "");
+  }, [myPc?.id, myPc?.updated_at]);
+
 
 
   const gameSystem = campaign?.game_system ?? "generic";
@@ -167,6 +204,38 @@ export function CharacterSheetPage() {
   }
 
 
+
+  async function handleNarrativeSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!myPc) return;
+    setFormError(null);
+
+    const baseDocument = myPc.document;
+    const updatedDocument = {
+      ...baseDocument,
+      identity: {
+        ...(baseDocument.identity as Record<string, unknown>),
+        name: name.trim(),
+        concept: concept.trim(),
+        faction_id: factionId || null,
+        current_location_id: locationId || null,
+      },
+      public_profile: {
+        ...(baseDocument.public_profile as Record<string, unknown>),
+        description: publicDescription.trim(),
+        avatar_url: avatarUrl.trim() || undefined,
+        illustration_url: illustrationUrl.trim() || undefined,
+      },
+    };
+
+    const payload = documentToCharacterSheetUpsert(updatedDocument);
+
+    try {
+      await upsertMutation.mutateAsync(payload);
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "No se pudo guardar los datos narrativos");
+    }
+  }
 
   async function handleSaveSheet(sheet: GameSheet) {
 
@@ -306,6 +375,79 @@ export function CharacterSheetPage() {
         )}
 
 
+
+        {myPc && (
+          <CollapsibleSection
+            icon={User}
+            iconTone="violet"
+            title="Datos narrativos"
+            description="Nombre, concepto, descripción, facción, ubicación e imágenes."
+            defaultOpen={false}
+            className="sheet-narrative-collapsible"
+          >
+            <form className="auth-form sheet-narrative-form" onSubmit={handleNarrativeSubmit}>
+              <Input label="Nombre" value={name} onChange={(e) => setName(e.target.value)} required />
+              <Input label="Concepto" value={concept} onChange={(e) => setConcept(e.target.value)} />
+
+              <label className="form-field">
+                <span>Facción (opcional)</span>
+                <select value={factionId} onChange={(e) => setFactionId(e.target.value)}>
+                  <option value="">Sin facción</option>
+                  {factionOptions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {getEntityDisplayName(item, entities)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="form-field">
+                <span>Ubicación actual</span>
+                <select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
+                  <option value="">Sin ubicación</option>
+                  {locationOptions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {getEntityDisplayName(item, entities)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="form-field">
+                <span>Descripción pública</span>
+                <textarea
+                  value={publicDescription}
+                  onChange={(e) => setPublicDescription(e.target.value)}
+                  rows={3}
+                />
+              </label>
+
+              <EntityAvatarField
+                campaignId={campaignId}
+                entityId={myPc.id}
+                entityName={name}
+                avatarUrl={avatarUrl}
+                onAvatarUrlChange={setAvatarUrl}
+                disabled={upsertMutation.isPending}
+              />
+
+              <EntityIllustrationField
+                campaignId={campaignId}
+                entity={myPc}
+                entityName={name}
+                illustrationUrl={illustrationUrl}
+                onIllustrationUrlChange={setIllustrationUrl}
+                disabled={upsertMutation.isPending}
+              />
+
+              <div className="actions">
+                <Button type="submit" disabled={upsertMutation.isPending || !name.trim()}>
+                  {upsertMutation.isPending ? "Guardando..." : "Guardar datos narrativos"}
+                </Button>
+              </div>
+            </form>
+          </CollapsibleSection>
+        )}
 
         {myPc && hasSheetEditor && (
 
