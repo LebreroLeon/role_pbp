@@ -3826,14 +3826,28 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   background: var(--bg-elevated);
+  color: var(--text-primary);
   cursor: pointer;
   display: grid;
   gap: 0.2rem;
 }
 
+.sheet-picker__item strong {
+  color: inherit;
+}
+
+.sheet-picker__item .muted {
+  color: var(--text-muted);
+}
+
 .sheet-picker__item.is-active {
   border-color: var(--accent-sky);
   background: color-mix(in srgb, var(--accent-sky) 12%, var(--bg-elevated));
+  color: var(--text-primary);
+}
+
+.sheet-picker__item.is-active strong {
+  color: var(--accent-sky);
 }
 
 .sheet-create-inline {
