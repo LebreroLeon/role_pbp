@@ -318,12 +318,14 @@ export function Dnd5eSheetForm({
       </div>
 
       <div className="sheet-header-stats">
-        <InspirationBox
-          active={hasInspiration}
-          disabled={disabled}
-          readOnly={!canGrantInspiration}
-          onToggle={toggleInspiration}
-        />
+        <div className="sheet-header-stats__inspiration">
+          <InspirationBox
+            active={hasInspiration}
+            disabled={disabled}
+            readOnly={!canGrantInspiration}
+            onToggle={toggleInspiration}
+          />
+        </div>
         <div className="sheet-passive-perception" aria-label="Percepción pasiva">
           <span className="sheet-passive-perception__label">Percepción pasiva (Sab)</span>
           <strong className="sheet-passive-perception__value">{passiveWisdom}</strong>

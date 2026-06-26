@@ -2752,10 +2752,6 @@
   background: var(--bg-elevated);
 }
 
-.sheet-pc-name {
-  margin: 0 0 1rem;
-}
-
 .sheet-create {
   margin-top: 0.5rem;
 }
@@ -4011,12 +4007,6 @@
   border-color: var(--accent-teal);
 }
 
-.sheet-mechanics-section {
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border-subtle);
-}
-
 .sheet-secret-field textarea {
   border-color: color-mix(in srgb, var(--accent-amber) 35%, var(--border-subtle));
 }
@@ -4196,6 +4186,16 @@
   margin-bottom: 0.5rem;
 }
 
+.sheet-header-stats__inspiration {
+  display: flex;
+  min-width: 0;
+}
+
+.sheet-header-stats__inspiration .sheet-inspiration {
+  flex: 1;
+  width: 100%;
+}
+
 .sheet-inspiration {
   display: flex;
   flex-direction: column;
@@ -4287,6 +4287,8 @@
 
 .sheet-header-stats .sheet-passive-perception {
   margin-bottom: 0;
+  min-height: 5.5rem;
+  align-self: stretch;
 }
 
 @media (max-width: 480px) {
