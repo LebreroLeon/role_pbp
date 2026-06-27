@@ -40,9 +40,9 @@ export function EntityRefFields({
         </select>
       </label>
       <label className="form-field">
-        <span>Ubicación actual (opcional)</span>
+        <span>Localización actual (opcional)</span>
         <select value={locationId} onChange={(event) => onLocationChange(event.target.value)}>
-          <option value="">Sin ubicación</option>
+          <option value="">Sin localización</option>
           {locationOptions.map((item) => (
             <option key={item.id} value={item.id}>
               {getEntityDisplayName(item, entities)}

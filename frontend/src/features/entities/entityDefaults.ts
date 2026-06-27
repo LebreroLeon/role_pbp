@@ -24,7 +24,7 @@ export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
   NPC: "Personaje no jugador",
   PC: "Personaje jugador",
   FACTION: "Facción",
-  LOCATION: "Ubicación",
+  LOCATION: "Localización",
   RELATIONSHIP: "Relación",
   ARC_MANIFEST: "Arco narrativo",
 };
@@ -103,6 +103,7 @@ export function buildNpcDocument(input: {
       has_met_party: false,
       player_visibility: "visible",
       hidden_from_players: false,
+      compendium_tier: "story",
     },
   };
 }
@@ -131,6 +132,7 @@ export function buildLocationDocument(input: {
       is_accessible_to_party: true,
       danger_level: 3,
       is_destroyed: false,
+      compendium_tier: "story",
     },
   };
 }
@@ -214,6 +216,7 @@ export function buildFactionDocument(input: {
       attitude_towards_party: "neutral",
       influence_level: 5,
       is_active: true,
+      compendium_tier: "story",
     },
   };
 }
@@ -247,6 +250,7 @@ export function buildRelationshipDocument(input: {
     state_flags: {
       is_secret_discovered_by_party: false,
       is_active: true,
+      compendium_tier: "story",
     },
   };
 }

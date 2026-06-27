@@ -19,6 +19,8 @@ import {
 } from "./entityDefaults";
 import { buildNpcDocumentForGameSystem } from "./npcDocument";
 import { EntityRefFields } from "./EntityRefFields";
+import { CompendiumTierField } from "./CompendiumTierField";
+import { withCompendiumTier, type CompendiumTier } from "./compendiumTier";
 
 const CREATABLE_TYPES: EntityType[] = ["NPC", "LOCATION", "PC", "FACTION", "RELATIONSHIP"];
 
@@ -64,6 +66,7 @@ export function CreateEntityForm({
   const [playerUserId, setPlayerUserId] = useState(members.find((m) => m.role === "PLAYER")?.user_id ?? "");
   const [factionId, setFactionId] = useState("");
   const [locationId, setLocationId] = useState("");
+  const [compendiumTier, setCompendiumTier] = useState<CompendiumTier>("story");
 
   const mutation = useCreateEntityMutation(campaignId);
   const apiError = mutation.error instanceof ApiError ? mutation.error.message : null;
@@ -78,6 +81,7 @@ export function CreateEntityForm({
     setAmbientTone("");
     setFactionId("");
     setLocationId("");
+    setCompendiumTier("story");
   }
 
   function handleSubmit(event: FormEvent) {
@@ -145,6 +149,10 @@ export function CreateEntityForm({
         factionId,
         locationId,
       });
+    }
+
+    if (entityType !== "PC") {
+      document = withCompendiumTier(document, compendiumTier);
     }
 
     mutation.mutate(
@@ -241,10 +249,18 @@ export function CreateEntityForm({
           <Input label="Concepto" value={concept} onChange={(event) => setConcept(event.target.value)} />
         )}
 
+        {entityType !== "PC" && (
+          <CompendiumTierField
+            value={compendiumTier}
+            onChange={setCompendiumTier}
+            disabled={mutation.isPending}
+          />
+        )}
+
         {entityType === "LOCATION" && (
           <>
             <Input
-              label="Tipo de ubicación"
+              label="Tipo de localización"
               value={locationType}
               onChange={(event) => setLocationType(event.target.value)}
             />
@@ -374,7 +390,7 @@ export function CreateEntityForm({
         icon={MapPin}
         iconTone="teal"
         title="Nueva entidad del mundo"
-        description="Añade NPCs, ubicaciones, facciones, relaciones o el PJ de un jugador."
+        description="Añade NPCs, localizaciones, facciones, relaciones o el PJ de un jugador."
       />
       {formContent}
     </Panel>

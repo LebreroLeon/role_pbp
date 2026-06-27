@@ -196,7 +196,7 @@ export function CreateCampaignWizard() {
                 <strong>Jugar</strong> — abre el chat e inicia la primera escena
               </li>
               <li>
-                <strong>Mundo</strong> — crea NPCs y ubicaciones (o importa JSON)
+                <strong>Mundo</strong> — crea NPCs y localizaciones (o importa JSON)
               </li>
               <li>
                 <strong>Biblioteca</strong> — añade más PDFs cuando quieras

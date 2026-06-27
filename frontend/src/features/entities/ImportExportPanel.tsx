@@ -79,7 +79,7 @@ export function ImportExportPanel({ campaignId, embedded = false }: ImportExport
           Plantilla NPC
         </Button>
         <Button variant="secondary" onClick={() => downloadJson("plantilla-ubicacion.json", LOCATION_TEMPLATE)}>
-          Plantilla ubicación
+          Plantilla localización
         </Button>
       </div>
 

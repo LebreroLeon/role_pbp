@@ -375,7 +375,7 @@ export function CharacterSheetPage() {
             icon={User}
             iconTone="violet"
             title="Datos narrativos"
-            description="Nombre, concepto, descripción, facción, ubicación e imágenes."
+            description="Nombre, concepto, descripción, facción, localización e imágenes."
             defaultOpen={false}
             className="sheet-narrative-collapsible"
           >
@@ -396,9 +396,9 @@ export function CharacterSheetPage() {
               </label>
 
               <label className="form-field">
-                <span>Ubicación actual</span>
+                <span>Localización actual</span>
                 <select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
-                  <option value="">Sin ubicación</option>
+                  <option value="">Sin localización</option>
                   {locationOptions.map((item) => (
                     <option key={item.id} value={item.id}>
                       {getEntityDisplayName(item, entities)}

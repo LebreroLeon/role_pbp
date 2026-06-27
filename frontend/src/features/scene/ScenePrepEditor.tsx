@@ -129,14 +129,14 @@ export function ScenePrepEditor({ scene, entities, saving, error, onSave }: Scen
         />
       </MasterOnlyField>
 
-      <MasterOnlyField label="Ubicación" htmlFor="prep-location" description="Referencia de preparación; no se expone a jugadores.">
+      <MasterOnlyField label="Localización" htmlFor="prep-location" description="Referencia de preparación; no se expone a jugadores.">
         <select
           id="prep-location"
           value={locationId}
           onChange={(event) => setLocationId(event.target.value)}
           disabled={saving}
         >
-          <option value="">Sin ubicación</option>
+          <option value="">Sin localización</option>
           {locations.map((location) => (
             <option key={location.id} value={location.id}>
               {entityLabel(location)}

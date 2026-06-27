@@ -8,16 +8,16 @@ import {
   type NpcPlayerVisibility,
 } from "./entityDefaults";
 import {
-  COMPENDIUM_TIER_LABELS,
-  getNpcCompendiumTier,
+  entityHasCompendiumTier,
+  getCompendiumTier,
   matchesWorldViewFilter,
-  withNpcCompendiumTier,
+  withCompendiumTier,
   type CompendiumTier,
   type WorldViewFilter,
 } from "./compendiumTier";
+import { CompendiumTierField } from "./CompendiumTierField";
 import { NpcVisibilityControl } from "./NpcVisibilityControl";
-import { EntityIllustrationPreviewButton } from "./EntityIllustrationPreviewButton";
-import { canShowIllustrationPreview } from "./entityIllustration";
+import { EntityPublicPreviewButton } from "./EntityPublicPreviewButton";
 import { Button } from "../../components/ui";
 import { useUpdateEntityMutation } from "../../hooks/mutations/useEntityMutations";
 
@@ -55,9 +55,9 @@ export function EntityList({
       <p className="muted">
         {emptyMessage ??
           (viewFilter === "combat"
-            ? "Sin entidades de combate. Invoca monstruos del catálogo SRD."
+            ? "Sin entidades de máster. Invoca monstruos del catálogo SRD."
             : viewFilter === "story"
-              ? "Sin entidades narrativas. Añade NPCs, ubicaciones o facciones relevantes."
+              ? "Sin entidades para jugadores. Añade NPCs, localizaciones o facciones relevantes."
               : "El mundo está vacío. Crea o importa entidades.")}
       </p>
     );
@@ -73,7 +73,7 @@ export function EntityList({
   async function handleCompendiumTierChange(entity: CampaignEntity, tier: CompendiumTier) {
     await updateMutation.mutateAsync({
       entityId: entity.id,
-      document: withNpcCompendiumTier(entity.document, tier),
+      document: withCompendiumTier(entity.document, tier),
     });
   }
 
@@ -99,39 +99,26 @@ export function EntityList({
             <ul className="entity-list">
               {items.map((entity) => {
                 const npcVisibility = entity.entity_type === "NPC" ? getNpcPlayerVisibility(entity) : null;
-                const compendiumTier = entity.entity_type === "NPC" ? getNpcCompendiumTier(entity) : null;
+                const compendiumTier = entityHasCompendiumTier(entity) ? getCompendiumTier(entity) : null;
                 const summary = summarizeEntity(entity);
-                const showIllustrationPreview = canShowIllustrationPreview(entity, isMaster);
-                const showActions = isMaster || showIllustrationPreview;
 
                 return (
                   <li key={entity.id} className={`entity-card ${editingId === entity.id ? "is-editing" : ""}`}>
                     <div className="entity-card__main">
                       <div className="entity-card__header">
                         <span className="entity-card__name">{getEntityDisplayName(entity, entities)}</span>
-                        {showActions && (
-                          <div className="entity-card__actions">
-                            {isMaster && entity.entity_type === "NPC" && compendiumTier && (
-                              <label className="entity-card__tier">
-                                <span className="sr-only">Clasificación compendio</span>
-                                <select
-                                  value={compendiumTier}
-                                  onChange={(event) => {
-                                    void handleCompendiumTierChange(entity, event.target.value as CompendiumTier);
-                                  }}
-                                  disabled={updateMutation.isPending}
-                                  aria-label={`Clasificación de ${getEntityDisplayName(entity, entities)}`}
-                                >
-                                  {(Object.keys(COMPENDIUM_TIER_LABELS) as CompendiumTier[]).map((tier) => (
-                                    <option key={tier} value={tier}>
-                                      {COMPENDIUM_TIER_LABELS[tier]}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                            )}
-                            {showIllustrationPreview && (
-                              <EntityIllustrationPreviewButton entity={entity} entities={entities} iconOnly />
+                        <div className="entity-card__actions">
+                            <EntityPublicPreviewButton entity={entity} entities={entities} isMaster={isMaster} />
+                            {isMaster && compendiumTier && (
+                              <CompendiumTierField
+                                compact
+                                value={compendiumTier}
+                                onChange={(tier) => {
+                                  void handleCompendiumTierChange(entity, tier);
+                                }}
+                                disabled={updateMutation.isPending}
+                                ariaLabel={`Visible en el compendio: ${getEntityDisplayName(entity, entities)}`}
+                              />
                             )}
                             {isMaster && entity.entity_type === "NPC" && npcVisibility && (
                               <NpcVisibilityControl
@@ -159,7 +146,6 @@ export function EntityList({
                               </Button>
                             )}
                           </div>
-                        )}
                       </div>
                       {summary && <p className="muted entity-summary">{summary}</p>}
                     </div>

@@ -1,29 +1,25 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { Activity, CheckCircle2, Circle, Crown, Plus, SECTION_ICONS, Swords } from "../components/icons";
+import { Activity, Plus, SECTION_ICONS, Swords } from "../components/icons";
 import { SlideOver, Toast, Button, ErrorBanner, CollapsibleSection } from "../components/ui";
 import { EntitySheetEditor } from "../features/character-sheet/EntitySheetEditor";
 import { CampaignSceneLog, formatSceneLabel } from "../features/campaign";
 import { CreateEntityForm, EntityList, ImportExportPanel, MonsterSpawnPanel, WorldEntityEditor, ArcManifestEditor } from "../features/entities";
 import { ENTITY_TYPE_LABELS, buildArcManifestDocument, getEntityDisplayName } from "../features/entities/entityDefaults";
-import type { WorldViewFilter } from "../features/entities/compendiumTier";
+import { WORLD_VIEW_TAB_LABELS, type WorldViewFilter } from "../features/entities/compendiumTier";
 import { useCreateEntityMutation, useDeleteEntityMutation } from "../hooks/mutations/useEntityMutations";
 import { useCampaignMembersQuery, useCampaignQuery } from "../hooks/queries/useCampaignQueries";
 import { useEntitiesQuery } from "../hooks/queries/useEntityQueries";
 import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
-import { useAuthStore } from "../stores/authStore";
 
-const WORLD_VIEW_TABS: { id: WorldViewFilter; label: string }[] = [
-  { id: "story", label: "Historia" },
-  { id: "combat", label: "Bestiario" },
-  { id: "all", label: "Todo" },
-];
+const WORLD_VIEW_TABS: { id: WorldViewFilter; label: string }[] = (
+  Object.entries(WORLD_VIEW_TAB_LABELS) as [WorldViewFilter, string][]
+).map(([id, label]) => ({ id, label }));
 
 export function WorldPage() {
   const { campaignId = "" } = useParams();
   const base = `/campaigns/${campaignId}`;
-  const currentUserId = useAuthStore((state) => state.user?.id ?? "");
   const { data: campaign } = useCampaignQuery(campaignId);
   const { data: members = [] } = useCampaignMembersQuery(campaignId);
   const { data: entities = [] } = useEntitiesQuery(campaignId);
@@ -42,14 +38,6 @@ export function WorldPage() {
   const arcManifest = entities.find((entity) => entity.entity_type === "ARC_MANIFEST") ?? null;
   const editingEntity = editingEntityId ? entities.find((entity) => entity.id === editingEntityId) ?? null : null;
   const closedScenesHint = openScene ? formatSceneLabel(openScene) : null;
-  const playerSheet = entities.find(
-    (entity) =>
-      entity.entity_type === "PC" &&
-      (entity.document.player_binding as { user_id?: string } | undefined)?.user_id === currentUserId,
-  );
-  const hasPlayerSheet = Boolean(playerSheet);
-  const hasActiveScene = openScene?.status === "ACTIVE";
-  const onboardingComplete = hasPlayerSheet && hasActiveScene;
 
   function openEditor(entityId: string, mode: "create" | "edit" = "edit") {
     setEditorMode(mode);
@@ -145,62 +133,13 @@ export function WorldPage() {
         <CampaignSceneLog campaignId={campaignId} activeSceneId={openScene?.id} isMaster={isMaster} />
       </CollapsibleSection>
 
-      {!isMaster && (
-        <CollapsibleSection
-          icon={Crown}
-          iconTone="amber"
-          title="Tu rol: jugador"
-          description="Completa estos pasos para unirte a la partida."
-          defaultOpen={!onboardingComplete}
-        >
-          <ul className="player-onboarding">
-            <li className={hasPlayerSheet ? "is-done" : ""}>
-              {hasPlayerSheet ? <CheckCircle2 aria-hidden /> : <Circle aria-hidden />}
-              <span>
-                {hasPlayerSheet ? "Ficha creada" : "Crea tu ficha de personaje"}
-                {!hasPlayerSheet && (
-                  <>
-                    {" — "}
-                    <Link to={`${base}/ficha`}>Ir a Ficha</Link>
-                  </>
-                )}
-              </span>
-            </li>
-            <li className={hasActiveScene ? "is-done" : ""}>
-              {hasActiveScene ? <CheckCircle2 aria-hidden /> : <Circle aria-hidden />}
-              <span>
-                {hasActiveScene ? "Escena activa" : "Espera a que el Máster inicie la escena"}
-                {hasActiveScene && (
-                  <>
-                    {" — "}
-                    <Link to={`${base}/chat`}>Ir a Jugar</Link>
-                  </>
-                )}
-              </span>
-            </li>
-            <li>
-              <Circle aria-hidden className="onboarding-optional" />
-              <span>
-                Coordínate fuera de escena en <Link to={`${base}/ooc`}>Chat OOC</Link>
-              </span>
-            </li>
-          </ul>
-          {onboardingComplete && (
-            <p className="muted hub-hint">
-              Todo listo. Entra al <Link to={`${base}/chat`}>chat de escena</Link> o revisa el{" "}
-              <Link to={`${base}/ooc`}>OOC</Link>.
-            </p>
-          )}
-        </CollapsibleSection>
-      )}
-
       <CollapsibleSection
         icon={SECTION_ICONS.mundo}
         iconTone="violet"
         title="Mundo"
         description={
           isMaster
-            ? "Compendio narrativo: NPCs relevantes, ubicaciones, facciones y relaciones. El bestiario de combate vive en su propia pestaña."
+            ? "Compendio narrativo: NPCs relevantes, localizaciones, facciones y relaciones. El bestiario de combate vive en su propia pestaña."
             : "Personajes y lugares que tu PJ conoce. Los secretos del Máster no se muestran aquí."
         }
         defaultOpen={isMaster}
@@ -299,7 +238,7 @@ export function WorldPage() {
         <SlideOver
           open
           title="Nueva entidad del mundo"
-          description="Añade NPCs, ubicaciones, facciones, relaciones o el PJ de un jugador."
+          description="Añade NPCs, localizaciones, facciones, relaciones o el PJ de un jugador."
           onClose={() => setCreateEntityOpen(false)}
         >
           <CreateEntityForm

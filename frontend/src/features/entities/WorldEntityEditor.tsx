@@ -10,6 +10,8 @@ import {
 } from "./entityDefaults";
 import { extractIllustrationUrl } from "./entityIllustration";
 import { EntityIllustrationField } from "./EntityIllustrationField";
+import { CompendiumTierField } from "./CompendiumTierField";
+import { getCompendiumTier, withCompendiumTier, type CompendiumTier } from "./compendiumTier";
 
 type WorldEntityEditorProps = {
   campaignId: string;
@@ -59,12 +61,12 @@ export function WorldEntityEditor({
         <>
           <Input label="Nombre" value={form.name} onChange={(e) => updateField("name", e.target.value)} required />
           <Input
-            label="Tipo de ubicación"
+            label="Tipo de localización"
             value={form.locationType}
             onChange={(e) => updateField("locationType", e.target.value)}
           />
           <label className="form-field">
-            <span>Ubicación padre (opcional)</span>
+            <span>Localización padre (opcional)</span>
             <select
               value={form.parentLocationId}
               onChange={(e) => updateField("parentLocationId", e.target.value)}
@@ -263,7 +265,14 @@ export function WorldEntityEditor({
       {(entity.entity_type === "LOCATION" ||
         entity.entity_type === "FACTION" ||
         entity.entity_type === "RELATIONSHIP") && (
-        <EntityIllustrationField
+        <>
+          <CompendiumTierField
+            id={`compendium-tier-${entity.id}`}
+            value={form.compendiumTier}
+            onChange={(tier) => updateField("compendiumTier", tier)}
+            disabled={mutation.isPending}
+          />
+          <EntityIllustrationField
           campaignId={campaignId}
           entity={entity}
           entityName={form.name || getEntityDisplayName(entity, entities)}
@@ -271,6 +280,7 @@ export function WorldEntityEditor({
           onIllustrationUrlChange={setIllustrationUrl}
           disabled={mutation.isPending}
         />
+        </>
       )}
 
       {apiError && <ErrorBanner message={apiError} />}
@@ -308,6 +318,7 @@ type FormState = {
   secretNuance: string;
   tensionLevel: number;
   isBidirectional: boolean;
+  compendiumTier: CompendiumTier;
 };
 
 function buildFormState(entity: CampaignEntity): FormState {
@@ -341,6 +352,7 @@ function buildFormState(entity: CampaignEntity): FormState {
     secretNuance: String(bond?.secret_nuance ?? ""),
     tensionLevel: Number(bond?.tension_level ?? 3),
     isBidirectional: Boolean(connection?.is_bidirectional ?? true),
+    compendiumTier: getCompendiumTier(entity),
   };
 }
 
@@ -419,5 +431,5 @@ function buildDocumentFromForm(
     metadata.last_updated = new Date().toISOString();
   }
 
-  return document;
+  return withCompendiumTier(document, form.compendiumTier);
 }

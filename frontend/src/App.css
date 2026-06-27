@@ -3953,6 +3953,32 @@
   border-radius: 0.5rem;
 }
 
+.entity-public-preview__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.entity-public-preview__description {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.entity-public-preview__empty {
+  margin: 0;
+  font-style: italic;
+}
+
+.entity-public-preview__illustration {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
 .entity-illustration-field__row {
   display: flex;
   flex-direction: column;

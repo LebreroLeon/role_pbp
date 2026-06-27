@@ -542,7 +542,7 @@ export function ChatPage() {
             {locations.length > 0 && (
               <>
                 <label className="field-label" htmlFor="new-scene-location">
-                  Ubicación
+                  Localización
                 </label>
                 <select
                   id="new-scene-location"
@@ -550,7 +550,7 @@ export function ChatPage() {
                   onChange={(event) => setNewSceneLocationId(event.target.value)}
                   disabled={loading}
                 >
-                  <option value="">Sin ubicación</option>
+                  <option value="">Sin localización</option>
                   {locations.map((location) => {
                     const identity = location.document.identity as { name?: string } | undefined;
                     return (

@@ -170,6 +170,7 @@ class FactionStateFlags(BaseModel):
     attitude_towards_party: str
     influence_level: int = Field(ge=0, le=10)
     is_active: bool
+    compendium_tier: CompendiumTier | None = None
 
 
 class EntityFactionDocument(BaseModel):
@@ -205,6 +206,7 @@ class LocationStateFlags(BaseModel):
     is_accessible_to_party: bool
     danger_level: int = Field(ge=0, le=10)
     is_destroyed: bool = False
+    compendium_tier: CompendiumTier | None = None
 
 
 class EntityLocationDocument(BaseModel):
@@ -245,6 +247,7 @@ class AIBehaviorGuidelines(BaseModel):
 class RelationshipStateFlags(BaseModel):
     is_secret_discovered_by_party: bool
     is_active: bool
+    compendium_tier: CompendiumTier | None = None
 
 
 class EntityRelationshipDocument(BaseModel):

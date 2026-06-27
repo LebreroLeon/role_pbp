@@ -89,7 +89,7 @@ export function MasterBriefingModal({
 
         {briefing.location && (
           <section>
-            <h3>Ubicación</h3>
+            <h3>Localización</h3>
             <p>{briefing.location.name}</p>
           </section>
         )}

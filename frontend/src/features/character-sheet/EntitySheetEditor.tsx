@@ -24,6 +24,8 @@ import { extractAvatarUrl } from "../entities/entityAvatar";
 import { extractIllustrationUrl } from "../entities/entityIllustration";
 import { EntityAvatarField } from "./EntityAvatarField";
 import { EntityIllustrationField } from "../entities/EntityIllustrationField";
+import { CompendiumTierField } from "../entities/CompendiumTierField";
+import { getCompendiumTier, withCompendiumTier, type CompendiumTier } from "../entities/compendiumTier";
 
 type EntitySheetEditorProps = {
   campaignId: string;
@@ -95,6 +97,7 @@ export function EntitySheetEditor({
   const [illustrationUrl, setIllustrationUrl] = useState(() => extractIllustrationUrl(entity) ?? "");
   const [factionId, setFactionId] = useState("");
   const [locationId, setLocationId] = useState("");
+  const [compendiumTier, setCompendiumTier] = useState<CompendiumTier>("story");
 
   const factionOptions = useMemo(
     () => entities.filter((item) => item.entity_type === "FACTION"),
@@ -134,6 +137,7 @@ export function EntitySheetEditor({
       | undefined;
     setFactionId(normalizeEntityRefId(identityRefs?.faction_id));
     setLocationId(normalizeEntityRefId(identityRefs?.current_location_id));
+    setCompendiumTier(getCompendiumTier(entity));
     setFormError(null);
   }, [entity.id, entity.updated_at, entity.entity_type, workingDocument]);
 
@@ -175,12 +179,15 @@ export function EntitySheetEditor({
 
   async function handleNarrativeSubmit(event: FormEvent) {
     event.preventDefault();
-    const document = buildEntityPutDocument({
-      entity,
-      workingDocument,
-      gameSystem,
-      narrative: buildNarrativeFields(),
-    });
+    const document = withCompendiumTier(
+      buildEntityPutDocument({
+        entity,
+        workingDocument,
+        gameSystem,
+        narrative: buildNarrativeFields(),
+      }),
+      compendiumTier,
+    );
     await persistDocument(document);
   }
 
@@ -200,13 +207,16 @@ export function EntitySheetEditor({
   }
 
   async function handleSaveSheet(sheet: GameSheet) {
-    const document = buildEntityPutDocument({
-      entity,
-      workingDocument,
-      gameSystem,
-      narrative: buildNarrativeFields(),
-      sheet,
-    });
+    const document = withCompendiumTier(
+      buildEntityPutDocument({
+        entity,
+        workingDocument,
+        gameSystem,
+        narrative: buildNarrativeFields(),
+        sheet,
+      }),
+      compendiumTier,
+    );
     await persistDocument(document);
   }
 
@@ -221,7 +231,7 @@ export function EntitySheetEditor({
         icon={User}
         iconTone="violet"
         title="Datos narrativos"
-        description="Nombre, concepto, descripción, facción, ubicación e imágenes."
+        description="Nombre, concepto, descripción, facción, localización e imágenes."
         defaultOpen={mode === "create"}
         className="sheet-narrative-collapsible"
       >
@@ -243,9 +253,9 @@ export function EntitySheetEditor({
               </select>
             </label>
             <label className="form-field">
-              <span>Ubicación actual</span>
+              <span>Localización actual</span>
               <select value={locationId} onChange={(event) => setLocationId(event.target.value)}>
-                <option value="">Sin ubicación</option>
+                <option value="">Sin localización</option>
                 {locationOptions.map((item) => (
                   <option key={item.id} value={item.id}>
                     {getEntityDisplayName(item, entities)}
@@ -295,6 +305,12 @@ export function EntitySheetEditor({
 
         {entity.entity_type === "NPC" && (
           <>
+            <CompendiumTierField
+              id={`compendium-tier-${entity.id}`}
+              value={compendiumTier}
+              onChange={setCompendiumTier}
+              disabled={updateMutation.isPending}
+            />
             <Input
               label="Rasgos de personalidad (separados por coma)"
               value={personalityTraits}

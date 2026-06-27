@@ -259,7 +259,7 @@ export function MasterDeskPage() {
                   ))}
                 </select>
                 <p className="muted shadow-master-focus__hint">
-                  Elige un PNJ, PJ, ubicación o facción para que el asistente responda con su voz, contexto y estado.
+                  Elige un PNJ, PJ, localización o facción para que el asistente responda con su voz, contexto y estado.
                   Útil para diálogos en personaje o detalles sobre esa entidad concreta.
                 </p>
               </div>
