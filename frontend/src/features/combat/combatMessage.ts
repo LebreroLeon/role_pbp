@@ -43,11 +43,16 @@ export function resolveCombatEvent(message: ChatMessage): CombatEvent | null {
     const details = message.roll_details ?? {};
     const rollType = message.roll_type?.toLowerCase();
 
-    if (rollType === "damage" || details.damage_type != null) {
+    if (rollType === "damage" || rollType === "healing" || details.damage_type != null) {
+      const attackName =
+        typeof details.attack_name === "string" ? details.attack_name : undefined;
       return {
         kind: "DAMAGE_APPLIED",
+        attacker_id: message.entity_id,
+        attacker_name: message.entity_name ?? message.speaker_display_name,
         defender_id: message.entity_id,
-        defender_name: message.entity_name ?? (details.defender_name as string | undefined),
+        defender_name: message.entity_name ?? message.speaker_display_name,
+        weapon_name: attackName,
         damage: {
           amount: message.final_result ?? (details.amount as number | undefined) ?? 0,
           type: (details.damage_type as string | undefined) ?? (details.type as string | undefined),
@@ -56,10 +61,13 @@ export function resolveCombatEvent(message: ChatMessage): CombatEvent | null {
             ? message.rolls
             : (details.rolls as number[] | undefined),
           modifier: details.modifier as number | undefined,
+          is_healing: Boolean(details.is_healing || rollType === "healing"),
+          is_critical: Boolean(details.is_critical),
           chat_summary: message.chat_summary,
         },
         defender_hp_remaining: details.defender_hp_remaining as number | undefined,
         defender_hp_max: details.defender_hp_max as number | undefined,
+        is_healing: Boolean(details.is_healing || rollType === "healing"),
       };
     }
 
@@ -121,7 +129,7 @@ export function resolveCombatEntityName(
 
 export function resolveCombatSpeakerEntityId(event: CombatEvent): string | undefined {
   if (event.kind === "ATTACK_RESOLVED") return event.attacker_id;
-  if (event.kind === "DAMAGE_APPLIED") return event.defender_id;
+  if (event.kind === "DAMAGE_APPLIED") return event.attacker_id ?? event.defender_id;
   return undefined;
 }
 

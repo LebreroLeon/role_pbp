@@ -86,6 +86,24 @@ export function formatModifierBreakdownLine(entries: ModifierBreakdownEntry[]): 
 
 const PLACEHOLDER_DAMAGE_TYPES = new Set(["sin tipo", "untyped", "sintype", "unknown"]);
 
+export const CRITICAL_MARKER = "¡CRÍTICO!";
+
+function formatModifierSuffix(modifier: number): string {
+  if (modifier > 0) return `+${modifier}`;
+  if (modifier < 0) return String(modifier);
+  return "";
+}
+
+function formatNaturalPlusModifier(natural: number, modifier: number): string {
+  if (modifier) return `${natural}${modifier > 0 ? `+${modifier}` : modifier}`;
+  return String(natural);
+}
+
+function formatDiceRollsSum(rolls: number[]): string {
+  if (!rolls.length) return "?";
+  return rolls.join("+");
+}
+
 function resolveDamageTypeLabel(type?: string): string | null {
   if (!type?.trim()) return null;
   if (PLACEHOLDER_DAMAGE_TYPES.has(type.trim().toLowerCase())) return null;
@@ -189,11 +207,11 @@ export function formatAttackRollLine(attackRoll: CombatAttackRollSummary): strin
   }
 
   const modifier = attackRoll.modifier ?? 0;
-  let modStr = "";
-  if (modifier > 0) modStr = ` + ${modifier}`;
-  else if (modifier < 0) modStr = ` - ${Math.abs(modifier)}`;
-
-  let line = `1d20${modStr} = ${attackRoll.total}`;
+  const rolls = attackRoll.rolls ?? [];
+  const natural = rolls[rolls.length - 1] ?? attackRoll.total - modifier;
+  const modSuffix = formatModifierSuffix(modifier);
+  const breakdown = formatNaturalPlusModifier(natural, modifier);
+  let line = `Ataque: 1d20${modSuffix} = ${breakdown} = ${attackRoll.total}`;
 
   if (attackRoll.save_dc != null) {
     line += ` vs CD ${attackRoll.save_dc}`;
@@ -202,9 +220,18 @@ export function formatAttackRollLine(attackRoll: CombatAttackRollSummary): strin
     }
   } else if (attackRoll.target_ac != null) {
     line += ` vs CA ${attackRoll.target_ac}`;
-  }
-  if (attackRoll.save_dc == null && attackRoll.hit != null) {
+    if (attackRoll.hit != null) {
+      line += ` — ${attackRoll.hit ? "Impacto" : "Fallo"}`;
+    }
+  } else if (attackRoll.hit != null) {
     line += ` — ${attackRoll.hit ? "Impacto" : "Fallo"}`;
+  }
+
+  const isCritical = Boolean(
+    attackRoll.is_critical || attackRoll.natural_20,
+  );
+  if (isCritical && attackRoll.hit !== false) {
+    line += ` — ${CRITICAL_MARKER}`;
   }
   return line;
 }
@@ -225,30 +252,24 @@ export function formatDamageLine(damage: CombatDamageSummary): string {
     rawAmount !== modifiedAmount &&
     typeLabel
   ) {
-    return `${rawAmount} ${typeLabel} → ${modifiedAmount} (${modifierLabel})`;
+    return `Daño: ${rawAmount} ${typeLabel} → ${modifiedAmount} (${modifierLabel})`;
   }
 
-  const rolls = damage.rolls;
+  const rolls = damage.rolls ?? [];
   const modifier = damage.modifier ?? 0;
-  let dicePart = damage.expression ?? "?";
-
-  if (rolls?.length) {
-    const sidesMatch = damage.expression?.match(/d(\d+)/i);
-    const sides = sidesMatch ? sidesMatch[1] : "?";
-    dicePart =
-      rolls.length === 1 ? `1d${sides}=${rolls[0]}` : `[${rolls.join(", ")}]`;
-  }
-
-  let line = dicePart;
-  if (modifier) {
-    line += modifier > 0 ? ` + ${modifier}` : ` - ${Math.abs(modifier)}`;
-  }
-  line += ` = ${modifiedAmount}`;
+  const expression = damage.expression ?? "?";
+  const rollsPart = formatDiceRollsSum(rolls);
+  const breakdown =
+    modifier && rollsPart !== "?"
+      ? `${rollsPart}${modifier > 0 ? `+${modifier}` : modifier}`
+      : rollsPart;
+  const label = damage.is_healing ? "Curación" : "Daño";
+  let line = `${label}: ${expression} = ${breakdown} = ${modifiedAmount}`;
   if (typeLabel) {
     line += ` ${typeLabel}`;
   }
-  if (damage.is_healing) {
-    return `Curación ${line}`;
+  if (damage.is_critical) {
+    line += ` — ${CRITICAL_MARKER}`;
   }
   return line;
 }

@@ -194,8 +194,8 @@ class TestDnd5eRolls:
         assert result.total == 9  # 1d8(6) + 3
         assert result.details["damage_type"] == "cortante"
         assert result.details["modifier_breakdown"]
-        assert "1d8=6" in result.chat_summary
-        assert result.chat_summary.endswith("= 9")
+        assert "Daño: 1d8+3 = 6+3 = 9" in result.chat_summary
+        assert "cortante" in result.chat_summary
 
 
 class TestDiceDelegation:

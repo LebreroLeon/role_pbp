@@ -206,8 +206,9 @@ class TestExecuteAttack:
         assert combat["combat_event"]["attack_roll"]["target_ac"] is not None
         assert "modifier" in combat["combat_event"]["attack_roll"]
         assert combat["combat_event"]["attack_roll"]["rolls"]
-        assert "vs CA" in combat["combat_event"]["attack_roll"]["chat_summary"]
-        assert "1d8=" in combat["combat_event"]["damage"]["chat_summary"]
+        assert "Ataque:" in combat["combat_event"]["attack_roll"]["chat_summary"]
+        assert "Daño:" in combat["combat_event"]["damage"]["chat_summary"]
+        assert "= 8" in combat["combat_event"]["damage"]["chat_summary"]
         assert entity_display_name(attacker) in combat["text"]
         assert "1d20" in combat["chat_summary"]
 
@@ -448,7 +449,7 @@ class TestSaveAttackHpPersistence:
         combat = result.messages[0]
         assert "PV 4 → 3" in combat["text"]
         assert "sufre el efecto completo" in combat["text"]
-        assert "1d4=1 = 1" in combat["text"]
+        assert "Daño: 1d4 = 1 = 1" in combat["text"]
         assert "frío" in combat["text"]
         assert combat["combat_event"]["hp"]["after"] == 3
 

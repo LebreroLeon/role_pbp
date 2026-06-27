@@ -21,6 +21,11 @@ from app.rules.dnd5e.mechanics import (
     has_meaningful_damage_dice,
     passive_perception_from_sheet,
 )
+from app.rules.dnd5e.roll_format import (
+    format_attack_roll_line,
+    format_damage_roll_line,
+    format_dice_rolls_sum,
+)
 from app.rules.dnd5e.save_attack_format import damage_type_label_es, format_save_damage_taken_line
 from app.rules.dnd5e.rolls import roll_d20 as _roll_d20
 from app.rules.dnd5e.schema import (
@@ -119,8 +124,7 @@ def _format_dice_rolls(rolls: list[int], sides: int | None = None) -> str:
     if len(rolls) == 1:
         die = f"d{sides}" if sides else "d?"
         return f"1{die}={rolls[0]}"
-    parts = [str(r) for r in rolls]
-    return f"[{', '.join(parts)}]"
+    return format_dice_rolls_sum(rolls)
 
 
 def _format_modifier_line(breakdown: list[dict[str, int | str]]) -> str:
@@ -316,25 +320,31 @@ class Dnd5ePlugin(GameSystemPlugin):
             damage_dice=attack.damage_dice,
             damage_type=attack.damage_type,
         )
+        natural = result.rolls[-1] if result.rolls else 0
+        dice_label = self._d20_dice_label(context)
         if context.target_ac is not None and result.total is not None:
-            natural = result.rolls[-1] if result.rolls else None
             is_critical = natural == 20
             hit = is_critical or (natural != 1 and result.total >= context.target_ac)
             result.success = hit
             result.details["target_ac"] = context.target_ac
             result.details["hit"] = hit
             result.details["is_critical"] = is_critical
-            dice_label = self._d20_dice_label(context)
-            mod_str = f"{modifier:+d}" if modifier else ""
-            hit_label = "impacto crítico" if is_critical and hit else ("impacto" if hit else "fallo")
-            result.chat_summary = (
-                f"{attack.name}: {dice_label}{mod_str} = {result.total} vs CA {context.target_ac} — "
-                f"{hit_label}"
+            result.chat_summary = format_attack_roll_line(
+                natural=natural,
+                modifier=modifier,
+                total=result.total,
+                dice_label=dice_label,
+                target_ac=context.target_ac,
+                hit=hit,
+                is_critical=is_critical and hit,
             )
         else:
-            dice_label = self._d20_dice_label(context)
-            mod_str = f"{modifier:+d}" if modifier else ""
-            result.chat_summary = f"{attack.name}: {dice_label}{mod_str} = {result.total}"
+            result.chat_summary = format_attack_roll_line(
+                natural=natural,
+                modifier=modifier,
+                total=result.total,
+                dice_label=dice_label,
+            )
         return result
 
     def _resolve_damage(
@@ -348,11 +358,13 @@ class Dnd5ePlugin(GameSystemPlugin):
             expression = context.expression
             damage_type = ""
             is_healing = healing
+            attack_name = None
         else:
             _, attack = _find_attack(sheet, context)
             expression = attack.damage_dice
             damage_type = attack.damage_type
             is_healing = attack.effect_type == "healing" or healing
+            attack_name = getattr(attack, "name", None)
 
         raw = dice_service.roll_dice(expression)
         dice_total = raw["raw_result"]
@@ -374,16 +386,32 @@ class Dnd5ePlugin(GameSystemPlugin):
         if flat_modifier:
             modifier_breakdown.append(_modifier_breakdown_entry("Modificador", flat_modifier))
 
-        type_label = damage_type_label_es(damage_type) or "daño"
         effect_label = "Curación" if is_healing else "Daño"
+        type_label = damage_type_label_es(damage_type) or "daño"
         roll_label = f"{effect_label} ({type_label})" if type_label != "daño" or is_healing else "Daño"
-        dice_part = _format_dice_rolls(rolls, dice_sides)
-        summary = f"{roll_label}: {dice_part}"
-        if flat_modifier:
-            summary += f" {flat_modifier:+d}"
-        summary += f" = {total}"
+        display_expression = expression if context.expression else raw["dice_expression"]
+        summary = format_damage_roll_line(
+            expression=display_expression,
+            rolls=rolls,
+            modifier=flat_modifier,
+            total=total,
+            damage_type=damage_type if not is_healing else None,
+            is_healing=is_healing,
+        )
 
         roll_type = "healing" if is_healing else "damage"
+        details: dict = {
+            "roll_label": roll_label,
+            "damage_type": damage_type,
+            "effect_type": "healing" if is_healing else "damage",
+            "is_healing": is_healing,
+            "raw_result": dice_total,
+            "modifier": flat_modifier,
+            "modifier_breakdown": modifier_breakdown,
+            "dice_sides": dice_sides,
+        }
+        if not context.expression and attack_name:
+            details["attack_name"] = attack_name
 
         return RollResult(
             roll_type=roll_type,
@@ -391,16 +419,7 @@ class Dnd5ePlugin(GameSystemPlugin):
             rolls=rolls,
             total=total,
             success=None,
-            details={
-                "roll_label": roll_label,
-                "damage_type": damage_type,
-                "effect_type": "healing" if is_healing else "damage",
-                "is_healing": is_healing,
-                "raw_result": dice_total,
-                "modifier": flat_modifier,
-                "modifier_breakdown": modifier_breakdown,
-                "dice_sides": dice_sides,
-            },
+            details=details,
             chat_summary=summary,
         )
 

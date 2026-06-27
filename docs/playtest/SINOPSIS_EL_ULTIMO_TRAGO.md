@@ -1,4 +1,5 @@
 # SINOPSIS NARRATIVA COMPLETA
+
 ## *El Último Trago de Neverwinter* — Guión de Lectura
 
 > *Solo el Máster lee esto completo. Los jugadores solo ven lo que el Máster elige revelar.*

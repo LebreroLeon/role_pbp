@@ -1,4 +1,3 @@
-import re
 import uuid
 import unicodedata
 from copy import deepcopy
@@ -12,6 +11,14 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.campaign import Campaign, CampaignEntity
 from app.rules.base import AttackContext, DamageResult, GameSystemPlugin, RollContext
+from app.rules.dnd5e.roll_format import (
+    CRITICAL_MARKER,
+    format_attack_roll_line,
+    format_damage_roll_line,
+    format_dice_rolls_sum,
+    format_modifier_suffix,
+    format_natural_plus_modifier,
+)
 from app.rules.dnd5e.save_attack_format import (
     damage_type_label_es,
     format_save_attack_roll_line,
@@ -257,11 +264,10 @@ def _format_d20_attack_roll_line(attack_roll: Any, *, hit: bool | None) -> str:
     if not isinstance(modifier, int):
         modifier = 0
 
-    mod_str = ""
-    if modifier > 0:
-        mod_str = f" + {modifier}"
-    elif modifier < 0:
-        mod_str = f" - {abs(modifier)}"
+    rolls = attack_roll.rolls or []
+    natural = rolls[-1] if rolls else attack_roll.details.get("natural_roll", 0)
+    if not isinstance(natural, int):
+        natural = 0
 
     if attack_roll.details.get("advantage"):
         dice_label = "2d20 (ventaja)"
@@ -270,21 +276,30 @@ def _format_d20_attack_roll_line(attack_roll: Any, *, hit: bool | None) -> str:
     else:
         dice_label = "1d20"
 
-    line = f"{dice_label}{mod_str} = {attack_roll.total}"
-    save_dc = attack_roll.details.get("save_dc") or attack_roll.details.get("dc")
+    is_critical = bool(attack_roll.details.get("is_critical")) or natural == 20
     target_ac = attack_roll.details.get("target_ac")
+    save_dc = attack_roll.details.get("save_dc") or attack_roll.details.get("dc")
+
     if save_dc is not None:
-        line += f" vs CD {save_dc}"
+        mod_suffix = format_modifier_suffix(modifier)
+        breakdown = format_natural_plus_modifier(natural, modifier)
+        line = f"Ataque: {dice_label}{mod_suffix} = {breakdown} = {attack_roll.total} vs CD {save_dc}"
         save_succeeded = attack_roll.details.get("save_succeeded")
         if save_succeeded is None and attack_roll.success is not None:
             save_succeeded = attack_roll.success
         if save_succeeded is not None:
             line += f" — {'éxito' if save_succeeded else 'fallo'}"
-    elif target_ac is not None:
-        line += f" vs CA {target_ac}"
-        if hit is not None:
-            line += f" — {'Impacto' if hit else 'Fallo'}"
-    return line
+        return line
+
+    return format_attack_roll_line(
+        natural=natural,
+        modifier=modifier,
+        total=attack_roll.total,
+        dice_label=dice_label,
+        target_ac=target_ac if isinstance(target_ac, int) else None,
+        hit=hit,
+        is_critical=is_critical and hit is True,
+    )
 
 
 def _format_damage_line(damage: Any, *, is_healing: bool = False) -> str:
@@ -293,33 +308,27 @@ def _format_damage_line(damage: Any, *, is_healing: bool = False) -> str:
     amount = getattr(damage, "amount", 0)
     modifier = getattr(damage, "modifier", 0)
     damage_type = getattr(damage, "damage_type", None)
+    is_critical = bool(getattr(damage, "is_critical", False))
     if hasattr(damage, "is_healing"):
         is_healing = bool(getattr(damage, "is_healing", False)) or is_healing
     elif isinstance(damage, dict):
         is_healing = bool(damage.get("is_healing")) or is_healing
+        is_critical = is_critical or bool(damage.get("is_critical"))
 
-    dice_sides = None
-    if isinstance(expression, str):
-        match = re.match(r"(\d+)d(\d+)", expression)
-        if match:
-            dice_sides = int(match.group(2))
+    if not isinstance(rolls, list):
+        rolls = []
+    if not isinstance(modifier, int):
+        modifier = 0
 
-    if isinstance(rolls, list) and rolls:
-        die = f"d{dice_sides}" if dice_sides else "d?"
-        dice_part = f"1{die}={rolls[0]}" if len(rolls) == 1 else f"[{', '.join(str(r) for r in rolls)}]"
-    else:
-        dice_part = expression or "?"
-
-    line = dice_part
-    if isinstance(modifier, int) and modifier:
-        line += f" {modifier:+d}"
-    line += f" = {amount}"
-    type_label = damage_type_label_es(damage_type if isinstance(damage_type, str) else None)
-    if type_label:
-        line += f" {type_label}"
-    if is_healing:
-        return f"Curación {line}"
-    return line
+    return format_damage_roll_line(
+        expression=expression or "?",
+        rolls=rolls,
+        modifier=modifier,
+        total=amount,
+        damage_type=damage_type if isinstance(damage_type, str) else None,
+        is_healing=is_healing,
+        is_critical=is_critical,
+    )
 
 
 def _build_attack_roll_payload(attack_roll: Any, *, hit: bool) -> dict[str, Any]:
@@ -398,7 +407,8 @@ def _format_damage_application_line(damage_application: Any, damage: Any, *, is_
         line = _format_damage_line(damage, is_healing=False)
 
     if getattr(damage, "is_critical", False) or getattr(damage_application, "is_critical", False):
-        line = f"{line} — crítico"
+        if CRITICAL_MARKER not in line:
+            line = f"{line} — {CRITICAL_MARKER}"
     return line
 
 

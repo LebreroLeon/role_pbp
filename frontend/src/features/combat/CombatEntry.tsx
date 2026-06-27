@@ -7,7 +7,7 @@ import { ChatAvatar } from "../scene/ChatAvatar";
 import { MessageLikeBadge } from "../scene/MessageLikeBadge";
 import { formatChatTimestamp } from "../scene/messageTypes";
 import type { SceneStateInput } from "../scene/sceneState";
-import { formatAttackRollLine, formatDamageLine, formatSaveDamageTakenLine } from "../scene/rollFormat";
+import { formatAttackRollLine, formatDamageLine, formatSaveDamageTakenLine, CRITICAL_MARKER } from "../scene/rollFormat";
 import {
   resolveCombatEntityName,
   resolveCombatEvent,
@@ -146,9 +146,38 @@ export function CombatEntry({
   const isCritical = Boolean(
     event.is_critical || attackRoll?.is_critical || attackRoll?.natural_20 || damage?.is_critical,
   );
+  const isSheetRoll = message.type === "DICE_ROLL";
+  const isSceneCombat = message.type === "COMBAT";
+  const showStructuredCombat =
+    event.kind === "ATTACK_RESOLVED" || (event.kind === "DAMAGE_APPLIED" && isSheetRoll);
+  const targetAc = attackRoll?.target_ac;
+  const weaponLabel = event.weapon_name?.trim() || undefined;
+  const actionHeader = buildCombatActionHeader({
+    attackerLabel,
+    defenderLabel: isSceneCombat ? defenderLabel : undefined,
+    weaponLabel,
+    targetAc,
+    isSheetRoll,
+    isHealing,
+    isSaveAttack,
+  });
   const hpRemaining = event.defender_hp_remaining ?? event.hp?.after;
   const hpBefore = event.hp?.before;
   const hpLabel = formatHp(hpRemaining, event.defender_hp_max);
+  const damageLine = damage
+    ? isHealing
+      ? formatDamageLine({ ...damage, is_healing: true })
+      : isSaveAttack
+        ? formatSaveDamageTakenLine(defenderLabel, damage)
+        : formatDamageLine(damage)
+    : null;
+  const attackLineIncludesCritical = Boolean(
+    attackRoll?.chat_summary?.includes(CRITICAL_MARKER) ||
+      (attackRoll && formatAttackRollLine(attackRoll).includes(CRITICAL_MARKER)),
+  );
+  const damageLineIncludesCritical =
+    Boolean(damage?.chat_summary?.includes(CRITICAL_MARKER)) ||
+    Boolean(damageLine?.includes(CRITICAL_MARKER));
 
   return (
     <article className={cardClassName} aria-label="Combate">
@@ -175,15 +204,8 @@ export function CombatEntry({
         </div>
       </header>
 
-      {event.kind === "ATTACK_RESOLVED" && attackerLabel && defenderLabel ? (
-        <p className="combat-card__action">
-          <span className="combat-card__entity">{attackerLabel}</span>
-          <span className="combat-card__verb">
-            {isHealing ? "cura a" : isSaveAttack ? "lanza contra" : "ataca"}
-          </span>
-          <span className="combat-card__entity combat-card__entity--target">{defenderLabel}</span>
-          {event.weapon_name && <span className="combat-card__weapon">({event.weapon_name})</span>}
-        </p>
+      {showStructuredCombat && actionHeader ? (
+        <p className="combat-card__action">{actionHeader}</p>
       ) : summary ? (
         <p className="chat-card__body">{summary}</p>
       ) : null}
@@ -194,20 +216,18 @@ export function CombatEntry({
           {attackRoll.natural_1 && (
             <span className="combat-card__crit combat-card__crit--fail"> — Fallo automático</span>
           )}
-          {isCritical && !attackRoll.natural_1 && (
-            <span className="combat-card__crit"> — Crítico</span>
+          {isCritical && !attackRoll.natural_1 && !attackLineIncludesCritical && (
+            <span className="combat-card__crit"> — {CRITICAL_MARKER}</span>
           )}
         </p>
       )}
 
-      {damage && damage.amount > 0 && (
+      {damage && damage.amount > 0 && damageLine && (
         <p className="combat-card__roll-line combat-card__damage-line">
-          {isHealing
-            ? formatDamageLine({ ...damage, is_healing: true })
-            : isSaveAttack
-              ? formatSaveDamageTakenLine(defenderLabel, damage)
-              : `Daño ${formatDamageLine(damage)}`}
-          {isCritical && !isHealing && <span className="combat-card__crit"> — Crítico</span>}
+          {damageLine}
+          {isCritical && !isHealing && !damageLineIncludesCritical && (
+            <span className="combat-card__crit"> — {CRITICAL_MARKER}</span>
+          )}
         </p>
       )}
 
@@ -229,7 +249,7 @@ export function CombatEntry({
         </p>
       )}
 
-      {summary && event.kind !== "ATTACK_RESOLVED" && (
+      {summary && !showStructuredCombat && (
         <p className="combat-card__summary muted">{summary}</p>
       )}
       {likeBadge}
@@ -241,4 +261,36 @@ function formatHp(current?: number, max?: number): string | null {
   if (current == null) return null;
   if (max != null) return `${current}/${max}`;
   return String(current);
+}
+
+function buildCombatActionHeader({
+  attackerLabel,
+  defenderLabel,
+  weaponLabel,
+  targetAc,
+  isSheetRoll,
+  isHealing,
+  isSaveAttack,
+}: {
+  attackerLabel: string;
+  defenderLabel?: string;
+  weaponLabel?: string;
+  targetAc?: number;
+  isSheetRoll: boolean;
+  isHealing: boolean;
+  isSaveAttack: boolean;
+}): string | null {
+  if (!attackerLabel) return null;
+
+  const attackerPart = weaponLabel ? `${attackerLabel} (${weaponLabel})` : attackerLabel;
+  if (isSheetRoll || !defenderLabel) {
+    return `${attackerPart} ataca...`;
+  }
+
+  const verb = isHealing ? "cura a" : isSaveAttack ? "lanza contra" : "ataca";
+  const targetPart =
+    !isHealing && !isSaveAttack && targetAc != null
+      ? `${defenderLabel} (CA ${targetAc})`
+      : defenderLabel;
+  return `${attackerPart} ${verb} ${targetPart}`;
 }
