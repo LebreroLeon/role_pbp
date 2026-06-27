@@ -214,6 +214,23 @@ class TestDiceDelegation:
         assert payload["final_result"] == 14
         assert payload["success"] is True
 
+    def test_sheet_damage_roll_ignores_default_d20_expression(
+        self, sample_sheet: dict, monkeypatch
+    ):
+        """Reproduces sheet damage-only rolls: API default 1d20 must not override attack dice."""
+        monkeypatch.setattr("random.randint", lambda a, b: 6 if b == 8 else 10)
+        payload = dice_service.roll_dice(
+            "1d20",
+            game_system="dnd5e",
+            sheet=sample_sheet,
+            roll_type="damage",
+            context={"attack_index": 0, "attack_name": "Longsword"},
+        )
+        assert payload["dice_expression"] == "1d8+3"
+        assert payload["final_result"] == 9
+        assert payload["roll_details"]["attack_name"] == "Longsword"
+        assert "Daño: 1d8+3 = 6+3 = 9" in payload["chat_summary"]
+
     def test_registry_returns_dnd5e_plugin(self):
         plugin = get_plugin("dnd5e")
         assert plugin.system_id == "dnd5e"

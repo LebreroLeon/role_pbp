@@ -8,7 +8,8 @@ from app.models.campaign import Campaign, CampaignEntity
 from app.rules.base import DamageResult
 from app.rules.dnd5e.plugin import Dnd5ePlugin
 from app.schemas.scene import SceneContext, SceneMetadata, SceneState, StateFlags
-from app.services.combat_resolver import execute_attack
+from app.services.combat_resolver import _damage_flag_updates, execute_attack
+from app.rules.base import DamageApplication
 
 
 def _make_entity(
@@ -123,3 +124,30 @@ class TestHealingCombatFlow:
         )
         assert application.amount_applied == 1
         assert updated["hp"]["current"] == 20
+
+    def test_healing_clears_ko_flags_for_npc(self):
+        npc = _make_entity(
+            name="Glavenus",
+            entity_type="NPC",
+            user_id=None,
+            sheet={"hp": {"max": 30, "current": 0, "temp": 0}, "ac": 15},
+        )
+        npc.document["state_flags"] = {
+            "is_present_in_scene": True,
+            "is_incapacitated": True,
+            "is_dead": True,
+        }
+
+        flags = _damage_flag_updates(
+            npc,
+            DamageApplication(
+                damage_dealt=10,
+                damage_type="radiante",
+                hp_before=0,
+                hp_after=10,
+                is_healing=True,
+            ),
+        )
+
+        assert flags["is_incapacitated"] is False
+        assert flags["is_dead"] is False

@@ -132,6 +132,32 @@ def _is_typed_system_mechanics(mechanics: object) -> bool:
     return isinstance(mechanics, dict) and "system_id" in mechanics
 
 
+def sync_combat_state_flags_from_hp(document: dict) -> dict:
+    """Clear KO/death flags when sheet HP is above zero."""
+    updated = deepcopy(document)
+    mechanics = updated.get("system_mechanics")
+    if not isinstance(mechanics, dict):
+        return updated
+    sheet = mechanics.get("sheet")
+    if not isinstance(sheet, dict):
+        return updated
+
+    from app.rules.dnd5e.mechanics import read_hp_block
+
+    hp_current = read_hp_block(sheet)["current"]
+    if hp_current <= 0:
+        return updated
+
+    flags = updated.get("state_flags")
+    if not isinstance(flags, dict):
+        flags = {}
+    flags["is_incapacitated"] = False
+    if "is_dead" in flags:
+        flags["is_dead"] = False
+    updated["state_flags"] = flags
+    return updated
+
+
 def normalize_entity_document_for_campaign(
     *,
     campaign_game_system: str | None,
@@ -173,7 +199,7 @@ def normalize_entity_document_for_campaign(
         metadata["system_agnostic"] = False
         metadata["mechanics_enabled"] = True
 
-    return normalized
+    return sync_combat_state_flags_from_hp(normalized)
 
 
 def validate_entity_document(entity_type: EntityType, document: dict) -> BaseModel:
@@ -563,7 +589,7 @@ async def upsert_player_character_sheet(
     except EntityValidationError as exc:
         raise CharacterSheetError(str(exc)) from exc
 
-    document_json = validated.model_dump(mode="json")
+    document_json = sync_combat_state_flags_from_hp(validated.model_dump(mode="json"))
 
     try:
         await validate_entity_cross_references(

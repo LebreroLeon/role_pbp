@@ -10,6 +10,27 @@ _DICE_PATTERN = re.compile(
 
 _D20_ROLL_TYPES = frozenset({"dnd5e"})
 
+# Plugins for these roll types derive dice from sheet data. The API default
+# dice_expression ("1d20") must not override that unless context["expression"]
+# is set explicitly (e.g. doubled crit damage).
+_SHEET_RESOLVED_ROLL_TYPES = frozenset(
+    {
+        "ability_check",
+        "saving_throw",
+        "skill_check",
+        "stat_check",
+        "attribute_check",
+        "attack_roll",
+        "attack",
+        "damage",
+        "healing",
+        "initiative",
+        "death_save",
+        "rouse_check",
+        "discipline_check",
+    }
+)
+
 _ROLL_CONTEXT_FIELDS = {
     "ability",
     "skill",
@@ -206,10 +227,21 @@ def _roll_raw(expression: str, modifier: int = 0) -> dict:
     }
 
 
-def _build_roll_context(context: dict, expression: str, modifier: int) -> RollContext:
+def _normalize_roll_type(roll_type: str | None) -> str:
+    return (roll_type or "").strip().lower().replace(" ", "_")
+
+
+def _build_roll_context(
+    context: dict,
+    expression: str,
+    modifier: int,
+    *,
+    roll_type: str | None = None,
+) -> RollContext:
     kwargs = {key: context[key] for key in _ROLL_CONTEXT_FIELDS if key in context}
     if "expression" not in kwargs and expression:
-        kwargs["expression"] = expression
+        if _normalize_roll_type(roll_type) not in _SHEET_RESOLVED_ROLL_TYPES:
+            kwargs["expression"] = expression
     if "modifier_override" not in kwargs and modifier:
         kwargs["modifier_override"] = modifier
     return RollContext(**kwargs)
@@ -250,6 +282,6 @@ def _roll_contextual(
     from app.rules.registry import get_plugin
 
     plugin = get_plugin(game_system)
-    roll_context = _build_roll_context(context, expression, modifier)
+    roll_context = _build_roll_context(context, expression, modifier, roll_type=roll_type)
     result = plugin.resolve_roll(roll_type, sheet, roll_context)
     return _roll_result_to_dict(result, game_system)

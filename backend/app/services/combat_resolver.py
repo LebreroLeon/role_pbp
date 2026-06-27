@@ -368,7 +368,7 @@ def _build_attack_roll_payload(attack_roll: Any, *, hit: bool) -> dict[str, Any]
 def _damage_flag_updates(entity: CampaignEntity, damage_application: Any) -> dict[str, bool]:
     flags: dict[str, bool] = {}
     if damage_application.is_healing:
-        if damage_application.hp_after > 0 and entity.entity_type == "PC":
+        if damage_application.hp_after > 0:
             flags["is_incapacitated"] = False
             flags["is_dead"] = False
         return flags

@@ -295,9 +295,10 @@ function EntityTurnList({
         const stateFlags = entity?.document.state_flags as
           | { is_incapacitated?: boolean; is_dead?: boolean }
           | undefined;
-        const statusMarker = stateFlags?.is_dead
+        const hpAboveZero = hp?.current != null && hp.current > 0;
+        const statusMarker = !hpAboveZero && stateFlags?.is_dead
           ? "☠"
-          : stateFlags?.is_incapacitated
+          : !hpAboveZero && stateFlags?.is_incapacitated
             ? "💤"
             : null;
         const canAssign = isMaster && pbpOn && !isCurrent;

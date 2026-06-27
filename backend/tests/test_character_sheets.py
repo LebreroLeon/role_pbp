@@ -9,6 +9,7 @@ from app.services.entities import (
     EntityValidationError,
     normalize_entity_document_for_campaign,
     strip_master_secrets,
+    sync_combat_state_flags_from_hp,
     validate_entity_document,
     validate_npc_sheet_for_campaign,
     validate_pc_sheet_for_campaign,
@@ -130,6 +131,34 @@ class TestNpcSheetValidation:
         dumped = validated.model_dump(mode="json")
         assert dumped["metadata"]["system_agnostic"] is False
         assert dumped["system_mechanics"]["system_id"] == "dnd5e"
+
+    def test_sync_clears_ko_flags_when_hp_above_zero(self):
+        document = _npc_document_with_typed_sheet(
+            {"hp": {"max": 30, "current": 12, "temp": 0}, "ac": 15},
+        )
+        document["state_flags"]["is_incapacitated"] = True
+        document["state_flags"]["is_dead"] = True
+
+        synced = sync_combat_state_flags_from_hp(document)
+
+        assert synced["state_flags"]["is_incapacitated"] is False
+        assert synced["state_flags"]["is_dead"] is False
+
+    def test_normalize_clears_ko_flags_when_hp_restored(self):
+        document = _npc_document_with_typed_sheet(
+            {"hp": {"max": 30, "current": 8, "temp": 0}, "ac": 15},
+        )
+        document["state_flags"]["is_incapacitated"] = True
+        document["state_flags"]["is_dead"] = True
+
+        normalized = normalize_entity_document_for_campaign(
+            campaign_game_system="dnd5e",
+            entity_type=EntityType.NPC,
+            document=document,
+        )
+
+        assert normalized["state_flags"]["is_incapacitated"] is False
+        assert normalized["state_flags"]["is_dead"] is False
 
     def test_strip_master_secrets_removes_npc_lore(self):
         document = _npc_document_with_typed_sheet()
