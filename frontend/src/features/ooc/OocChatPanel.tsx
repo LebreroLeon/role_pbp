@@ -202,7 +202,7 @@ export function OocChatPanel({
       <form className="chat-composer ooc-chat__composer" onSubmit={handleSubmit}>
         <textarea
           className="chat-composer__input"
-          rows={3}
+          rows={2}
           placeholder={
             isPrivateChannel
               ? `Mensaje privado con ${activeTab?.label ?? "Máster"}...`

@@ -927,16 +927,51 @@
   resize: vertical;
 }
 
+.ooc-chat__composer textarea {
+  min-height: 3rem;
+  max-height: 7rem;
+  resize: none;
+}
+
+/* OOC page: fill remaining viewport below campaign chrome */
+.app-main:has(.ooc-page) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
+.campaign-shell:has(.ooc-page) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 0.85rem;
+}
+
+.campaign-shell:has(.ooc-page) > :not(.campaign-shell__content) {
+  flex-shrink: 0;
+}
+
+.campaign-shell__content:has(.ooc-page) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .ooc-page {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  height: calc(100dvh - 14rem);
-  min-height: 22rem;
   max-width: none;
 }
 
 .ooc-chat__tabs {
+  flex-shrink: 0;
   margin-bottom: 0.75rem;
 }
 
@@ -948,16 +983,27 @@
   overflow: hidden;
 }
 
+.ooc-chat.chat-panel > .panel-header,
+.ooc-chat.chat-panel > .error {
+  flex-shrink: 0;
+}
+
 .ooc-chat__messages {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   max-height: none;
   margin-bottom: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 .ooc-chat__composer {
   flex-shrink: 0;
   margin-top: 0.85rem;
+  margin-bottom: 0;
   padding-top: 0.85rem;
   border-top: 1px solid var(--border-subtle);
 }
@@ -3767,6 +3813,22 @@
   .chat-form,
   .chat-composer__row {
     grid-template-columns: 1fr;
+  }
+
+  .campaign-shell:has(.ooc-page) {
+    gap: 0.65rem;
+  }
+
+  .ooc-chat.chat-panel {
+    padding: 0.85rem 0.9rem;
+  }
+
+  .ooc-chat.chat-panel > .panel-header {
+    margin-bottom: 0.65rem;
+  }
+
+  .ooc-chat__composer textarea {
+    min-height: 2.5rem;
   }
 
   .dice-panel__expression {

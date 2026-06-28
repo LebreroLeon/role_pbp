@@ -493,6 +493,36 @@ async def set_pc_present_in_scene(
     return entity
 
 
+async def deactivate_pc_player_binding(
+    db: AsyncSession,
+    entity: CampaignEntity,
+    *,
+    commit: bool = True,
+) -> CampaignEntity:
+    """Mark a PC as inactive and remove them from live scene presence."""
+    if entity.entity_type != EntityType.PC.value:
+        raise CharacterSheetError("Only player characters support campaign binding")
+
+    document = deepcopy(entity.document)
+    binding = document.get("player_binding", {})
+    if not isinstance(binding, dict):
+        binding = {}
+    binding["is_active_in_campaign"] = False
+    document["player_binding"] = binding
+
+    flags = document.get("state_flags", {})
+    if not isinstance(flags, dict):
+        flags = {}
+    flags["is_present_in_scene"] = False
+    document["state_flags"] = flags
+    entity.document = document
+
+    if commit:
+        await db.commit()
+        await db.refresh(entity)
+    return entity
+
+
 async def find_pc_by_user(
     db: AsyncSession,
     campaign_id: uuid.UUID,

@@ -196,8 +196,32 @@ async def remove_campaign_member(
         if int(master_count or 0) <= 1:
             raise CampaignServiceError("Cannot remove the only master from the campaign")
 
+    from app.services.campaign_ws import campaign_ws_manager
+    from app.services.entities import CharacterSheetError, find_pc_by_user
+    from app.services.scene_ws import broadcast_scene_update
+    from app.services.scenes import remove_player_from_open_scenes
+
+    try:
+        pc = await find_pc_by_user(db, campaign_id, user_id)
+    except CharacterSheetError:
+        pc = None
+
+    changed_scenes = await remove_player_from_open_scenes(
+        db,
+        campaign_id,
+        user_id,
+        pc=pc,
+        commit=False,
+    )
     await db.delete(membership)
     await db.commit()
+
+    for scene in changed_scenes:
+        await db.refresh(scene)
+        await broadcast_scene_update(db, scene, requester_role="MASTER")
+    if pc is not None:
+        await db.refresh(pc)
+    await campaign_ws_manager.broadcast_presence(str(campaign_id))
 
 
 async def delete_campaign(db: AsyncSession, campaign_id: uuid.UUID) -> None:

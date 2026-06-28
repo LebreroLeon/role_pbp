@@ -1842,3 +1842,112 @@ async def add_player_to_scene_presence(
         {"event": "scene_update", "scene": response.model_dump(mode="json")},
     )
     return response
+
+
+def _remove_player_from_scene_state(
+    state: SceneState,
+    *,
+    user_id: str,
+    entity_id: str | None,
+) -> bool:
+    """Strip a departed member from live scene tracks without touching chat history."""
+    changed = False
+    user_id = str(user_id)
+
+    if user_id in state.turn_management.turn_order:
+        state.turn_management.turn_order = [
+            uid for uid in state.turn_management.turn_order if str(uid) != user_id
+        ]
+        changed = True
+    if str(state.turn_management.current_turn_player_id or "") == user_id:
+        state.turn_management.current_turn_player_id = (
+            state.turn_management.turn_order[0]
+            if state.turn_management.turn_order
+            else None
+        )
+        changed = True
+
+    if entity_id:
+        entity_id = str(entity_id)
+        original_len = len(state.combat.initiative_order)
+        state.combat.initiative_order = [
+            entry
+            for entry in state.combat.initiative_order
+            if str(entry.entity_id) != entity_id
+        ]
+        if len(state.combat.initiative_order) != original_len:
+            changed = True
+        if str(state.combat.current_turn_entity_id or "") == entity_id:
+            state.combat.current_turn_entity_id = (
+                state.combat.initiative_order[0].entity_id
+                if state.combat.initiative_order
+                else None
+            )
+            changed = True
+
+        original_refs = len(state.context.prepared_entity_refs)
+        state.context.prepared_entity_refs = [
+            ref
+            for ref in state.context.prepared_entity_refs
+            if str(ref.entity_id) != entity_id
+        ]
+        if len(state.context.prepared_entity_refs) != original_refs:
+            changed = True
+
+    return changed
+
+
+async def remove_player_from_open_scenes(
+    db: AsyncSession,
+    campaign_id: uuid.UUID,
+    user_id: uuid.UUID,
+    *,
+    pc: CampaignEntity | None = None,
+    commit: bool = True,
+) -> list[Scene]:
+    """Remove a departed member from all ACTIVE/PAUSED scene live state."""
+    from app.services.entities import deactivate_pc_player_binding, find_pc_by_user
+
+    user_id_str = str(user_id)
+    if pc is None:
+        try:
+            pc = await find_pc_by_user(db, campaign_id, user_id)
+        except CharacterSheetError:
+            pc = None
+
+    entity_id = str(pc.id) if pc is not None else None
+
+    scenes = (
+        await db.scalars(
+            select(Scene).where(
+                Scene.campaign_id == campaign_id,
+                Scene.status.in_(("ACTIVE", "PAUSED")),
+            )
+        )
+    ).all()
+
+    changed_scenes: list[Scene] = []
+    for scene in scenes:
+        state = load_scene_state(scene)
+        changed = _remove_player_from_scene_state(
+            state,
+            user_id=user_id_str,
+            entity_id=entity_id,
+        )
+        if changed:
+            if state.combat.initiative_order:
+                await sync_turn_management_from_initiative(db, campaign_id, state)
+            save_scene_state(scene, state)
+            changed_scenes.append(scene)
+
+    if pc is not None:
+        await deactivate_pc_player_binding(db, pc, commit=False)
+
+    if commit and (changed_scenes or pc is not None):
+        await db.commit()
+        for scene in changed_scenes:
+            await db.refresh(scene)
+        if pc is not None:
+            await db.refresh(pc)
+
+    return changed_scenes
