@@ -44,6 +44,7 @@ import {
   type GameSheet,
 
 } from "./pcDocument";
+import { clearedLocationIdFromSave, readSaveWarnings } from "./saveWarnings";
 
 import { EntityAvatarField } from "./EntityAvatarField";
 import { EntityIllustrationField } from "../entities/EntityIllustrationField";
@@ -117,6 +118,7 @@ export function CharacterSheetPage() {
   const [createLocationId, setCreateLocationId] = useState("");
 
   const [formError, setFormError] = useState<string | null>(null);
+  const [formWarning, setFormWarning] = useState<string | null>(null);
 
   const [rollSummary, setRollSummary] = useState<string | null>(null);
 
@@ -128,6 +130,7 @@ export function CharacterSheetPage() {
   const [locationId, setLocationId] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [illustrationUrl, setIllustrationUrl] = useState("");
+  const [playerNotes, setPlayerNotes] = useState("");
 
   const factionOptions = useMemo(
     () => entities.filter((item) => item.entity_type === "FACTION"),
@@ -141,10 +144,11 @@ export function CharacterSheetPage() {
   useEffect(() => {
     if (!myPc) return;
     const identity = myPc.document.identity as { name?: string; concept?: string; faction_id?: string | null; current_location_id?: string } | undefined;
-    const publicProfile = myPc.document.public_profile as { description?: string } | undefined;
+    const publicProfile = myPc.document.public_profile as { description?: string; player_notes?: string } | undefined;
     setName(identity?.name ?? "");
     setConcept(identity?.concept ?? "");
     setPublicDescription(publicProfile?.description ?? "");
+    setPlayerNotes(publicProfile?.player_notes ?? "");
     setFactionId(normalizeEntityRefId(identity?.faction_id));
     setLocationId(normalizeEntityRefId(identity?.current_location_id));
     setAvatarUrl(extractAvatarUrl(myPc) ?? "");
@@ -163,6 +167,14 @@ export function CharacterSheetPage() {
 
 
 
+  function applySaveResult(saved: CampaignEntity) {
+    const warning = readSaveWarnings(saved);
+    setFormWarning(warning);
+    if (warning && clearedLocationIdFromSave(saved)) {
+      setLocationId("");
+    }
+  }
+
   async function handleCreatePc(event: FormEvent) {
 
     event.preventDefault();
@@ -170,6 +182,7 @@ export function CharacterSheetPage() {
     if (!createName.trim() || !currentUser) return;
 
     setFormError(null);
+    setFormWarning(null);
 
 
 
@@ -209,6 +222,7 @@ export function CharacterSheetPage() {
     event.preventDefault();
     if (!myPc) return;
     setFormError(null);
+    setFormWarning(null);
 
     const baseDocument = myPc.document;
     const updatedDocument = {
@@ -223,6 +237,7 @@ export function CharacterSheetPage() {
       public_profile: {
         ...(baseDocument.public_profile as Record<string, unknown>),
         description: publicDescription.trim(),
+        player_notes: playerNotes.trim(),
         avatar_url: avatarUrl.trim() || undefined,
         illustration_url: illustrationUrl.trim() || undefined,
       },
@@ -231,7 +246,8 @@ export function CharacterSheetPage() {
     const payload = documentToCharacterSheetUpsert(updatedDocument);
 
     try {
-      await upsertMutation.mutateAsync(payload);
+      const saved = await upsertMutation.mutateAsync(payload);
+      applySaveResult(saved);
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "No se pudo guardar los datos narrativos");
     }
@@ -242,6 +258,7 @@ export function CharacterSheetPage() {
     if (!myPc) return;
 
     setFormError(null);
+    setFormWarning(null);
 
 
 
@@ -253,7 +270,8 @@ export function CharacterSheetPage() {
 
     try {
 
-      await upsertMutation.mutateAsync(payload);
+      const saved = await upsertMutation.mutateAsync(payload);
+      applySaveResult(saved);
 
     } catch (err) {
 
@@ -313,6 +331,7 @@ export function CharacterSheetPage() {
 
 
         {formError && <ErrorBanner message={formError} />}
+        {formWarning && <p className="muted">{formWarning}</p>}
 
         {rollSummary && <p className="sheet-roll-summary">{rollSummary}</p>}
 
@@ -413,6 +432,16 @@ export function CharacterSheetPage() {
                   value={publicDescription}
                   onChange={(e) => setPublicDescription(e.target.value)}
                   rows={3}
+                />
+              </label>
+
+              <label className="form-field">
+                <span>Apuntes del jugador</span>
+                <textarea
+                  value={playerNotes}
+                  onChange={(e) => setPlayerNotes(e.target.value)}
+                  rows={4}
+                  placeholder="Notas personales sobre tu personaje o la campaña"
                 />
               </label>
 

@@ -645,6 +645,8 @@ export type CampaignEntity = {
 
   updated_at: string;
 
+  warnings?: string[];
+
 };
 
 
@@ -668,6 +670,8 @@ export type PublicProfile = {
   description: string;
 
   personality_traits: string[];
+
+  player_notes?: string;
 
 };
 

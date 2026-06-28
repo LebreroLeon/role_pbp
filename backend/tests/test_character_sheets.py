@@ -340,6 +340,12 @@ class TestPcSheetValidation:
         validated = validate_entity_document(EntityType.PC, document)
         assert validated.public_profile.avatar_url == "https://example.com/portrait.png"
 
+    def test_pc_public_profile_accepts_player_notes(self):
+        document = _pc_document_with_typed_sheet()
+        document["public_profile"]["player_notes"] = "Recuerda hablar con el herrero en la próxima sesión."
+        validated = validate_entity_document(EntityType.PC, document)
+        assert validated.public_profile.player_notes == "Recuerda hablar con el herrero en la próxima sesión."
+
     def test_npc_narrative_profile_accepts_avatar_url(self):
         document = _npc_document_with_typed_sheet()
         document["ai_narrative_profile"]["avatar_url"] = "/api/v1/entities/test/avatar"

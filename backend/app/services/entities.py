@@ -30,15 +30,49 @@ def _is_nonempty_ref(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-async def validate_entity_cross_references(
-    db: AsyncSession,
+_REPAIRABLE_IDENTITY_FIELDS = frozenset({
+    "faction_id",
+    "current_location_id",
+    "headquarters_location_id",
+    "parent_location_id",
+})
+
+
+def _normalize_ref_value(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip()
+    return stripped or None
+
+
+def _identity_field_key(field_path: str) -> str | None:
+    if not field_path.startswith("identity."):
+        return None
+    key = field_path.split(".", 1)[1]
+    return key if key in _REPAIRABLE_IDENTITY_FIELDS else None
+
+
+def _clear_identity_field(document: dict, field_key: str) -> None:
+    identity = document.get("identity")
+    if isinstance(identity, dict):
+        identity[field_key] = None
+
+
+def _identity_ref_unchanged(existing_document: dict | None, field_key: str, ref_id: str) -> bool:
+    if existing_document is None:
+        return False
+    identity = existing_document.get("identity")
+    if not isinstance(identity, dict):
+        return False
+    return _normalize_ref_value(identity.get(field_key)) == _normalize_ref_value(ref_id)
+
+
+def _collect_entity_cross_references(
     *,
-    campaign_id: uuid.UUID,
     entity_type: EntityType,
     document: dict,
     entity_id: uuid.UUID | None = None,
-) -> None:
-    """Ensure referenced entity IDs exist in the same campaign."""
+) -> list[tuple[str, str, EntityType | None]]:
     refs: list[tuple[str, str, EntityType | None]] = []
 
     identity = document.get("identity")
@@ -66,8 +100,27 @@ async def validate_entity_cross_references(
                 if field.startswith("connection.") and ref_id == entity_id_str:
                     raise EntityReferenceError(f"{field}: an entity cannot reference itself")
 
+    return refs
+
+
+async def resolve_entity_cross_references(
+    db: AsyncSession,
+    *,
+    campaign_id: uuid.UUID,
+    entity_type: EntityType,
+    document: dict,
+    entity_id: uuid.UUID | None = None,
+    existing_document: dict | None = None,
+) -> tuple[dict, list[str]]:
+    """Validate entity refs; clear unchanged stale identity refs instead of blocking save."""
+    resolved = deepcopy(document)
+    refs = _collect_entity_cross_references(
+        entity_type=entity_type,
+        document=resolved,
+        entity_id=entity_id,
+    )
     if not refs:
-        return
+        return resolved, []
 
     ref_ids = {uuid.UUID(ref_id) for _, ref_id, _ in refs}
     found = (
@@ -79,6 +132,7 @@ async def validate_entity_cross_references(
         )
     ).all()
     found_by_id = {entity.id: entity for entity in found}
+    warnings: list[str] = []
 
     for field, ref_id, expected_type in refs:
         try:
@@ -87,12 +141,52 @@ async def validate_entity_cross_references(
             raise EntityReferenceError(f"{field}: invalid UUID {ref_id!r}") from exc
 
         target = found_by_id.get(ref_uuid)
+        invalid = target is None or (
+            expected_type is not None and target.entity_type != expected_type.value
+        )
+        if not invalid:
+            continue
+
+        identity_key = _identity_field_key(field)
+        if identity_key is not None and _identity_ref_unchanged(existing_document, identity_key, ref_id):
+            _clear_identity_field(resolved, identity_key)
+            if target is None:
+                warnings.append(
+                    f"Referencia obsoleta eliminada: {field} — la entidad ya no existe en la campaña.",
+                )
+            else:
+                warnings.append(
+                    f"Referencia obsoleta eliminada: {field} — "
+                    f"la entidad es {target.entity_type}, se esperaba {expected_type.value if expected_type else 'cualquiera'}.",
+                )
+            continue
+
         if target is None:
             raise EntityReferenceError(f"{field}: no entity with id {ref_id} in this campaign")
-        if expected_type is not None and target.entity_type != expected_type.value:
-            raise EntityReferenceError(
-                f"{field}: entity {ref_id} is {target.entity_type}, expected {expected_type.value}",
-            )
+        raise EntityReferenceError(
+            f"{field}: entity {ref_id} is {target.entity_type}, expected {expected_type.value}",
+        )
+
+    return resolved, warnings
+
+
+async def validate_entity_cross_references(
+    db: AsyncSession,
+    *,
+    campaign_id: uuid.UUID,
+    entity_type: EntityType,
+    document: dict,
+    entity_id: uuid.UUID | None = None,
+) -> None:
+    """Ensure referenced entity IDs exist in the same campaign."""
+    await resolve_entity_cross_references(
+        db,
+        campaign_id=campaign_id,
+        entity_type=entity_type,
+        document=document,
+        entity_id=entity_id,
+        existing_document=None,
+    )
 
 
 async def ensure_single_arc_manifest(
@@ -601,7 +695,7 @@ async def upsert_player_character_sheet(
     campaign_id: uuid.UUID,
     user_id: uuid.UUID,
     payload: CharacterSheetUpsert,
-) -> CampaignEntity:
+) -> tuple[CampaignEntity, list[str]]:
     campaign = await get_campaign_or_error(db, campaign_id)
     validated_sheet = validate_pc_sheet_for_campaign(campaign.game_system, payload.system_mechanics)
     existing = await find_pc_by_user(db, campaign_id, user_id)
@@ -622,12 +716,13 @@ async def upsert_player_character_sheet(
     document_json = sync_combat_state_flags_from_hp(validated.model_dump(mode="json"))
 
     try:
-        await validate_entity_cross_references(
+        document_json, reference_warnings = await resolve_entity_cross_references(
             db,
             campaign_id=campaign_id,
             entity_type=EntityType.PC,
             document=document_json,
             entity_id=existing.id if existing is not None else None,
+            existing_document=existing.document if existing is not None else None,
         )
     except EntityReferenceError as exc:
         raise CharacterSheetError(str(exc)) from exc
@@ -639,7 +734,7 @@ async def upsert_player_character_sheet(
         existing.document = document_json
         await db.commit()
         await db.refresh(existing)
-        return existing
+        return existing, reference_warnings
 
     entity = CampaignEntity(
         campaign_id=campaign_id,
@@ -656,7 +751,7 @@ async def upsert_player_character_sheet(
     if active_scene is not None and active_scene.status == "ACTIVE":
         await add_player_to_scene_presence(db, active_scene, entity_id=entity.id)
 
-    return entity
+    return entity, reference_warnings
 
 
 def _persist_death_save_roll_to_entity(entity: CampaignEntity, roll_result: dict[str, Any]) -> None:

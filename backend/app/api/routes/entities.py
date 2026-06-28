@@ -32,6 +32,7 @@ from app.services.entities import (
     roll_entity_contextual,
     set_pc_present_in_scene,
     strip_master_secrets,
+    resolve_entity_cross_references,
     validate_entity_cross_references,
     validate_entity_document,
 )
@@ -58,6 +59,7 @@ def _entity_to_response(
     *,
     include_secrets: bool,
     unknown_npc_ids: set[str] | None = None,
+    warnings: list[str] | None = None,
 ) -> EntityResponse:
     document = entity.document
     if not include_secrets:
@@ -75,6 +77,7 @@ def _entity_to_response(
         document=document,
         created_at=entity.created_at,
         updated_at=entity.updated_at,
+        warnings=warnings or [],
     )
 
 
@@ -328,22 +331,23 @@ async def update_entity(
             document=payload.document,
         )
         validated = validate_entity_document(entity_type, document)
-        await validate_entity_cross_references(
+        document_json, warnings = await resolve_entity_cross_references(
             db,
             campaign_id=entity.campaign_id,
             entity_type=entity_type,
             document=validated.model_dump(mode="json"),
             entity_id=entity.id,
+            existing_document=entity.document,
         )
     except EntityReferenceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except EntityValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    entity.document = validated.model_dump(mode="json")
+    entity.document = document_json
     await db.commit()
     await db.refresh(entity)
-    return _entity_to_response(entity, include_secrets=True)
+    return _entity_to_response(entity, include_secrets=True, warnings=warnings)
 
 
 @router.post("/{entity_id}/avatar", response_model=EntityResponse)

@@ -129,6 +129,7 @@ class PublicProfile(BaseModel):
     personality_traits: list[str] = Field(default_factory=list)
     avatar_url: str | None = None
     illustration_url: str | None = None
+    player_notes: str = ""
 
 
 class PCStateFlags(BaseModel):
@@ -326,6 +327,7 @@ class EntityResponse(BaseModel):
     document: dict
     created_at: datetime
     updated_at: datetime
+    warnings: list[str] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 

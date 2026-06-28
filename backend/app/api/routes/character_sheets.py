@@ -23,7 +23,12 @@ from app.services.scene_ws import broadcast_scene_update
 router = APIRouter(prefix="/campaigns", tags=["character-sheets"])
 
 
-def _entity_to_response(entity: CampaignEntity, *, include_secrets: bool) -> EntityResponse:
+def _entity_to_response(
+    entity: CampaignEntity,
+    *,
+    include_secrets: bool,
+    warnings: list[str] | None = None,
+) -> EntityResponse:
     document = entity.document
     if not include_secrets:
         document = strip_master_secrets(document, EntityType(entity.entity_type))
@@ -35,6 +40,7 @@ def _entity_to_response(entity: CampaignEntity, *, include_secrets: bool) -> Ent
         document=document,
         created_at=entity.created_at,
         updated_at=entity.updated_at,
+        warnings=warnings or [],
     )
 
 
@@ -90,7 +96,7 @@ async def upsert_my_character_sheet(
     await _require_campaign_player(db, current_user, campaign_uuid)
 
     try:
-        entity = await upsert_player_character_sheet(
+        entity, warnings = await upsert_player_character_sheet(
             db,
             campaign_id=campaign_uuid,
             user_id=current_user.id,
@@ -99,7 +105,7 @@ async def upsert_my_character_sheet(
     except (CharacterSheetError, EntityValidationError) as exc:
         raise _sheet_error_to_http(exc) from exc
 
-    return _entity_to_response(entity, include_secrets=True)
+    return _entity_to_response(entity, include_secrets=True, warnings=warnings)
 
 
 @router.post("/{campaign_id}/my-sheet/roll")

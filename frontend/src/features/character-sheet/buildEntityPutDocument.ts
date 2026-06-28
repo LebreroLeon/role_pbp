@@ -12,6 +12,7 @@ type NarrativeFields = {
   name: string;
   concept: string;
   publicDescription: string;
+  playerNotes?: string;
   secretLore?: string;
   voiceAndTone?: string;
   personalityTraits?: string[];
@@ -92,6 +93,7 @@ function buildPcPutDocument(
       const publicProfile: Record<string, unknown> = {
         ...((workingDocument.public_profile as Record<string, unknown> | undefined) ?? {}),
         description: narrative.publicDescription.trim(),
+        player_notes: narrative.playerNotes?.trim() ?? "",
         personality_traits:
           (workingDocument.public_profile as { personality_traits?: string[] } | undefined)?.personality_traits ?? [],
       };

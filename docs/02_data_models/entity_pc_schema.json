@@ -44,7 +44,8 @@
         "personality_traits": {
           "type": "array",
           "items": { "type": "string" }
-        }
+        },
+        "player_notes": { "type": "string" }
       },
       "additionalProperties": false
     },

@@ -7,6 +7,7 @@ from app.schemas.entities import EntityType
 from app.services.entities import (
     EntityReferenceError,
     ensure_single_arc_manifest,
+    resolve_entity_cross_references,
     validate_entity_cross_references,
 )
 
@@ -181,6 +182,72 @@ async def test_ensure_single_arc_manifest_rejects_duplicate():
             db,
             campaign_id=campaign_id,
             entity_type=EntityType.ARC_MANIFEST,
+        )
+
+
+@pytest.mark.asyncio
+async def test_resolve_clears_unchanged_stale_location_reference():
+    campaign_id = uuid.uuid4()
+    stale_location_id = uuid.uuid4()
+    db = _mock_db_with_entities()
+
+    existing_document = {
+        "identity": {
+            "name": "PC",
+            "concept": "Hero",
+            "current_location_id": str(stale_location_id),
+        }
+    }
+    document = {
+        "identity": {
+            "name": "PC",
+            "concept": "Hero",
+            "current_location_id": str(stale_location_id),
+        },
+        "system_mechanics": {"system_id": "dnd5e", "sheet": {"proficiency": {"skills": []}}},
+    }
+
+    resolved, warnings = await resolve_entity_cross_references(
+        db,
+        campaign_id=campaign_id,
+        entity_type=EntityType.PC,
+        document=document,
+        existing_document=existing_document,
+    )
+
+    assert resolved["identity"]["current_location_id"] is None
+    assert len(warnings) == 1
+    assert "identity.current_location_id" in warnings[0]
+
+
+@pytest.mark.asyncio
+async def test_resolve_rejects_new_invalid_location_reference():
+    campaign_id = uuid.uuid4()
+    invalid_location_id = uuid.uuid4()
+    db = _mock_db_with_entities()
+
+    existing_document = {
+        "identity": {
+            "name": "PC",
+            "concept": "Hero",
+            "current_location_id": None,
+        }
+    }
+    document = {
+        "identity": {
+            "name": "PC",
+            "concept": "Hero",
+            "current_location_id": str(invalid_location_id),
+        }
+    }
+
+    with pytest.raises(EntityReferenceError, match="identity.current_location_id"):
+        await resolve_entity_cross_references(
+            db,
+            campaign_id=campaign_id,
+            entity_type=EntityType.PC,
+            document=document,
+            existing_document=existing_document,
         )
 
 

@@ -11,6 +11,7 @@ import {
   type GameSheet,
 } from "./pcDocument";
 import { buildEntityPutDocument } from "./buildEntityPutDocument";
+import { clearedLocationIdFromSave, readSaveWarnings } from "./saveWarnings";
 import { CyberpunkSheetForm } from "./systems/cyberpunk_red/CyberpunkSheetForm";
 import { parseCyberpunkRedSheet } from "./systems/cyberpunk_red/schema";
 import { Dnd5eSheetForm } from "./systems/dnd5e/Dnd5eSheetForm";
@@ -77,6 +78,7 @@ export function EntitySheetEditor({
   const updateMutation = useUpdateEntityMutation(campaignId);
   const rollMutation = useRollEntityMutation(campaignId);
   const [formError, setFormError] = useState<string | null>(null);
+  const [formWarning, setFormWarning] = useState<string | null>(null);
   const [rollSummary, setRollSummary] = useState<string | null>(null);
   const [rollMasterOnly, setRollMasterOnly] = useState(false);
 
@@ -93,6 +95,7 @@ export function EntitySheetEditor({
   const [secretLore, setSecretLore] = useState("");
   const [voiceAndTone, setVoiceAndTone] = useState("");
   const [personalityTraits, setPersonalityTraits] = useState("");
+  const [playerNotes, setPlayerNotes] = useState("");
   const [avatarUrl, setAvatarUrl] = useState(() => extractAvatarUrl(entity) ?? "");
   const [illustrationUrl, setIllustrationUrl] = useState(() => extractIllustrationUrl(entity) ?? "");
   const [factionId, setFactionId] = useState("");
@@ -110,7 +113,9 @@ export function EntitySheetEditor({
 
   useEffect(() => {
     const identity = workingDocument.identity as { name?: string; concept?: string } | undefined;
-    const publicProfile = workingDocument.public_profile as { description?: string } | undefined;
+    const publicProfile = workingDocument.public_profile as
+      | { description?: string; player_notes?: string }
+      | undefined;
     const narrativeProfile = workingDocument.ai_narrative_profile as
       | {
           public_description?: string;
@@ -127,6 +132,7 @@ export function EntitySheetEditor({
         ? (publicProfile?.description ?? "")
         : (narrativeProfile?.public_description ?? ""),
     );
+    setPlayerNotes(publicProfile?.player_notes ?? "");
     setSecretLore(narrativeProfile?.secret_lore_master ?? "");
     setVoiceAndTone(narrativeProfile?.voice_and_tone ?? "");
     setPersonalityTraits((narrativeProfile?.personality_traits ?? []).join(", "));
@@ -157,6 +163,7 @@ export function EntitySheetEditor({
       name,
       concept,
       publicDescription,
+      playerNotes: entity.entity_type === "PC" ? playerNotes : undefined,
       secretLore,
       voiceAndTone,
       personalityTraits: traits.length > 0 ? traits : ["misterioso"],
@@ -169,8 +176,14 @@ export function EntitySheetEditor({
 
   async function persistDocument(document: Record<string, unknown>) {
     setFormError(null);
+    setFormWarning(null);
     try {
-      await updateMutation.mutateAsync({ entityId: entity.id, document });
+      const updated = await updateMutation.mutateAsync({ entityId: entity.id, document });
+      const warning = readSaveWarnings(updated);
+      setFormWarning(warning);
+      if (warning && clearedLocationIdFromSave(updated)) {
+        setLocationId("");
+      }
       onSaved?.();
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "No se pudo guardar la entidad");
@@ -226,6 +239,7 @@ export function EntitySheetEditor({
   return (
     <div className="entity-sheet-editor">
       {formError && <ErrorBanner message={formError} />}
+      {formWarning && <p className="muted">{formWarning}</p>}
 
       <CollapsibleSection
         icon={User}
@@ -280,6 +294,18 @@ export function EntitySheetEditor({
             rows={3}
           />
         </label>
+
+        {entity.entity_type === "PC" && (
+          <label className="form-field">
+            <span>Apuntes del jugador</span>
+            <textarea
+              value={playerNotes}
+              onChange={(event) => setPlayerNotes(event.target.value)}
+              rows={4}
+              placeholder="Notas personales del jugador sobre su personaje o la campaña"
+            />
+          </label>
+        )}
 
         {(entity.entity_type === "PC" || entity.entity_type === "NPC") && (
           <EntityAvatarField

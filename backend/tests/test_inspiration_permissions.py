@@ -163,7 +163,7 @@ async def test_player_put_my_sheet_spend_allowed(override_db):
         patch(
             "app.api.routes.character_sheets.upsert_player_character_sheet",
             new_callable=AsyncMock,
-            return_value=saved_entity,
+            return_value=(saved_entity, []),
         ),
     ):
         transport = ASGITransport(app=app)

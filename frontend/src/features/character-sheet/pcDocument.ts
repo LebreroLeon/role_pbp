@@ -54,6 +54,7 @@ export function buildPcDocumentWithSheet(input: {
     public_profile: {
       description: input.description.trim(),
       personality_traits: [],
+      player_notes: "",
     },
     system_mechanics: {
       system_id: input.systemId,
@@ -104,6 +105,7 @@ export function buildCharacterSheetUpsert(input: {
     public_profile: {
       description: input.description.trim(),
       personality_traits: [],
+      player_notes: "",
     },
     system_mechanics: {
       system_id: input.systemId,
@@ -130,6 +132,7 @@ export function documentToCharacterSheetUpsert(document: Record<string, unknown>
         personality_traits?: string[];
         avatar_url?: string;
         illustration_url?: string;
+        player_notes?: string;
       }
     | undefined;
   const mechanics = document.system_mechanics as
@@ -150,6 +153,7 @@ export function documentToCharacterSheetUpsert(document: Record<string, unknown>
       ? {
           description: publicProfile.description ?? "",
           personality_traits: publicProfile.personality_traits ?? [],
+          player_notes: publicProfile.player_notes ?? "",
           ...(publicProfile.avatar_url?.trim()
             ? { avatar_url: publicProfile.avatar_url.trim() }
             : {}),

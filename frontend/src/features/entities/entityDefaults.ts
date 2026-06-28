@@ -18,6 +18,7 @@ export type CampaignEntity = {
   document: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  warnings?: string[];
 };
 
 export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
@@ -160,6 +161,7 @@ export function buildPcDocument(input: {
     public_profile: {
       description: input.description.trim(),
       personality_traits: [],
+      player_notes: "",
     },
     system_mechanics: {
       system_name: "agnóstico",
