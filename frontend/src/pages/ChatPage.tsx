@@ -110,8 +110,8 @@ export function ChatPage() {
   }, [members]);
 
   const mentionOptions = useMemo(
-    () => buildMentionOptions(currentScene?.scene_state, entities),
-    [currentScene?.scene_state, entities],
+    () => buildMentionOptions(currentScene?.scene_state, entities, isMaster),
+    [currentScene?.scene_state, entities, isMaster],
   );
 
   const speakerOptions = useMemo(() => buildSpeakerOptions(entities), [entities]);

@@ -185,6 +185,10 @@ def _normalize_attack_entry(
             attack.get("damage_dice"),
             resolution=resolution,
         )
+        normalized["proficient"] = bool(attack.get("proficient", False))
+        ability_raw = attack.get("ability") or attack.get("save_ability")
+        if isinstance(ability_raw, str) and ability_raw.strip():
+            normalized["ability"] = ability_raw.strip().lower()
         if resolution == "save":
             save_ability = attack.get("save_ability") or attack.get("ability")
             if isinstance(save_ability, str) and save_ability.strip():
@@ -203,8 +207,9 @@ def _normalize_attack_entry(
     proficient = bool(attack.get("proficient", False))
     ability_score = abilities.get(ability, 10)
     ability_mod = _ability_modifier(ability_score) if isinstance(ability_score, int) else 0
+    has_frontend_damage = isinstance(attack.get("damage"), dict)
     to_hit_bonus = attack.get("to_hit_bonus")
-    if to_hit_bonus is None:
+    if has_frontend_damage or to_hit_bonus is None:
         to_hit_bonus = ability_mod + (proficiency_bonus if proficient else 0)
 
     effect_type_raw = attack.get("effect_type")
@@ -218,6 +223,8 @@ def _normalize_attack_entry(
 
     return {
         "name": attack.get("name", "Attack"),
+        "ability": ability,
+        "proficient": proficient,
         "to_hit_bonus": to_hit_bonus,
         "damage_dice": _normalize_attack_damage_dice(damage_dice, resolution=resolution),
         "damage_type": normalize_damage_type(str(damage_type) if damage_type is not None else None),
@@ -314,6 +321,8 @@ def normalize_dnd5e_sheet_input(data: object) -> object:
 
 class AttackEntry(BaseModel):
     name: str
+    ability: str | None = None
+    proficient: bool = False
     to_hit_bonus: int = 0
     damage_dice: str
     damage_type: str
@@ -341,11 +350,25 @@ class AttackEntry(BaseModel):
         if isinstance(damage, dict):
             resolution_raw = str(data.get("resolution", "attack_roll")).strip().lower()
             resolution = "save" if resolution_raw == "save" else "attack_roll"
+            ability_raw = data.get("ability") or data.get("save_ability")
+            ability = (
+                ability_raw.strip().lower()
+                if isinstance(ability_raw, str) and ability_raw.strip()
+                else None
+            )
             return {
                 "name": data.get("name", "Attack"),
+                "ability": ability,
+                "proficient": bool(data.get("proficient", False)),
                 "to_hit_bonus": data.get("to_hit_bonus", 0),
                 "damage_dice": _normalize_attack_damage_dice(damage.get("dice"), resolution=resolution),
                 "damage_type": normalize_damage_type(str(damage.get("type", ""))),
+                "resolution": resolution,
+                "effect_type": "healing"
+                if str(data.get("effect_type", "")).strip().lower() == "healing"
+                else "damage",
+                "half_damage_on_save": bool(data.get("half_damage_on_save", False)),
+                "save_ability": ability if resolution == "save" else None,
             }
         return data
 

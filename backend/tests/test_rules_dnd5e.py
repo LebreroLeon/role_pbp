@@ -63,6 +63,8 @@ class TestDnd5eSchema:
         assert validated.attacks[0].damage_dice == "1d4"
         assert validated.attacks[0].damage_type == "contundente"
         assert validated.attacks[0].to_hit_bonus == 2
+        assert validated.attacks[0].proficient is True
+        assert validated.attacks[0].ability == "str"
 
     def test_validate_frontend_nested_sheet_with_spellcasting(self, plugin: Dnd5ePlugin):
         sheet = {

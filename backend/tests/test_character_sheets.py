@@ -304,6 +304,50 @@ class TestPcSheetValidation:
         assert attack["damage_type"] == "frio"
         assert attack["resolution"] == "attack_roll"
         assert attack["effect_type"] == "damage"
+        assert attack["proficient"] is True
+        assert attack["ability"] == "str"
+
+    def test_put_entity_attack_proficient_toggle_persists(self):
+        """Competencia toggle on custom attacks must survive save/reload."""
+        frontend = _frontend_dnd5e_sheet()
+        frontend["attacks"] = [
+            {
+                "name": "Arco corto",
+                "ability": "dex",
+                "proficient": False,
+                "resolution": "attack_roll",
+                "half_damage_on_save": False,
+                "effect_type": "damage",
+                "damage": {"dice": "1d6+2", "type": "perforante"},
+                "properties": [],
+            }
+        ]
+
+        document = _pc_document_with_typed_sheet(frontend)
+        normalized = normalize_entity_document_for_campaign(
+            campaign_game_system="dnd5e",
+            entity_type=EntityType.PC,
+            document=document,
+        )
+        validated = validate_entity_document(EntityType.PC, normalized)
+        stored = validated.model_dump(mode="json")["system_mechanics"]["sheet"]
+
+        attack = stored["attacks"][0]
+        assert attack["proficient"] is False
+        assert attack["ability"] == "dex"
+        assert attack["to_hit_bonus"] == 0
+
+        frontend["attacks"][0]["proficient"] = True
+        document = _pc_document_with_typed_sheet(frontend)
+        normalized = normalize_entity_document_for_campaign(
+            campaign_game_system="dnd5e",
+            entity_type=EntityType.PC,
+            document=document,
+        )
+        validated = validate_entity_document(EntityType.PC, normalized)
+        attack = validated.model_dump(mode="json")["system_mechanics"]["sheet"]["attacks"][0]
+        assert attack["proficient"] is True
+        assert attack["to_hit_bonus"] == 2
 
     def test_put_npc_attack_damage_dice_and_type_persist(self):
         frontend = _frontend_dnd5e_sheet()
