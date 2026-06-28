@@ -46,9 +46,11 @@ from app.services.chat_message_images import (
 from app.services.entities import CharacterSheetError, get_campaign_or_error
 from app.services.lore_assist import build_player_lore_response
 from app.services.scene_ws import broadcast_scene_update, scene_response_with_likes
+from app.services.scene_messages import list_scene_messages
 from app.services.scenes import (
     SceneServiceError,
     add_player_to_scene_presence,
+    append_chat_message,
     close_scene,
     create_scene,
     delete_scene,
@@ -107,6 +109,26 @@ async def get_scene_route(
         await ensure_player_pc_present_in_scene(db, scene, current_user.id)
     role = await require_campaign_member(db, current_user, scene.campaign_id)
     return await scene_response_with_likes(db, scene, viewer_role=role)
+
+
+@router.get("/{scene_id}/messages", response_model=list[ChatMessage])
+async def list_scene_messages_route(
+    scene_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+    before: str | None = None,
+    limit: int = 50,
+) -> list[ChatMessage]:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_player_open_scene(db, current_user, scene)
+    role = await require_campaign_member(db, current_user, scene.campaign_id)
+    return await list_scene_messages(
+        db,
+        scene.id,
+        before_message_id=before,
+        limit=limit,
+        viewer_role=role,
+    )
 
 
 @router.post("/{scene_id}/messages", response_model=SceneResponse)
@@ -428,8 +450,7 @@ async def _append_combat_messages_and_save(
     combat_result,
 ) -> SceneResponse:
     for combat_message in combat_result.messages:
-        state.chat_buffer.append(ChatMessage.model_validate(combat_message))
-    state.chat_buffer = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
+        await append_chat_message(db, scene, state, combat_message)
     for entity in combat_result.modified_entities:
         db.add(entity)
     save_scene_state(scene, state)

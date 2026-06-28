@@ -122,6 +122,12 @@
   padding: 1rem 0;
 }
 
+.chat-log-load-more {
+  display: flex;
+  justify-content: center;
+  padding-bottom: 0.25rem;
+}
+
 /* —— Chat cards —— */
 .chat-card {
   position: relative;

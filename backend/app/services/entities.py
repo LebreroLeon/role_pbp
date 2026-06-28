@@ -689,6 +689,22 @@ def assert_player_may_set_inspiration(
         raise CharacterSheetError(INSPIRATION_GRANT_FORBIDDEN)
 
 
+def assert_can_manage_entity_images(
+    entity: CampaignEntity,
+    *,
+    user_id: uuid.UUID,
+    role: str,
+) -> None:
+    """Masters may manage any entity image; players only their own PC avatar/illustration."""
+    if role == "MASTER":
+        return
+    if entity.entity_type != EntityType.PC.value:
+        raise CharacterSheetError("Only the master can manage images for this entity")
+    binding = entity.document.get("player_binding", {})
+    if not isinstance(binding, dict) or binding.get("user_id") != str(user_id):
+        raise CharacterSheetError("You can only manage images for your own character")
+
+
 async def upsert_player_character_sheet(
     db: AsyncSession,
     *,

@@ -9,6 +9,7 @@ from app.models.campaign import (
     CampaignOocReadState,
     MemoryDocumentType,
     Scene,
+    SceneMessage,
     SceneMessageLike,
 )
 from app.models.monster_catalog import SystemMonsterCatalog
@@ -25,6 +26,7 @@ __all__ = [
     "CampaignMember",
     "MemoryDocumentType",
     "Scene",
+    "SceneMessage",
     "SceneMessageLike",
     "SystemManualMemory",
     "SystemManualSource",

@@ -22,6 +22,7 @@ from app.services.entities import (
     CharacterSheetError,
     EntityReferenceError,
     EntityValidationError,
+    assert_can_manage_entity_images,
     ensure_single_arc_manifest,
     get_effective_unknown_npc_ids,
     get_campaign_or_error,
@@ -358,7 +359,7 @@ async def upload_entity_avatar(
     file: UploadFile = File(...),
 ) -> EntityResponse:
     entity = await _get_entity_or_404(entity_id, db)
-    await require_campaign_master(db, current_user, entity.campaign_id)
+    await _require_entity_image_manager(db, current_user, entity)
 
     if not file.filename:
         raise HTTPException(status_code=400, detail="Missing filename")
@@ -407,7 +408,7 @@ async def remove_entity_avatar(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     entity = await _get_entity_or_404(entity_id, db)
-    await require_campaign_master(db, current_user, entity.campaign_id)
+    await _require_entity_image_manager(db, current_user, entity)
     await clear_entity_avatar_file(db, entity)
 
 
@@ -419,7 +420,7 @@ async def upload_entity_illustration(
     file: UploadFile = File(...),
 ) -> EntityResponse:
     entity = await _get_entity_or_404(entity_id, db)
-    await require_campaign_master(db, current_user, entity.campaign_id)
+    await _require_entity_image_manager(db, current_user, entity)
 
     if not file.filename:
         raise HTTPException(status_code=400, detail="Missing filename")
@@ -471,7 +472,7 @@ async def remove_entity_illustration(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     entity = await _get_entity_or_404(entity_id, db)
-    await require_campaign_master(db, current_user, entity.campaign_id)
+    await _require_entity_image_manager(db, current_user, entity)
     await clear_entity_illustration_file(db, entity)
 
 
@@ -493,3 +494,16 @@ async def _get_entity_or_404(entity_id: str, db: AsyncSession) -> CampaignEntity
     if entity is None:
         raise HTTPException(status_code=404, detail="Entity not found")
     return entity
+
+
+async def _require_entity_image_manager(
+    db: AsyncSession,
+    current_user: User,
+    entity: CampaignEntity,
+) -> str:
+    role = await require_campaign_member(db, current_user, entity.campaign_id)
+    try:
+        assert_can_manage_entity_images(entity, user_id=current_user.id, role=role)
+    except CharacterSheetError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return role

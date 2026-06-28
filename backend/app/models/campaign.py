@@ -70,6 +70,20 @@ class CampaignEntity(Base):
     )
 
 
+class SceneMessage(Base):
+    __tablename__ = "scene_messages"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    scene_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("scenes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class SceneMessageLike(Base):
     __tablename__ = "scene_message_likes"
     __table_args__ = (

@@ -20,13 +20,28 @@ from app.services.entity_illustrations import (
 )
 
 
-def _make_user() -> User:
+def _make_user(*, user_id: uuid.UUID | None = None) -> User:
     return User(
-        id=uuid.uuid4(),
+        id=user_id or uuid.uuid4(),
         email="master@test.com",
         password_hash="hash",
         display_name="Master",
     )
+
+
+def _pc_document(*, user_id: uuid.UUID | None = None) -> dict:
+    uid = user_id or uuid.uuid4()
+    return {
+        "metadata": {"type": "PC", "system_agnostic": True, "version": "2.0.0"},
+        "identity": {"name": "Aldric", "concept": "Fighter"},
+        "player_binding": {"user_id": str(uid), "is_active_in_campaign": True},
+        "public_profile": {
+            "description": "A brave warrior",
+            "personality_traits": [],
+        },
+        "system_mechanics": {"system_name": "agnóstico", "stats_summary": {}},
+        "state_flags": {"is_present_in_scene": False, "is_incapacitated": False},
+    }
 
 
 def _npc_document(*, visibility: str = "visible") -> dict:
@@ -321,3 +336,149 @@ async def test_master_can_get_npc_illustration_file(override_db, mock_db, tmp_pa
         assert response.content == b"fake-png"
     finally:
         settings.upload_dir = original_upload_dir
+
+
+@pytest.mark.asyncio
+async def test_player_can_upload_own_pc_illustration(override_db, mock_db):
+    player_id = uuid.uuid4()
+    user = _make_user(user_id=player_id)
+    entity = _make_entity(entity_type="PC", document=_pc_document(user_id=player_id))
+    _override_user(user)
+
+    mock_db.scalar = AsyncMock(return_value=entity)
+
+    async def fake_save(db, ent, **kwargs):
+        write_entity_illustration_url(ent, f"/api/v1/entities/{ent.id}/illustration")
+        return f"/api/v1/entities/{ent.id}/illustration"
+
+    with patch("app.api.deps.get_user_campaign_role", new_callable=AsyncMock, return_value="PLAYER"):
+        with patch(
+            "app.api.routes.entities.save_entity_illustration_file",
+            new_callable=AsyncMock,
+            side_effect=fake_save,
+        ):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.post(
+                    f"/api/v1/entities/{entity.id}/illustration",
+                    files={"file": ("portrait.png", BytesIO(b"fake-png"), "image/png")},
+                )
+
+    assert response.status_code == 200
+    assert response.json()["document"]["public_profile"]["illustration_url"].endswith("/illustration")
+
+
+@pytest.mark.asyncio
+async def test_player_can_upload_own_pc_avatar(override_db, mock_db):
+    player_id = uuid.uuid4()
+    user = _make_user(user_id=player_id)
+    entity = _make_entity(entity_type="PC", document=_pc_document(user_id=player_id))
+    _override_user(user)
+
+    mock_db.scalar = AsyncMock(return_value=entity)
+
+    async def fake_save(db, ent, **kwargs):
+        profile = dict(ent.document["public_profile"])
+        profile["avatar_url"] = f"/api/v1/entities/{ent.id}/avatar"
+        document = dict(ent.document)
+        document["public_profile"] = profile
+        ent.document = document
+        return profile["avatar_url"]
+
+    with patch("app.api.deps.get_user_campaign_role", new_callable=AsyncMock, return_value="PLAYER"):
+        with patch(
+            "app.api.routes.entities.save_entity_avatar_file",
+            new_callable=AsyncMock,
+            side_effect=fake_save,
+        ):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.post(
+                    f"/api/v1/entities/{entity.id}/avatar",
+                    files={"file": ("avatar.png", BytesIO(b"fake-png"), "image/png")},
+                )
+
+    assert response.status_code == 200
+    assert response.json()["document"]["public_profile"]["avatar_url"].endswith("/avatar")
+
+
+@pytest.mark.asyncio
+async def test_player_cannot_upload_npc_illustration(override_db, mock_db):
+    user = _make_user()
+    entity = _make_entity(document=_npc_document(visibility="visible"))
+    _override_user(user)
+
+    mock_db.scalar = AsyncMock(return_value=entity)
+
+    with patch("app.api.deps.get_user_campaign_role", new_callable=AsyncMock, return_value="PLAYER"):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                f"/api/v1/entities/{entity.id}/illustration",
+                files={"file": ("portrait.png", BytesIO(b"fake-png"), "image/png")},
+            )
+
+    assert response.status_code == 403
+    assert "master" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_player_cannot_upload_other_pc_illustration(override_db, mock_db):
+    owner_id = uuid.uuid4()
+    other_player = _make_user()
+    entity = _make_entity(entity_type="PC", document=_pc_document(user_id=owner_id))
+    _override_user(other_player)
+
+    mock_db.scalar = AsyncMock(return_value=entity)
+
+    with patch("app.api.deps.get_user_campaign_role", new_callable=AsyncMock, return_value="PLAYER"):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                f"/api/v1/entities/{entity.id}/illustration",
+                files={"file": ("portrait.png", BytesIO(b"fake-png"), "image/png")},
+            )
+
+    assert response.status_code == 403
+    assert "own character" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_player_cannot_upload_scene_message_image(override_db, mock_db):
+    user = _make_user()
+    scene = _make_scene()
+    _override_user(user)
+
+    mock_db.scalar = AsyncMock(return_value=scene)
+
+    with (
+        patch("app.api.deps.get_user_campaign_role", new_callable=AsyncMock, return_value="PLAYER"),
+        patch("app.api.routes.scenes.get_scene_by_id", new_callable=AsyncMock, return_value=scene),
+    ):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                f"/api/v1/scenes/{scene.id}/message-images",
+                files={"file": ("map.png", BytesIO(b"fake-png"), "image/png")},
+            )
+
+    assert response.status_code == 403
+    assert "master" in response.json()["detail"].lower()
+
+
+def _make_scene(campaign_id: uuid.UUID | None = None):
+    from app.models.campaign import Scene
+
+    cid = campaign_id or uuid.uuid4()
+    return Scene(
+        id=uuid.uuid4(),
+        campaign_id=cid,
+        scene_number=1,
+        display_name="Test scene",
+        status="ACTIVE",
+        scene_state={
+            "metadata": {"campaign_id": str(cid), "status": "ACTIVE"},
+            "chat_buffer": [],
+            "memory_settings": {"max_chat_buffer_size": 60},
+        },
+    )

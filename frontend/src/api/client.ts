@@ -123,6 +123,15 @@ export const api = {
       }),
     }),
   getScene: (sceneId: string) => http<Scene>(`/api/v1/scenes/${sceneId}`),
+  listSceneMessages: (sceneId: string, options?: { before?: string; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (options?.before) params.set("before", options.before);
+    if (options?.limit != null) params.set("limit", String(options.limit));
+    const query = params.toString();
+    return http<import("./types").ChatMessage[]>(
+      `/api/v1/scenes/${sceneId}/messages${query ? `?${query}` : ""}`,
+    );
+  },
   postMessage: (
     sceneId: string,
     text: string,

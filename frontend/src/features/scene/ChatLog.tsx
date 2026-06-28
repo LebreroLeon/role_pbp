@@ -20,6 +20,9 @@ type ChatLogProps = {
   togglingLikeId?: string | null;
   entities?: CampaignEntity[];
   sceneState?: SceneStateInput | null;
+  onLoadMore?: () => void;
+  hasMoreHistory?: boolean;
+  loadingMore?: boolean;
 };
 
 function getTailSignature(messages: ChatMessage[]): string {
@@ -46,6 +49,9 @@ export function ChatLog({
   togglingLikeId = null,
   entities,
   sceneState,
+  onLoadMore,
+  hasMoreHistory = false,
+  loadingMore = false,
 }: ChatLogProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const tailSignatureRef = useRef(getTailSignature(messages));
@@ -139,6 +145,18 @@ export function ChatLog({
   return (
     <div className="chat-log" ref={containerRef}>
       <div className="chat-log-feed">
+        {hasMoreHistory && onLoadMore ? (
+          <div className="chat-log-load-more">
+            <button
+              type="button"
+              className="button button--ghost button--small"
+              onClick={onLoadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? "Cargando…" : "Cargar mensajes anteriores"}
+            </button>
+          </div>
+        ) : null}
         {messages.map((entry, index) => (
           <ChatEntry
             key={entry.id ?? `${entry.timestamp}-${index}`}

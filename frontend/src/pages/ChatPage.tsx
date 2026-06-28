@@ -16,6 +16,7 @@ import {
   Toast,
 } from "../components/ui";
 import { ChatComposer, ChatLog, DiceRoller, getChatBuffer, MasterBriefingModal, MasterCheatSheet, NextSceneModal, type MemberLookup } from "../features/scene";
+import type { ChatMessage } from "../api/types";
 import { GameSystemChatMiniSheet, type AdvantageMode } from "../features/systems";
 import {
   canUserPostInPbp,
@@ -36,6 +37,19 @@ import { useEntitiesQuery } from "../hooks/queries/useEntityQueries";
 import { useOpenSceneQuery } from "../hooks/queries/useSceneQueries";
 import { useSceneWebSocket } from "../hooks/useSceneWebSocket";
 import { useAuthStore } from "../stores/authStore";
+
+const SCENE_MESSAGE_PAGE_SIZE = 50;
+
+function mergeSceneMessages(...groups: ChatMessage[][]): ChatMessage[] {
+  const byId = new Map<string, ChatMessage>();
+  for (const group of groups) {
+    for (const message of group) {
+      if (!message.id) continue;
+      byId.set(message.id, message);
+    }
+  }
+  return Array.from(byId.values()).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+}
 
 export function ChatPage() {
   const { campaignId = "" } = useParams();
@@ -79,6 +93,9 @@ export function ChatPage() {
   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
   const [pendingImagePreviewUrl, setPendingImagePreviewUrl] = useState<string | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
+  const [olderMessages, setOlderMessages] = useState<ChatMessage[]>([]);
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
+  const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
 
   const currentScene = scene ?? openScene ?? null;
   const isMaster = campaign?.role === "MASTER";
@@ -109,6 +126,59 @@ export function ChatPage() {
     () => entities.filter((entity) => entity.entity_type === "LOCATION"),
     [entities],
   );
+
+  const bufferMessages = useMemo(
+    () => (currentScene ? getChatBuffer(currentScene.scene_state) : []),
+    [currentScene],
+  );
+
+  const displayMessages = useMemo(
+    () => mergeSceneMessages(olderMessages, bufferMessages),
+    [olderMessages, bufferMessages],
+  );
+
+  useEffect(() => {
+    setOlderMessages([]);
+    setHasMoreHistory(false);
+    setLoadingMoreHistory(false);
+  }, [currentScene?.id]);
+
+  useEffect(() => {
+    if (!currentScene) {
+      setHasMoreHistory(false);
+      return;
+    }
+    const maxSize = currentScene.scene_state.memory_settings?.max_chat_buffer_size ?? 60;
+    if (bufferMessages.length >= maxSize) {
+      setHasMoreHistory(true);
+    }
+  }, [currentScene, bufferMessages.length]);
+
+  const handleLoadMoreHistory = useCallback(async () => {
+    if (!currentScene || loadingMoreHistory) return;
+    const oldestVisible = displayMessages[0];
+    if (!oldestVisible?.id) return;
+
+    setLoadingMoreHistory(true);
+    try {
+      const batch = await api.listSceneMessages(currentScene.id, {
+        before: oldestVisible.id,
+        limit: SCENE_MESSAGE_PAGE_SIZE,
+      });
+      if (batch.length === 0) {
+        setHasMoreHistory(false);
+        return;
+      }
+      setOlderMessages((current) => mergeSceneMessages(batch, current));
+      if (batch.length < SCENE_MESSAGE_PAGE_SIZE) {
+        setHasMoreHistory(false);
+      }
+    } catch {
+      setErrorMessage("No se pudieron cargar mensajes anteriores");
+    } finally {
+      setLoadingMoreHistory(false);
+    }
+  }, [currentScene, displayMessages, loadingMoreHistory]);
 
   const handleSceneUpdate = useCallback(
     (updated: Scene) => {
@@ -163,7 +233,7 @@ export function ChatPage() {
   const handleMarkRead = useCallback(() => {
     if (!currentScene || !currentUserId) return;
 
-    const buffer = getChatBuffer(currentScene.scene_state);
+    const buffer = displayMessages;
     const allRead = buffer.every(
       (message) => message.sender_id === currentUserId || (message.read_by ?? []).includes(currentUserId),
     );
@@ -173,7 +243,7 @@ export function ChatPage() {
     if (!sent) {
       api.markSceneRead(currentScene.id).then(handleSceneUpdate).catch(() => undefined);
     }
-  }, [currentScene, currentUserId, markRead, handleSceneUpdate]);
+  }, [currentScene, currentUserId, displayMessages, markRead, handleSceneUpdate]);
 
   async function handleStart() {
     setLoading(true);
@@ -572,7 +642,7 @@ export function ChatPage() {
           <>
             <p className="muted chat-scene-label">{formatSceneLabel(currentScene)}</p>
             <ChatLog
-              messages={getChatBuffer(currentScene.scene_state)}
+              messages={displayMessages}
               members={memberLookup}
               currentUserId={currentUserId}
               memberCount={members.length}
@@ -584,6 +654,9 @@ export function ChatPage() {
               togglingLikeId={togglingLikeId}
               entities={entities}
               sceneState={currentScene.scene_state}
+              onLoadMore={handleLoadMoreHistory}
+              hasMoreHistory={hasMoreHistory}
+              loadingMore={loadingMoreHistory}
             />
 
             {pbpEnabled && pbpTurnLabel && (

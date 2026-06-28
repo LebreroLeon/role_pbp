@@ -1,0 +1,38 @@
+[
+  {
+    "id": "recovered-hangover-ctx-1",
+    "timestamp": "2026-06-28T08:00:00Z",
+    "sender_id": "19375a30-4e8a-4071-82a2-e9227f60d934",
+    "type": "CONTEXT",
+    "text": "La luz de la mañana os golpea la cara como un guantelete de hierro, implacable y cargada de reproches. Al abrir los ojos con un quejido sordo, la suite principal del Palacio de El Minster empieza a girar a vuestro alrededor en un torbellino violento que os revuelve el estómago, provocándoos una arcada instantánea. Tenéis la boca tan jodidamente seca que parece que habéis estado masticando arena del desierto, y un dolor punzante os martillea las sienes con cada latido del corazón. Entre náuseas, mareos y un sudor frío, os encontráis tirados en el suelo de la suite principal del Palacio de El Minster, la taberna y casino más ostentosa, ruidosa y canalla de todo Vas'legas.",
+    "speaker_type": "NARRATOR",
+    "speaker_display_name": "Máster / Narrador",
+    "visibility": "all",
+    "read_by": [],
+    "append_to_buffer": true
+  },
+  {
+    "id": "recovered-hangover-ctx-2",
+    "timestamp": "2026-06-28T08:01:00Z",
+    "sender_id": "19375a30-4e8a-4071-82a2-e9227f60d934",
+    "type": "CONTEXT",
+    "text": "A juzgar por el estado de la habitación, un clan entero de trolls enfurecidos debió de pasar la noche de juerga aquí. El panorama es un desastre de proporciones épicas: el suelo está alfombrado de jarrones de porcelana fina hechos añicos, varias prendas de ropa interior de seda cuelgan de las aspas del ventilador de techo como trofeos de guerra, un fuerte olor a azufre y cerveza de enano impregna las alfombras, hay cristales rotos de viales de pociones por todas partes, un plato de muslos de hipogrifo fritos a medio comer con salsas ya secas, cojines de pluma de grifo destripados, un bol de plata lleno de agua de hielo derretido donde flota una bota de montar que no es de ninguno de vosotros, una gallina picoteando tranquilamente restos de raciones de viaje caídas bajo un sofá, un par de dados de hueso cargados rodando bajo una mesa volcada, restos de runas mágicas de neón parpadeando en las paredes y un rastro de cartas de una baraja de la ilusión esparcidas por todas partes.",
+    "speaker_type": "NARRATOR",
+    "speaker_display_name": "Máster / Narrador",
+    "visibility": "all",
+    "read_by": [],
+    "append_to_buffer": true
+  },
+  {
+    "id": "recovered-hangover-ctx-3",
+    "timestamp": "2026-06-28T08:02:00Z",
+    "sender_id": "19375a30-4e8a-4071-82a2-e9227f60d934",
+    "type": "CONTEXT",
+    "text": "Os miráis los unos a los otros a través de la neblina de la resaca. Os reconocéis, por supuesto; sois el grupo de aventureros de siempre. El plan original está claro en vuestra memoria: ayer vinisteis a Vas'legas a celebrar la gran noche de retiro de vuestro querido amigo Jon Grauman. El legendario guerrero por fin iba a colgar la espada para gastar el botín de toda una vida en un bonito apartamento. Para la ocasión, alquilasteis un elegante carruaje al que, por supuesto, le denegasteis el seguro porque, en sabias palabras de Korgoth: \"esa mierda es una estafa\".\n\nEse es vuestro último recuerdo nítido. Ahora mismo, vuestras mentes están sumidas en una niebla absoluta. No hay ni un solo rastro en vuestra memoria de lo que pasó anoche, ni de cómo la suite se convirtió en este calabozo de la depravación. Bienvenidos a la mañana siguiente.",
+    "speaker_type": "NARRATOR",
+    "speaker_display_name": "Máster / Narrador",
+    "visibility": "all",
+    "read_by": [],
+    "append_to_buffer": true
+  }
+]

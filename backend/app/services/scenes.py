@@ -4,7 +4,7 @@ from typing import Any
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.campaign import Campaign, CampaignEntity, CampaignMemory, MemoryDocumentType, Scene, SceneMessageLike
+from app.models.campaign import Campaign, CampaignEntity, CampaignMemory, MemoryDocumentType, Scene, SceneMessage, SceneMessageLike
 from app.services.chat_message_images import ChatMessageImageError, validate_message_image_url
 from app.schemas.scene import (
     ChatMessage,
@@ -42,6 +42,12 @@ from app.services.dice import (
     roll_dice as roll_dice_expression,
 )
 from app.services.message_likes import delete_likes_for_message, fetch_likes_by_message_id, toggle_message_like
+from app.services.scene_messages import (
+    delete_persisted_scene_message,
+    list_all_scene_messages,
+    persist_scene_message,
+    update_persisted_read_by,
+)
 from app.services.combat_resolver import entity_display_name
 from app.services.entities import CharacterSheetError, find_pc_by_user, get_campaign_or_error
 from app.services.llm import LLMError, LLMNotConfiguredError, chat_completion
@@ -453,8 +459,11 @@ async def toggle_scene_message_like(
         raise SceneServiceError("Message id is required")
 
     state = load_scene_state(scene)
-    if not any(entry.id == trimmed_id for entry in state.chat_buffer):
-        raise SceneServiceError("Message not found")
+    in_buffer = any(entry.id == trimmed_id for entry in state.chat_buffer)
+    if not in_buffer:
+        persisted = await db.get(SceneMessage, trimmed_id)
+        if persisted is None or persisted.scene_id != scene.id:
+            raise SceneServiceError("Message not found")
 
     await toggle_message_like(db, scene.id, trimmed_id, uuid.UUID(user_id))
     await db.commit()
@@ -490,9 +499,15 @@ def _normalize_display_name(display_name: str | None) -> str | None:
     return trimmed or None
 
 
-def _build_narrative_text(state: SceneState, *, last_n: int | None = None) -> str:
+def _build_narrative_text(
+    state: SceneState,
+    *,
+    last_n: int | None = None,
+    messages: list[ChatMessage] | None = None,
+) -> str:
     lines: list[str] = []
-    for message in state.chat_buffer:
+    source = messages if messages is not None else state.chat_buffer
+    for message in source:
         if message.type not in NARRATIVE_MESSAGE_TYPES:
             continue
         text = (message.text or "").strip()
@@ -501,6 +516,19 @@ def _build_narrative_text(state: SceneState, *, last_n: int | None = None) -> st
     if last_n is not None and last_n > 0:
         lines = lines[-last_n:]
     return "\n".join(lines)
+
+
+async def append_chat_message(
+    db: AsyncSession,
+    scene: Scene,
+    state: SceneState,
+    message: ChatMessage | dict,
+) -> ChatMessage:
+    msg = ChatMessage.model_validate(message)
+    await persist_scene_message(db, scene.id, msg)
+    state.chat_buffer.append(msg)
+    state.chat_buffer = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
+    return msg
 
 
 def _placeholder_scene_summary(
@@ -525,8 +553,16 @@ async def generate_scene_closure_summary(
     *,
     scene_number: int,
     display_name: str | None,
+    db: AsyncSession | None = None,
+    scene_id: uuid.UUID | None = None,
 ) -> str:
-    narrative = _build_narrative_text(state)
+    messages = state.chat_buffer
+    if db is not None and scene_id is not None:
+        messages = await list_all_scene_messages(db, scene_id)
+        if not messages:
+            messages = state.chat_buffer
+
+    narrative = _build_narrative_text(state, messages=messages)
     if not narrative.strip():
         return _placeholder_scene_summary(
             narrative,
@@ -564,7 +600,7 @@ async def generate_scene_closure_summary(
         pass
 
     return _placeholder_scene_summary(
-        _build_narrative_text(state, last_n=FALLBACK_SUMMARY_MESSAGE_COUNT),
+        _build_narrative_text(state, last_n=FALLBACK_SUMMARY_MESSAGE_COUNT, messages=messages),
         scene_number=scene_number,
         display_name=display_name,
     )
@@ -585,7 +621,9 @@ async def delete_scene_message(
     state = load_scene_state(scene)
     original_len = len(state.chat_buffer)
     state.chat_buffer = [entry for entry in state.chat_buffer if entry.id != trimmed_id]
-    if len(state.chat_buffer) == original_len:
+    removed_from_buffer = len(state.chat_buffer) != original_len
+    removed_from_store = await delete_persisted_scene_message(db, scene.id, trimmed_id)
+    if not removed_from_buffer and not removed_from_store:
         raise SceneServiceError("Message not found")
 
     save_scene_state(scene, state)
@@ -817,9 +855,7 @@ async def post_message(
         "read_by": [sender_id],
         **speaker_fields,
     }
-    state.chat_buffer.append(ChatMessage.model_validate(message))
-    trimmed = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
-    state.chat_buffer = trimmed
+    await append_chat_message(db, scene, state, message)
 
     if sender_role != "MASTER" and msg_type in NARRATIVE_MESSAGE_TYPES:
         advance_pbp_turn(state)
@@ -912,8 +948,7 @@ async def roll_scene_dice(
         "visibility": visibility,
         **speaker_fields,
     }
-    state.chat_buffer.append(ChatMessage.model_validate(message))
-    state.chat_buffer = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
+    await append_chat_message(db, scene, state, message)
 
     save_scene_state(scene, state)
     await db.commit()
@@ -937,6 +972,7 @@ async def mark_messages_read(
             entry["read_by"].append(user_id)
 
     state.chat_buffer = [ChatMessage.model_validate(entry) for entry in buffer]
+    await update_persisted_read_by(db, scene.id, user_id, message_ids)
     save_scene_state(scene, state)
     await db.commit()
     await db.refresh(scene)
@@ -1159,8 +1195,7 @@ async def activate_scene(
             "speaker_display_name": DEFAULT_NARRATOR_DISPLAY_NAME,
             "speaker_entity_id": None,
         }
-        state.chat_buffer.append(ChatMessage.model_validate(message))
-        state.chat_buffer = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
+        await append_chat_message(db, scene, state, message)
         save_scene_state(scene, state)
 
     await db.commit()
@@ -1191,6 +1226,7 @@ async def delete_scene(db: AsyncSession, scene: Scene) -> None:
     campaign_id = str(scene.campaign_id)
 
     await db.execute(delete(SceneMessageLike).where(SceneMessageLike.scene_id == scene.id))
+    await db.execute(delete(SceneMessage).where(SceneMessage.scene_id == scene.id))
     await db.execute(
         delete(CampaignMemory).where(
             CampaignMemory.campaign_id == scene.campaign_id,
@@ -1220,6 +1256,8 @@ async def close_scene(db: AsyncSession, scene: Scene) -> CloseSceneResponse:
         state,
         scene_number=scene_number,
         display_name=scene.display_name,
+        db=db,
+        scene_id=scene.id,
     )
     state.metadata.closure_summary = summary
     state.metadata.status = "CLOSED"
@@ -1581,8 +1619,7 @@ async def append_dice_roll_to_scene(
         skill_checked=skill_checked,
         visibility=visibility,
     )
-    state.chat_buffer.append(ChatMessage.model_validate(message))
-    state.chat_buffer = state.chat_buffer[-state.memory_settings.max_chat_buffer_size :]
+    await append_chat_message(db, scene, state, message)
     save_scene_state(scene, state)
     await db.commit()
     await db.refresh(scene)
