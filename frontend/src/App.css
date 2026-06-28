@@ -934,11 +934,22 @@
 }
 
 /* OOC page: fill remaining viewport below campaign chrome */
+body:has(.ooc-page) {
+  overflow: hidden;
+}
+
+.app-shell:has(.ooc-page) {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
 .app-main:has(.ooc-page) {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
   padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
 }
 
@@ -947,6 +958,7 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
   gap: 0.85rem;
 }
 
@@ -959,6 +971,7 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .ooc-page {
@@ -966,8 +979,14 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
   width: 100%;
   max-width: none;
+}
+
+.ooc-page > .ooc-chat {
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .ooc-chat__tabs {
@@ -989,15 +1008,38 @@
 }
 
 .ooc-chat__messages {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
+  height: 0;
   max-height: none;
   margin-bottom: 0;
+  padding-right: 0.25rem;
   overflow-y: auto;
   overflow-x: hidden;
+  overflow-anchor: none;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   touch-action: pan-y;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+.ooc-chat__messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ooc-chat__messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ooc-chat__messages::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-full);
+}
+
+.ooc-chat__messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .ooc-chat__composer {
@@ -2817,6 +2859,11 @@
 }
 
 .ooc-page .panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
   max-width: none;
   width: 100%;
 }
