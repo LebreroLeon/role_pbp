@@ -12,6 +12,7 @@ import {
   getCombatState,
   getCurrentCombatTurnIndex,
   getCurrentTurnEntityId,
+  canUserAdvancePbpTurn,
   isConflictModeActive,
   isPbpEnabled,
   normalizeSceneState,
@@ -33,6 +34,7 @@ type InitiativeOrderPanelProps = {
   sceneState: SceneStateInput;
   entities: CampaignEntity[];
   members: MemberLookup;
+  currentUserId?: string;
   isMaster?: boolean;
   onSceneUpdate?: (scene: Scene) => void;
 };
@@ -70,6 +72,7 @@ export function InitiativeOrderPanel({
   sceneState,
   entities,
   members,
+  currentUserId,
   isMaster = false,
   onSceneUpdate,
 }: InitiativeOrderPanelProps) {
@@ -97,6 +100,12 @@ export function InitiativeOrderPanel({
 
   const isTurnBusy = updateTurnManagement.isPending || advancePbpTurn.isPending;
 
+  const canAdvanceTurn =
+    pbpOn &&
+    displayEntries.length > 0 &&
+    currentUserId != null &&
+    canUserAdvancePbpTurn(sceneState, currentUserId, isMaster, entities);
+
   async function handleTogglePbp(enabled: boolean) {
     await updateTurnManagement.mutateAsync({ sceneId, pbp_enabled: enabled });
   }
@@ -109,7 +118,7 @@ export function InitiativeOrderPanel({
     await updateTurnManagement.mutateAsync({ sceneId, current_turn_entity_id: entityId });
   }
 
-  const masterTurnControls = isMaster && pbpOn && displayEntries.length > 0 ? (
+  const pbpTurnControls = canAdvanceTurn ? (
     <div className="initiative-panel__master-actions">
       <Button
         type="button"
@@ -195,7 +204,7 @@ export function InitiativeOrderPanel({
           manageButton={manageButton}
           pbpControls={pbpControls}
           turnBanner={turnBanner}
-          masterTurnControls={masterTurnControls}
+          masterTurnControls={pbpTurnControls}
           isMaster={isMaster}
           pbpOn={pbpOn}
           isTurnBusy={isTurnBusy}
@@ -246,7 +255,7 @@ export function InitiativeOrderPanel({
           isTurnBusy={isTurnBusy}
           onAssignTurn={handleAssignTurn}
         />
-        {masterTurnControls}
+        {pbpTurnControls}
       </aside>
       {manageModal}
     </>

@@ -1,7 +1,8 @@
 """Play-by-post turn order and enforcement.
 
 When ``turn_management.pbp_enabled`` is true, only the current turn holder may post
-(players). The master always bypasses turn checks.
+(players). The master always bypasses turn checks. Turns advance only when the
+current holder (or master) calls ``advance_pbp_turn`` — not on each message or roll.
 
 Turn resolution priority:
 1. If ``combat.initiative_order`` is non-empty → entity-based turns via
@@ -263,6 +264,46 @@ async def resolve_current_turn_display_name(
     return player_name or str(current_player_id)
 
 
+async def assert_pbp_advance_allowed(
+    db: AsyncSession,
+    campaign_id: uuid.UUID,
+    state: SceneState,
+    user_id: str,
+    user_role: str,
+) -> None:
+    """Only the current turn holder or master may end the turn manually."""
+    if user_role == "MASTER":
+        return
+    if not is_pbp_enforcement_active(state):
+        raise PbpTurnError("PBP mode is not enabled")
+
+    if state.combat.initiative_order:
+        current_entity_id = state.combat.current_turn_entity_id
+        if not current_entity_id:
+            current_entity_id = state.combat.initiative_order[0].entity_id
+
+        try:
+            user_uuid = uuid.UUID(str(user_id))
+        except ValueError as exc:
+            raise PbpTurnError("Invalid user") from exc
+
+        pc = await find_pc_by_user(db, campaign_id, user_uuid)
+        if pc is None:
+            raise PbpTurnError("No tienes un personaje en esta campaña")
+
+        if str(pc.id) != str(current_entity_id):
+            holder = await resolve_current_turn_display_name(db, campaign_id, state)
+            label = holder or "otro jugador"
+            raise PbpTurnError(f"Solo quien tiene el turno puede avanzarlo. Turno de {label}.")
+        return
+
+    current_player_id = state.turn_management.current_turn_player_id
+    if current_player_id and str(user_id) != str(current_player_id):
+        holder = await resolve_current_turn_display_name(db, campaign_id, state)
+        label = holder or "otro jugador"
+        raise PbpTurnError(f"Solo quien tiene el turno puede avanzarlo. Turno de {label}.")
+
+
 async def assert_pbp_post_allowed(
     db: AsyncSession,
     campaign_id: uuid.UUID,
@@ -303,7 +344,7 @@ async def assert_pbp_post_allowed(
 
 
 def advance_pbp_turn(state: SceneState) -> None:
-    """Advance to the next holder after a valid player action."""
+    """Advance to the next holder when the current player ends their turn."""
     if not is_pbp_enforcement_active(state):
         return
 

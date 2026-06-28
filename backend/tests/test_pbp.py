@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -8,6 +8,7 @@ from app.models.campaign import CampaignEntity, Scene
 from app.rules.dnd5e.plugin import Dnd5ePlugin
 from app.schemas.scene import (
     InitiativeEntry,
+    PostMessageRequest,
     SceneContext,
     SceneMetadata,
     SceneState,
@@ -17,6 +18,7 @@ from app.schemas.scene import (
 from app.services.pbp_turn import (
     PbpTurnError,
     advance_pbp_turn,
+    assert_pbp_advance_allowed,
     assert_pbp_post_allowed,
     build_default_pbp_order,
     ensure_pbp_initiative_order,
@@ -24,7 +26,9 @@ from app.services.pbp_turn import (
     sort_initiative_entries,
 )
 from app.services.scenes import (
+    SceneServiceError,
     advance_scene_pbp_turn,
+    post_message,
     update_scene_turn_management,
 )
 
@@ -148,6 +152,35 @@ def test_assert_pbp_post_allowed_master_bypass():
     asyncio.run(assert_pbp_post_allowed(db, uuid.uuid4(), state, "master-id", "MASTER"))
 
 
+def test_assert_pbp_advance_allowed_blocks_wrong_player():
+    state = _pbp_state()
+    db = AsyncMock()
+
+    async def run_test():
+        with pytest.raises(PbpTurnError, match="Solo quien tiene el turno"):
+            await assert_pbp_advance_allowed(
+                db,
+                uuid.uuid4(),
+                state,
+                "player-b",
+                "PLAYER",
+            )
+
+    asyncio.run(run_test())
+
+
+def test_assert_pbp_advance_allowed_current_player():
+    state = _pbp_state()
+    db = AsyncMock()
+    asyncio.run(assert_pbp_advance_allowed(db, uuid.uuid4(), state, "player-a", "PLAYER"))
+
+
+def test_assert_pbp_advance_allowed_master_bypass():
+    state = _pbp_state()
+    db = AsyncMock()
+    asyncio.run(assert_pbp_advance_allowed(db, uuid.uuid4(), state, "master-id", "MASTER"))
+
+
 def test_ensure_pbp_initiative_order_populates_from_scene_entities():
     campaign_id = uuid.uuid4()
     norman = _make_pc(name="Norman", present=True, user_id="player-1")
@@ -231,7 +264,8 @@ def test_update_scene_turn_management_enables_pbp_and_builds_order():
 
 def test_advance_scene_pbp_turn_advances_entity_order():
     campaign_id = uuid.uuid4()
-    norman = _make_pc(name="Norman", present=True, user_id="player-1")
+    player_id = uuid.uuid4()
+    norman = _make_pc(name="Norman", present=True, user_id=str(player_id))
     arturo = _make_npc(name="Arturo")
 
     state = SceneState(
@@ -259,10 +293,109 @@ def test_advance_scene_pbp_turn_advances_entity_order():
     db.refresh = AsyncMock()
 
     async def run_test():
-        response = await advance_scene_pbp_turn(db, scene)
+        with patch(
+            "app.services.pbp_turn.find_pc_by_user",
+            new_callable=AsyncMock,
+            return_value=norman,
+        ):
+            response = await advance_scene_pbp_turn(
+                db,
+                scene,
+                user_id=str(player_id),
+                user_role="PLAYER",
+            )
         assert response.scene_state.combat.current_turn_entity_id == str(arturo.id)
 
     asyncio.run(run_test())
+
+
+def test_advance_scene_pbp_turn_rejects_wrong_player():
+    campaign_id = uuid.uuid4()
+    norman_user_id = uuid.uuid4()
+    other_user_id = uuid.uuid4()
+    norman = _make_pc(name="Norman", present=True, user_id=str(norman_user_id))
+    arturo = _make_npc(name="Arturo")
+
+    state = SceneState(
+        metadata=SceneMetadata(campaign_id=str(campaign_id), status="ACTIVE"),
+        context=SceneContext(active_npc_ids=[str(arturo.id)]),
+        turn_management=TurnManagement(pbp_enabled=True, turn_order=[]),
+    )
+    state.combat.initiative_order = [
+        InitiativeEntry(entity_id=str(norman.id), entity_type="PC", display_name="Norman"),
+        InitiativeEntry(entity_id=str(arturo.id), entity_type="NPC", display_name="Arturo"),
+    ]
+    state.combat.current_turn_entity_id = str(norman.id)
+
+    scene = Scene(
+        id=uuid.uuid4(),
+        campaign_id=campaign_id,
+        scene_number=1,
+        status="ACTIVE",
+        scene_state=state.model_dump(),
+    )
+
+    db = AsyncMock()
+    other_pc = _make_pc(name="Other", present=True, user_id=str(other_user_id))
+
+    async def run_test():
+        with patch(
+            "app.services.pbp_turn.find_pc_by_user",
+            new_callable=AsyncMock,
+            return_value=other_pc,
+        ):
+            with pytest.raises(SceneServiceError, match="Solo quien tiene el turno"):
+                await advance_scene_pbp_turn(
+                    db,
+                    scene,
+                    user_id=str(other_user_id),
+                    user_role="PLAYER",
+                )
+
+    asyncio.run(run_test())
+
+
+@pytest.mark.asyncio
+async def test_post_message_does_not_auto_advance_turn():
+    campaign_id = uuid.uuid4()
+    player_id = "player-a"
+    state = _pbp_state(turn_order=[player_id, "player-b"])
+    scene = Scene(
+        id=uuid.uuid4(),
+        campaign_id=campaign_id,
+        scene_number=1,
+        status="ACTIVE",
+        scene_state=state.model_dump(),
+    )
+
+    with (
+        patch("app.services.scenes.load_scene_state", return_value=state),
+        patch("app.services.scenes.save_scene_state"),
+        patch("app.services.scenes.ensure_scene_post_allowed"),
+        patch("app.services.scenes.assert_pbp_post_allowed", new_callable=AsyncMock),
+        patch(
+            "app.services.scenes.resolve_message_speaker_fields",
+            new_callable=AsyncMock,
+            return_value={},
+        ),
+        patch("app.services.scenes.append_chat_message", new_callable=AsyncMock),
+        patch("app.services.scenes.rag_service.index_message", new_callable=AsyncMock),
+        patch("app.services.scenes.advance_pbp_turn") as advance_mock,
+    ):
+        db = AsyncMock()
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock()
+
+        await post_message(
+            db,
+            scene,
+            player_id,
+            PostMessageRequest(type="SPEAK", text="Hola a todos."),
+            sender_role="PLAYER",
+        )
+
+        advance_mock.assert_not_called()
+        assert state.turn_management.current_turn_player_id == player_id
 
 
 def test_update_scene_turn_management_assigns_turn_to_entity():

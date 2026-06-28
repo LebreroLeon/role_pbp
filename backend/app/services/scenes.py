@@ -55,6 +55,7 @@ from app.services.master import utc_now_iso
 from app.services.pbp_turn import (
     PbpTurnError,
     advance_pbp_turn,
+    assert_pbp_advance_allowed,
     assert_pbp_post_allowed,
     ensure_pbp_initiative_order,
     fetch_entities_by_id,
@@ -856,11 +857,6 @@ async def post_message(
         **speaker_fields,
     }
     await append_chat_message(db, scene, state, message)
-
-    if sender_role != "MASTER" and msg_type in NARRATIVE_MESSAGE_TYPES:
-        advance_pbp_turn(state)
-        if state.combat.initiative_order:
-            await sync_turn_management_from_initiative(db, scene.campaign_id, state)
 
     save_scene_state(scene, state)
     await db.commit()
@@ -1700,10 +1696,20 @@ async def update_scene_turn_management(
 async def advance_scene_pbp_turn(
     db: AsyncSession,
     scene: Scene,
+    *,
+    user_id: str,
+    user_role: str,
 ) -> SceneResponse:
     state = load_scene_state(scene)
     if not is_pbp_enforcement_active(state):
         raise SceneServiceError("PBP mode is not enabled")
+
+    try:
+        await assert_pbp_advance_allowed(
+            db, scene.campaign_id, state, user_id, user_role
+        )
+    except PbpTurnError as exc:
+        raise SceneServiceError(str(exc)) from exc
 
     if not state.combat.initiative_order:
         populated = await ensure_pbp_initiative_order(db, scene.campaign_id, state)

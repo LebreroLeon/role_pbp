@@ -498,13 +498,18 @@ async def advance_turn_management_route(
     db: AsyncSession = Depends(get_db),
 ) -> SceneResponse:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
-    await require_campaign_master(db, current_user, scene.campaign_id)
+    role = await require_campaign_member(db, current_user, scene.campaign_id)
     try:
-        await advance_scene_pbp_turn(db, scene)
+        await advance_scene_pbp_turn(
+            db,
+            scene,
+            user_id=str(current_user.id),
+            user_role=role,
+        )
     except SceneServiceError as exc:
         raise scene_service_error_to_http(exc) from exc
 
-    return await broadcast_scene_update(db, scene, requester_role="MASTER")
+    return await broadcast_scene_update(db, scene, requester_role=role)
 
 
 @router.post("/{scene_id}/combat/initiative", response_model=SceneResponse)

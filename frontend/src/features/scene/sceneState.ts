@@ -211,6 +211,16 @@ export function canUserPostInPbp(
   return currentPlayerId === currentUserId;
 }
 
+export function canUserAdvancePbpTurn(
+  state: SceneStateInput,
+  currentUserId: string,
+  isMaster: boolean,
+  entities: { id: string; entity_type: string; document: Record<string, unknown> }[],
+): boolean {
+  if (!isPbpEnabled(state)) return false;
+  return canUserPostInPbp(state, currentUserId, isMaster, entities);
+}
+
 const HIDDEN_NPC_LABEL = "Desconocido";
 
 function formatTurnHolderLabel(characterName: string, playerDisplayName?: string | null): string {

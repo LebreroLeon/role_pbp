@@ -516,6 +516,7 @@ export function ChatPage() {
             sceneState={currentScene.scene_state}
             entities={entities}
             members={memberLookup}
+            currentUserId={currentUserId}
             isMaster={Boolean(isMaster)}
             onSceneUpdate={handleSceneUpdate}
           />
