@@ -32,7 +32,7 @@ def _make_closed_scene(campaign_id: uuid.UUID) -> Scene:
             "context": {"location_id": None, "active_npc_ids": [], "hidden_npc_ids": [], "scene_objective": None},
             "turn_management": {"current_turn_player_id": None, "turn_order": []},
             "memory_settings": {
-                "max_chat_buffer_size": 20,
+                "max_chat_buffer_size": 60,
                 "rag_top_k_matches": 3,
                 "max_player_lore_queries_per_scene": 3,
             },

@@ -45,7 +45,7 @@
       "type": "object",
       "required": ["max_chat_buffer_size", "rag_top_k_matches", "max_player_lore_queries_per_scene"],
       "properties": {
-        "max_chat_buffer_size": { "type": "integer", "minimum": 5, "maximum": 50, "default": 20 },
+        "max_chat_buffer_size": { "type": "integer", "minimum": 5, "maximum": 100, "default": 60 },
         "rag_top_k_matches": { "type": "integer", "minimum": 1, "maximum": 10, "default": 3 },
         "max_player_lore_queries_per_scene": { "type": "integer", "minimum": 0, "maximum": 10, "default": 3 }
       },
@@ -160,7 +160,7 @@
         "turn_order": ["00000000-0000-4000-8000-000000000040", "00000000-0000-4000-8000-000000000041", "master"]
       },
       "memory_settings": {
-        "max_chat_buffer_size": 20,
+        "max_chat_buffer_size": 60,
         "rag_top_k_matches": 3,
         "max_player_lore_queries_per_scene": 3
       },

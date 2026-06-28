@@ -31,7 +31,7 @@ export type LegacyFlatSceneState = {
 export type SceneStateInput = SceneState | LegacyFlatSceneState;
 
 const DEFAULT_MEMORY_SETTINGS: MemorySettings = {
-  max_chat_buffer_size: 20,
+  max_chat_buffer_size: 60,
   rag_top_k_matches: 3,
   max_player_lore_queries_per_scene: 3,
 };

@@ -36,7 +36,7 @@ def _make_scene(campaign_id: uuid.UUID | None = None) -> Scene:
         scene_state={
             "metadata": {"campaign_id": str(cid), "status": "ACTIVE"},
             "chat_buffer": [],
-            "memory_settings": {"max_chat_buffer_size": 20},
+            "memory_settings": {"max_chat_buffer_size": 60},
         },
     )
 

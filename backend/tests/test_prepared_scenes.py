@@ -45,7 +45,7 @@ def _make_scene(*, status: str = "PREPARED", scene_number: int | None = 1, campa
             },
             "turn_management": {"current_turn_player_id": None, "turn_order": []},
             "memory_settings": {
-                "max_chat_buffer_size": 20,
+                "max_chat_buffer_size": 60,
                 "rag_top_k_matches": 3,
                 "max_player_lore_queries_per_scene": 3,
             },

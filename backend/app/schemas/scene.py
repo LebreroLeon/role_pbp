@@ -12,8 +12,12 @@ SpeakerType = Literal["MASTER", "NPC", "PC", "NARRATOR"]
 TurnOrderSource = Literal["initiative", "attribute", "manual"]
 
 
+DEFAULT_MAX_CHAT_BUFFER_SIZE = 60
+LEGACY_MAX_CHAT_BUFFER_SIZE = 20
+
+
 class MemorySettings(BaseModel):
-    max_chat_buffer_size: int = 20
+    max_chat_buffer_size: int = DEFAULT_MAX_CHAT_BUFFER_SIZE
     rag_top_k_matches: int = 3
     max_player_lore_queries_per_scene: int = 3
 

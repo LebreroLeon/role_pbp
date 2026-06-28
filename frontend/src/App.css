@@ -936,18 +936,36 @@
 /* OOC page: fill remaining viewport below campaign chrome */
 body:has(.ooc-page) {
   overflow: hidden;
+  height: 100dvh;
+  max-height: 100dvh;
+}
+
+body:has(.ooc-page) #root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
 }
 
 .app-shell:has(.ooc-page) {
-  height: 100dvh;
-  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
   overflow: hidden;
+}
+
+.app-shell:has(.ooc-page) > .app-header {
+  flex-shrink: 0;
 }
 
 .app-main:has(.ooc-page) {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
   padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
@@ -956,7 +974,7 @@ body:has(.ooc-page) {
 .campaign-shell:has(.ooc-page) {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
   gap: 0.85rem;
@@ -969,7 +987,7 @@ body:has(.ooc-page) {
 .campaign-shell__content:has(.ooc-page) {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
 }
@@ -977,7 +995,7 @@ body:has(.ooc-page) {
 .ooc-page {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
   width: 100%;
@@ -989,6 +1007,11 @@ body:has(.ooc-page) {
   min-height: 0;
 }
 
+.ooc-page--loading {
+  justify-content: center;
+  align-items: center;
+}
+
 .ooc-chat__tabs {
   flex-shrink: 0;
   margin-bottom: 0.75rem;
@@ -997,7 +1020,7 @@ body:has(.ooc-page) {
 .ooc-chat.chat-panel {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
 }
@@ -2861,7 +2884,7 @@ body:has(.ooc-page) {
 .ooc-page .panel {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
   max-width: none;
@@ -3862,12 +3885,45 @@ body:has(.ooc-page) {
     grid-template-columns: 1fr;
   }
 
+  body:has(.ooc-page) {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+
+  .app-main:has(.ooc-page) {
+    padding: 0.65rem 0.65rem max(0.65rem, env(safe-area-inset-bottom, 0px));
+  }
+
   .campaign-shell:has(.ooc-page) {
-    gap: 0.65rem;
+    gap: 0.5rem;
+  }
+
+  .campaign-shell:has(.ooc-page) .breadcrumbs {
+    display: none;
+  }
+
+  .campaign-shell:has(.ooc-page) .campaign-shell__header {
+    padding: 0.75rem 0.85rem;
+  }
+
+  .campaign-shell:has(.ooc-page) .campaign-shell__title {
+    font-size: 1.25rem;
+  }
+
+  .campaign-shell:has(.ooc-page) .campaign-shell__meta {
+    display: none;
   }
 
   .ooc-chat.chat-panel {
     padding: 0.85rem 0.9rem;
+  }
+
+  .ooc-chat.chat-panel > .panel-header .panel-header__title-row p {
+    display: none;
   }
 
   .ooc-chat.chat-panel > .panel-header {

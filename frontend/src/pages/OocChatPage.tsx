@@ -139,7 +139,11 @@ export function OocChatPage() {
   }, [hydrated, channelMessages.length, messages.length, activeChannel, markOocRead]);
 
   if (isLoading && !hydrated) {
-    return <p className="muted">Cargando chat OOC...</p>;
+    return (
+      <div className="ooc-page ooc-page--loading">
+        <p className="muted">Cargando chat OOC...</p>
+      </div>
+    );
   }
 
   return (

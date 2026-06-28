@@ -406,7 +406,7 @@ async def test_build_master_assist_rules_query_uses_manual_rag_and_rules_prompt(
 
     mock_state = MagicMock()
     mock_state.memory_settings.rag_top_k_matches = 3
-    mock_state.memory_settings.max_chat_buffer_size = 20
+    mock_state.memory_settings.max_chat_buffer_size = 60
     mock_state.state_flags.model_dump.return_value = {}
     mock_state.context.model_dump.return_value = {}
     mock_state.chat_buffer = []
@@ -470,7 +470,7 @@ async def test_build_master_assist_rules_query_fallback_without_llm():
 
     mock_state = MagicMock()
     mock_state.memory_settings.rag_top_k_matches = 3
-    mock_state.memory_settings.max_chat_buffer_size = 20
+    mock_state.memory_settings.max_chat_buffer_size = 60
     mock_state.state_flags.model_dump.return_value = {}
     mock_state.context.model_dump.return_value = {}
     mock_state.chat_buffer = []
@@ -523,7 +523,7 @@ async def test_build_master_assist_heavy_armor_price_uses_rules_prompt_in_spanis
 
     mock_state = MagicMock()
     mock_state.memory_settings.rag_top_k_matches = 3
-    mock_state.memory_settings.max_chat_buffer_size = 20
+    mock_state.memory_settings.max_chat_buffer_size = 60
     mock_state.state_flags.model_dump.return_value = {}
     mock_state.context.model_dump.return_value = {}
     mock_state.chat_buffer = []
@@ -583,7 +583,7 @@ async def test_build_master_assist_narrative_query_uses_narrative_prompt_and_san
 
     mock_state = MagicMock()
     mock_state.memory_settings.rag_top_k_matches = 3
-    mock_state.memory_settings.max_chat_buffer_size = 20
+    mock_state.memory_settings.max_chat_buffer_size = 60
     mock_state.state_flags.model_dump.return_value = {}
     mock_state.context.model_dump.return_value = {}
     mock_state.chat_buffer = []
@@ -659,7 +659,7 @@ async def test_build_master_assist_continue_story_query_uses_narrative_prompt():
 
     mock_state = MagicMock()
     mock_state.memory_settings.rag_top_k_matches = 3
-    mock_state.memory_settings.max_chat_buffer_size = 20
+    mock_state.memory_settings.max_chat_buffer_size = 60
     mock_state.state_flags.model_dump.return_value = {}
     mock_state.context.model_dump.return_value = {}
     mock_state.chat_buffer = []
@@ -714,7 +714,7 @@ async def test_build_master_assist_explicit_narrative_mode_overrides_creative_qu
 
     mock_state = MagicMock()
     mock_state.memory_settings.rag_top_k_matches = 3
-    mock_state.memory_settings.max_chat_buffer_size = 20
+    mock_state.memory_settings.max_chat_buffer_size = 60
     mock_state.state_flags.model_dump.return_value = {}
     mock_state.context.model_dump.return_value = {}
     mock_state.chat_buffer = []
@@ -806,7 +806,7 @@ async def test_build_master_assist_injects_scene_location_into_prompt():
 
     mock_state = MagicMock()
     mock_state.memory_settings.rag_top_k_matches = 3
-    mock_state.memory_settings.max_chat_buffer_size = 20
+    mock_state.memory_settings.max_chat_buffer_size = 60
     mock_state.state_flags.model_dump.return_value = {}
     mock_state.context.location_id = str(location_id)
     mock_state.context.model_dump.return_value = {"location_id": str(location_id)}
@@ -865,7 +865,7 @@ async def test_build_master_assist_campaign_mode_uses_campaign_prompt_and_skips_
 
     mock_state = MagicMock()
     mock_state.memory_settings.rag_top_k_matches = 3
-    mock_state.memory_settings.max_chat_buffer_size = 20
+    mock_state.memory_settings.max_chat_buffer_size = 60
     mock_state.state_flags.model_dump.return_value = {}
     mock_state.context.model_dump.return_value = {}
     mock_state.chat_buffer = []

@@ -10,8 +10,10 @@ from app.schemas.scene import (
     ChatMessage,
     CloseSceneResponse,
     CombatState,
+    DEFAULT_MAX_CHAT_BUFFER_SIZE,
     DiceRollRequest,
     InitiativeEntry,
+    LEGACY_MAX_CHAT_BUFFER_SIZE,
     MasterBriefingLocation,
     MasterBriefingNpcEntry,
     MasterBriefingOpenScene,
@@ -105,8 +107,11 @@ def is_flat_scene_state(data: dict) -> bool:
 
 def _coerce_memory_settings(raw: object) -> dict:
     if isinstance(raw, dict):
+        max_chat_buffer_size = raw.get("max_chat_buffer_size", DEFAULT_MAX_CHAT_BUFFER_SIZE)
+        if max_chat_buffer_size == LEGACY_MAX_CHAT_BUFFER_SIZE:
+            max_chat_buffer_size = DEFAULT_MAX_CHAT_BUFFER_SIZE
         return {
-            "max_chat_buffer_size": raw.get("max_chat_buffer_size", 20),
+            "max_chat_buffer_size": max_chat_buffer_size,
             "rag_top_k_matches": raw.get("rag_top_k_matches", 3),
             "max_player_lore_queries_per_scene": raw.get("max_player_lore_queries_per_scene", 3),
         }
@@ -180,6 +185,7 @@ def migrate_scene_state(data: dict, *, scene_status: str | None = None) -> dict:
             context.setdefault("master_scene_scratchpad", None)
             context.setdefault("opening_narration", None)
             context.setdefault("prepared_entity_refs", [])
+        migrated["memory_settings"] = _coerce_memory_settings(migrated.get("memory_settings"))
         return migrated
 
     memory_settings = _coerce_memory_settings(data.get("memory_settings"))
