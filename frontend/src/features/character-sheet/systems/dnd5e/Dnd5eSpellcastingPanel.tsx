@@ -81,6 +81,23 @@ export function Dnd5eSpellcastingPanel({
     append(defaultSpellEntry(level));
   }
 
+  const slotLevels = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+
+  function isSlotLevelRelevant(level: number): boolean {
+    const slot = slots.find((entry) => entry.level === level);
+    if (!slot) return false;
+    if (slot.total > 0 || slot.used > 0) return true;
+    return spellsForLevel(level).length > 0;
+  }
+
+  function addSlotLevel(level: number) {
+    const slotIndex = slots.findIndex((slot) => slot.level === level);
+    if (slotIndex < 0) return;
+    if ((slots[slotIndex]?.total ?? 0) === 0) {
+      setValue(`spellcasting.slots.${slotIndex}.total`, 1, { shouldDirty: true });
+    }
+  }
+
   function resetSlotUsed(level: number) {
     const slotIndex = slots.findIndex((slot) => slot.level === level);
     if (slotIndex < 0) return;
@@ -166,42 +183,88 @@ export function Dnd5eSpellcastingPanel({
         </div>
       </section>
 
-      <section className="sheet-section">
+      <section className="sheet-section sheet-spellcasting__slots">
         <h3>Espacios de conjuro</h3>
-        <div className="sheet-spell-slots">
-          {slots.map((slot, index) => (
-            <div key={slot.level} className="sheet-spell-slot">
-              <span className="sheet-spell-slot__label">{DND5E_SPELL_LEVEL_LABELS[slot.level]}</span>
-              <label className="form-field form-field--compact">
-                <span>Total</span>
-                <input
-                  type="number"
-                  min={0}
-                  disabled={disabled}
-                  {...register(`spellcasting.slots.${index}.total`, { valueAsNumber: true })}
-                />
-              </label>
-              <label className="form-field form-field--compact">
-                <span>Usados</span>
-                <input
-                  type="number"
-                  min={0}
-                  disabled={disabled}
-                  {...register(`spellcasting.slots.${index}.used`, { valueAsNumber: true })}
-                />
-              </label>
-              <Button
-                type="button"
-                variant="secondary"
-                className="sheet-spell-slot__reset"
-                disabled={disabled}
-                onClick={() => resetSlotUsed(slot.level)}
-              >
-                Restaurar
-              </Button>
-            </div>
-          ))}
-        </div>
+        {(() => {
+          const levelsWithSlots = slotLevels.filter((level) => isSlotLevelRelevant(level));
+          const emptySlotLevels = slotLevels.filter((level) => !isSlotLevelRelevant(level));
+
+          return (
+            <>
+              <div className="sheet-spell-slots">
+                {levelsWithSlots.map((level) => {
+                  const slotIndex = slots.findIndex((slot) => slot.level === level);
+                  const slot = slots[slotIndex];
+                  if (slotIndex < 0 || !slot) return null;
+
+                  return (
+                    <CollapsibleSection
+                      key={level}
+                      title={DND5E_SPELL_LEVEL_LABELS[level]}
+                      description={`${slot.used ?? 0}/${slot.total ?? 0}`}
+                      className="sheet-spell-level-collapsible sheet-spell-slot-collapsible"
+                    >
+                      <div className="sheet-spell-slot">
+                        <label className="form-field form-field--compact">
+                          <span>Total</span>
+                          <input
+                            type="number"
+                            min={0}
+                            disabled={disabled}
+                            {...register(`spellcasting.slots.${slotIndex}.total`, { valueAsNumber: true })}
+                          />
+                        </label>
+                        <label className="form-field form-field--compact">
+                          <span>Usados</span>
+                          <input
+                            type="number"
+                            min={0}
+                            disabled={disabled}
+                            {...register(`spellcasting.slots.${slotIndex}.used`, { valueAsNumber: true })}
+                          />
+                        </label>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="sheet-spell-slot__reset"
+                          disabled={disabled}
+                          onClick={() => resetSlotUsed(level)}
+                        >
+                          Restaurar
+                        </Button>
+                      </div>
+                    </CollapsibleSection>
+                  );
+                })}
+              </div>
+              {emptySlotLevels.length > 0 && (
+                <div className="sheet-spell-level-add-other">
+                  <label className="sheet-spell-level-add-other__field">
+                    <span>Añadir espacios en otro nivel</span>
+                    <select
+                      disabled={disabled}
+                      defaultValue=""
+                      onChange={(event) => {
+                        const level = Number(event.target.value);
+                        if (!Number.isNaN(level)) {
+                          addSlotLevel(level);
+                          event.target.value = "";
+                        }
+                      }}
+                    >
+                      <option value="">Seleccionar nivel…</option>
+                      {emptySlotLevels.map((level) => (
+                        <option key={level} value={level}>
+                          {DND5E_SPELL_LEVEL_LABELS[level]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </section>
 
       <section className="sheet-section sheet-spellcasting__list">

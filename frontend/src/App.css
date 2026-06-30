@@ -2216,6 +2216,14 @@
   gap: 0.45rem;
 }
 
+.sheet-spellcasting__slots > h3 {
+  margin-bottom: 0.35rem;
+}
+
+.sheet-spell-slot-collapsible .sheet-spell-slot {
+  grid-template-columns: 1fr 1fr auto;
+}
+
 .sheet-spell-slot {
   display: grid;
   grid-template-columns: minmax(3.5rem, auto) 1fr 1fr auto;
