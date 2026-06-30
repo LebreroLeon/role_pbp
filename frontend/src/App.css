@@ -2241,6 +2241,25 @@
   font-size: 0.78rem;
 }
 
+.sheet-spell-level-collapsible {
+  margin-top: 0.35rem;
+  box-shadow: none;
+}
+
+.sheet-spell-level-collapsible .collapsible-section__body {
+  padding-top: 0.35rem;
+}
+
+.sheet-spellcasting__list > h3 {
+  margin-bottom: 0.35rem;
+}
+
+.sheet-spell-level__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
 .sheet-spell-level__empty {
   margin: 0;
   font-size: 0.8rem;
@@ -2331,6 +2350,87 @@
   flex-shrink: 0;
   padding: 0.25rem 0.45rem;
   font-size: 0.72rem;
+}
+
+.sheet-spell-entry__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.sheet-spell-entry__post {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.72rem;
+}
+
+.sheet-spell-entry__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.sheet-spell-entry__description textarea {
+  margin-top: 0.2rem;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.8rem;
+}
+
+.sheet-spell-entry__extra {
+  font-size: 0.78rem;
+}
+
+.sheet-spell-entry__extra summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-muted);
+  padding: 0.1rem 0;
+}
+
+.sheet-spell-entry__extra summary::-webkit-details-marker {
+  display: none;
+}
+
+.sheet-spell-entry__extra summary svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.sheet-spell-entry__extra[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.sheet-spell-entry__extra-fields {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+
+.sheet-spell-toggle--concentration {
+  background: rgba(167, 139, 250, 0.06);
+}
+
+.sheet-spell-toggle--concentration input {
+  accent-color: var(--accent-violet, #a78bfa);
+}
+
+.sheet-spell-toggle--concentration:has(input:checked) {
+  border-color: rgba(167, 139, 250, 0.45);
+  background: rgba(167, 139, 250, 0.12);
+}
+
+@media (max-width: 640px) {
+  .sheet-spell-entry__fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .sheet-spell-entry__notes {

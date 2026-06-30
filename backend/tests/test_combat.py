@@ -533,8 +533,15 @@ class TestExecuteInitiative:
     def test_rolls_only_track_entities_and_sorts_descending(self, monkeypatch):
         monkeypatch.setattr("random.randint", lambda _a, _b: 10)
 
-        fast = _make_entity(name="Rápido", user_id="player-1")
-        slow = _make_entity(name="Lento", user_id="player-2")
+        fast_sheet = Dnd5ePlugin().default_pc_sheet()
+        fast_sheet["abilities"] = dict(fast_sheet["abilities"])
+        fast_sheet["abilities"]["dex"] = 18
+        slow_sheet = Dnd5ePlugin().default_pc_sheet()
+        slow_sheet["abilities"] = dict(slow_sheet["abilities"])
+        slow_sheet["abilities"]["dex"] = 8
+
+        fast = _make_entity(name="Rápido", user_id="player-1", sheet=fast_sheet)
+        slow = _make_entity(name="Lento", user_id="player-2", sheet=slow_sheet)
         off_track = _make_entity(name="Fuera", user_id="player-3", present=False)
 
         db = AsyncMock()
@@ -558,6 +565,10 @@ class TestExecuteInitiative:
             "app.services.pbp_turn.fetch_entities_by_id",
             AsyncMock(side_effect=fake_fetch_entities_by_id),
         )
+        monkeypatch.setattr(
+            "app.services.pbp_turn.sync_turn_management_from_initiative",
+            AsyncMock(),
+        )
 
         result = asyncio.run(
             execute_initiative(
@@ -572,7 +583,10 @@ class TestExecuteInitiative:
         )
 
         rolled_ids = [entry.entity_id for entry in state.combat.initiative_order]
-        assert rolled_ids == track_ids
+        assert rolled_ids == [str(fast.id), str(slow.id)]
         assert off_track.id not in {uuid.UUID(entity_id) for entity_id in rolled_ids}
         assert state.combat.is_active is False
+        assert len(result.messages) == 1
+        assert result.messages[0]["type"] == "COMBAT"
         assert result.messages[0]["combat_event"]["kind"] == "INITIATIVE_ROLLED"
+        assert result.messages[0]["text"] == "Iniciativa: Rápido (14), Lento (9)"

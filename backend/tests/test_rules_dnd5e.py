@@ -1,7 +1,7 @@
 import pytest
 
 from app.rules.dnd5e.plugin import Dnd5ePlugin, ability_modifier
-from app.rules.dnd5e.schema import Dnd5eSheet
+from app.rules.dnd5e.schema import Dnd5eSheet, SpellEntry
 from app.rules.registry import get_plugin
 from app.rules.base import RollContext, AttackContext
 from app.services import dice as dice_service
@@ -118,6 +118,52 @@ class TestDnd5eSchema:
         assert validated.spellcasting.save_dc == 16
         assert validated.spellcasting.spells[1].name == "Bola de fuego"
 
+    def test_spell_entry_backward_compatible_defaults(self):
+        spell = SpellEntry(name="Escudo", level=1, prepared=True)
+        assert spell.casting_time == ""
+        assert spell.concentration is False
+        assert spell.range == ""
+        assert spell.area == ""
+        assert spell.components == ""
+        assert spell.duration == ""
+        assert spell.school == ""
+        assert spell.resolution == ""
+        assert spell.damage_type == ""
+        assert spell.higher_levels == ""
+        assert spell.end_conditions == ""
+
+    def test_validate_spell_with_extended_fields(self, plugin: Dnd5ePlugin):
+        sheet = plugin.default_pc_sheet()
+        sheet["spellcasting"] = {
+            "ability": "int",
+            "spells": [
+                {
+                    "name": "Bola de fuego",
+                    "level": 3,
+                    "prepared": True,
+                    "ritual": False,
+                    "notes": "Una bola de fuego ardiente.",
+                    "casting_time": "Acción",
+                    "concentration": False,
+                    "range": "45 m",
+                    "area": "Esfera de 6 m",
+                    "components": "V, S, M",
+                    "duration": "Instantánea",
+                    "school": "Evocación",
+                    "resolution": "Tirada de salvación",
+                    "damage_type": "fuego",
+                    "higher_levels": "+1d6 por nivel por encima del 3",
+                    "end_conditions": "",
+                }
+            ],
+        }
+        validated = plugin.validate_pc_sheet(sheet)
+        fireball = validated.spellcasting.spells[0]
+        assert fireball.casting_time == "Acción"
+        assert fireball.school == "Evocación"
+        assert fireball.damage_type == "fuego"
+        assert fireball.higher_levels.startswith("+1d6")
+
     def test_ability_modifier(self):
         assert ability_modifier(10) == 0
         assert ability_modifier(14) == 2
@@ -147,7 +193,19 @@ class TestDnd5eRolls:
         assert result.details["roll_label"] == "Percepción (Sabiduría)"
         assert result.details["modifier_breakdown"]
         assert "Percepción" in result.chat_summary
-        assert "1d20=15" in result.chat_summary
+        assert "1d20+2 = 15+2 = 17" in result.chat_summary
+
+    def test_initiative_roll_shows_natural_plus_modifier(self, plugin: Dnd5ePlugin, sample_sheet: dict, monkeypatch):
+        monkeypatch.setattr("random.randint", lambda _a, b: 11 if b == 20 else 1)
+        sheet = dict(sample_sheet)
+        sheet["abilities"] = dict(sheet["abilities"])
+        sheet["abilities"]["dex"] = 18
+        sheet["initiative_modifier"] = 0
+
+        result = plugin.resolve_roll("initiative", sheet, RollContext())
+
+        assert result.total == 15
+        assert result.chat_summary == "Iniciativa: 1d20+4 = 11+4 = 15"
 
     def test_ability_check_includes_spanish_label(self, plugin: Dnd5ePlugin, sample_sheet: dict, monkeypatch):
         monkeypatch.setattr("random.randint", lambda _a, b: 12 if b == 20 else 1)

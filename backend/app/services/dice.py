@@ -3,10 +3,9 @@ import re
 
 from app.rules.base import RollContext, RollResult
 
-_DICE_PATTERN = re.compile(
-    r"^(?:(\d+)d(\d+)(?:([+-]\d+))?|(\d+)([+-]\d+)?)$",
-    re.IGNORECASE,
-)
+_DICE_TERM_RE = re.compile(r"([+-]?)(\d+)d(\d+)", re.IGNORECASE)
+_MODIFIER_TERM_RE = re.compile(r"([+-])(\d+)(?!d)", re.IGNORECASE)
+_LEGACY_SIDES_RE = re.compile(r"^(\d+)([+-]\d+)?$", re.IGNORECASE)
 
 _D20_ROLL_TYPES = frozenset({"dnd5e"})
 
@@ -99,13 +98,68 @@ def build_generic_roll_details(expression: str, result: dict) -> dict:
     }
 
 
+def _parse_dice_expression(expression: str) -> tuple[list[tuple[int, int]], int]:
+    """Parse NdX terms and flat modifiers, e.g. 1d20+3+2d6 or 2d6+1d4+2."""
+    expr = expression.strip().lower().replace(" ", "")
+    if not expr:
+        raise ValueError("Invalid dice expression: (empty)")
+
+    if "d" not in expr:
+        legacy = _LEGACY_SIDES_RE.match(expr)
+        if legacy:
+            sides = int(legacy.group(1))
+            modifier = int(legacy.group(2) or 0)
+            if sides < 1:
+                raise ValueError(f"Invalid dice expression: {expression}")
+            return [(1, sides)], modifier
+        raise ValueError(f"Invalid dice expression: {expression}")
+
+    dice_groups: list[tuple[int, int]] = []
+    flat_modifier = 0
+    pos = 0
+    first = True
+
+    while pos < len(expr):
+        dice_match = _DICE_TERM_RE.match(expr, pos)
+        if dice_match:
+            sign = dice_match.group(1)
+            if sign == "-":
+                raise ValueError(f"Negative dice not supported: {expression}")
+            count = int(dice_match.group(2))
+            sides = int(dice_match.group(3))
+            if count < 1 or sides < 1:
+                raise ValueError("Dice count and sides must be positive")
+            dice_groups.append((count, sides))
+            pos = dice_match.end()
+            first = False
+            continue
+
+        mod_match = _MODIFIER_TERM_RE.match(expr, pos)
+        if mod_match:
+            if first:
+                raise ValueError(f"Invalid dice expression: {expression}")
+            sign = mod_match.group(1)
+            value = int(mod_match.group(2))
+            flat_modifier += value if sign == "+" else -value
+            pos = mod_match.end()
+            first = False
+            continue
+
+        raise ValueError(f"Invalid dice expression: {expression}")
+
+    if not dice_groups:
+        raise ValueError(f"Invalid dice expression: {expression}")
+
+    return dice_groups, flat_modifier
+
+
 def is_single_d20_expression(expression: str) -> bool:
     """True when expression is exactly one d20 (optional inline modifier)."""
-    expression = expression.strip().lower().replace(" ", "")
-    match = _DICE_PATTERN.match(expression)
-    if not match or not match.group(1):
+    try:
+        dice_groups, _ = _parse_dice_expression(expression)
+    except ValueError:
         return False
-    return int(match.group(1)) == 1 and int(match.group(2)) == 20
+    return len(dice_groups) == 1 and dice_groups[0] == (1, 20)
 
 
 def roll_dice(
@@ -139,11 +193,9 @@ def _roll_d20_expression(
     from app.rules.dnd5e.rolls import roll_d20
 
     expression = expression.strip().lower().replace(" ", "")
-    match = _DICE_PATTERN.match(expression)
-    if not match or not match.group(1):
+    dice_groups, inline_mod = _parse_dice_expression(expression)
+    if dice_groups != [(1, 20)]:
         raise ValueError(f"Invalid d20 expression: {expression}")
-
-    inline_mod = int(match.group(3) or 0)
     rolls, natural = roll_d20(advantage=advantage, disadvantage=disadvantage)
     misc_mod = inline_mod + modifier
     final_result = natural + misc_mod
@@ -189,24 +241,17 @@ def _roll_d20_expression(
 
 def _roll_raw(expression: str, modifier: int = 0) -> dict:
     expression = expression.strip().lower().replace(" ", "")
+    dice_groups, inline_mod = _parse_dice_expression(expression)
 
-    match = _DICE_PATTERN.match(expression)
-    if not match:
-        raise ValueError(f"Invalid dice expression: {expression}")
+    rolls: list[int] = []
+    dice_sides: int | None = None
+    for count, sides in dice_groups:
+        if dice_sides is None:
+            dice_sides = sides
+        elif dice_sides != sides:
+            dice_sides = None
+        rolls.extend(random.randint(1, sides) for _ in range(count))
 
-    if match.group(1):
-        count = int(match.group(1))
-        sides = int(match.group(2))
-        inline_mod = int(match.group(3) or 0)
-    else:
-        count = 1
-        sides = int(match.group(4))
-        inline_mod = int(match.group(5) or 0)
-
-    if count < 1 or sides < 1:
-        raise ValueError("Dice count and sides must be positive")
-
-    rolls = [random.randint(1, sides) for _ in range(count)]
     raw_result = sum(rolls)
     final_result = raw_result + inline_mod + modifier
     misc_mod = inline_mod + modifier
@@ -222,8 +267,8 @@ def _roll_raw(expression: str, modifier: int = 0) -> dict:
         "inline_modifier": inline_mod,
         "extra_modifier": modifier,
         "modifier_breakdown": modifier_breakdown,
-        "dice_count": count,
-        "dice_sides": sides,
+        "dice_count": len(rolls),
+        "dice_sides": dice_sides,
     }
 
 

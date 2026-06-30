@@ -1400,6 +1400,30 @@ def _normalize_npc_id_list(ids: list[str]) -> list[str]:
     return normalized
 
 
+def _remove_entity_from_initiative_order(state: SceneState, entity_id: str) -> bool:
+    """Drop an entity from combat initiative and fix the current-turn pointer."""
+    entity_id = str(entity_id).strip()
+    if not entity_id:
+        return False
+
+    original_len = len(state.combat.initiative_order)
+    state.combat.initiative_order = [
+        entry
+        for entry in state.combat.initiative_order
+        if str(entry.entity_id) != entity_id
+    ]
+    if len(state.combat.initiative_order) == original_len:
+        return False
+
+    if str(state.combat.current_turn_entity_id or "") == entity_id:
+        state.combat.current_turn_entity_id = (
+            state.combat.initiative_order[0].entity_id
+            if state.combat.initiative_order
+            else None
+        )
+    return True
+
+
 def _apply_npc_presence_to_state(
     state: SceneState,
     *,
@@ -1414,6 +1438,7 @@ def _apply_npc_presence_to_state(
         if entity_id in active_ids:
             active_ids.remove(entity_id)
         hidden_ids.discard(entity_id)
+        _remove_entity_from_initiative_order(state, entity_id)
 
     for entry in add:
         entity_id = str(entry.entity_id).strip()
@@ -1439,6 +1464,9 @@ async def update_scene_npc_presence(
 ) -> SceneResponse:
     state = load_scene_state(scene)
     _apply_npc_presence_to_state(state, add=payload.add, remove=payload.remove)
+
+    if payload.remove:
+        await sync_turn_management_from_initiative(db, scene.campaign_id, state)
 
     npc_ids_to_validate = {
         str(entry.entity_id).strip()
@@ -1918,20 +1946,7 @@ def _remove_player_from_scene_state(
 
     if entity_id:
         entity_id = str(entity_id)
-        original_len = len(state.combat.initiative_order)
-        state.combat.initiative_order = [
-            entry
-            for entry in state.combat.initiative_order
-            if str(entry.entity_id) != entity_id
-        ]
-        if len(state.combat.initiative_order) != original_len:
-            changed = True
-        if str(state.combat.current_turn_entity_id or "") == entity_id:
-            state.combat.current_turn_entity_id = (
-                state.combat.initiative_order[0].entity_id
-                if state.combat.initiative_order
-                else None
-            )
+        if _remove_entity_from_initiative_order(state, entity_id):
             changed = True
 
         original_refs = len(state.context.prepared_entity_refs)

@@ -12,7 +12,11 @@ class TestGenericDiceFormat:
         summary = format_raw_roll_summary("1d8+3", result)
         assert summary == "1d8=6 +3 = 9"
 
-    def test_build_generic_roll_details_multi_dice(self):
+    def test_format_raw_roll_summary_compound_expression(self):
+        result = {"rolls": [15, 4, 6], "raw_result": 25, "final_result": 28}
+        summary = format_raw_roll_summary("1d20+3+2d6", result)
+        assert summary == "15 + 4 + 6 +3 = 28"
+
         result = {
             "rolls": [12, 8, 14],
             "raw_result": 34,

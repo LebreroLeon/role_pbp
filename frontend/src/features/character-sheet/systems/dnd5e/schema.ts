@@ -100,6 +100,17 @@ const spellEntrySchema = z.object({
   prepared: z.boolean(),
   ritual: z.boolean(),
   notes: z.string(),
+  casting_time: z.string(),
+  concentration: z.boolean(),
+  range: z.string(),
+  area: z.string(),
+  components: z.string(),
+  duration: z.string(),
+  school: z.string(),
+  resolution: z.string(),
+  damage_type: z.string(),
+  higher_levels: z.string(),
+  end_conditions: z.string(),
 });
 
 const spellcastingSchema = z.object({
@@ -237,20 +248,64 @@ export function normalizeSpellSlots(raw: unknown): Dnd5eSpellSlot[] {
   return defaults.map((slot) => byLevel.get(slot.level) ?? slot);
 }
 
+export function defaultSpellEntry(level = 0): Dnd5eSpellEntry {
+  return {
+    name: "",
+    level,
+    prepared: level > 0,
+    ritual: false,
+    notes: "",
+    casting_time: "",
+    concentration: false,
+    range: "",
+    area: "",
+    components: "",
+    duration: "",
+    school: "",
+    resolution: "",
+    damage_type: "",
+    higher_levels: "",
+    end_conditions: "",
+  };
+}
+
 export function normalizeSpellEntries(raw: unknown): Dnd5eSpellEntry[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
-    .map((entry) => ({
-      name: typeof entry.name === "string" ? entry.name : "",
-      level:
+    .map((entry) => {
+      const level =
         typeof entry.level === "number"
           ? Math.min(9, Math.max(0, Math.trunc(entry.level)))
-          : 0,
-      prepared: entry.prepared === true,
-      ritual: entry.ritual === true,
-      notes: typeof entry.notes === "string" ? entry.notes : "",
-    }));
+          : 0;
+      const defaults = defaultSpellEntry(level);
+      return {
+        name: typeof entry.name === "string" ? entry.name : defaults.name,
+        level,
+        prepared: entry.prepared === true,
+        ritual: entry.ritual === true,
+        notes: typeof entry.notes === "string" ? entry.notes : defaults.notes,
+        casting_time:
+          typeof entry.casting_time === "string" ? entry.casting_time : defaults.casting_time,
+        concentration: entry.concentration === true,
+        range: typeof entry.range === "string" ? entry.range : defaults.range,
+        area: typeof entry.area === "string" ? entry.area : defaults.area,
+        components:
+          typeof entry.components === "string" ? entry.components : defaults.components,
+        duration: typeof entry.duration === "string" ? entry.duration : defaults.duration,
+        school: typeof entry.school === "string" ? entry.school : defaults.school,
+        resolution:
+          typeof entry.resolution === "string" ? entry.resolution : defaults.resolution,
+        damage_type:
+          typeof entry.damage_type === "string" ? entry.damage_type : defaults.damage_type,
+        higher_levels:
+          typeof entry.higher_levels === "string" ? entry.higher_levels : defaults.higher_levels,
+        end_conditions:
+          typeof entry.end_conditions === "string"
+            ? entry.end_conditions
+            : defaults.end_conditions,
+      };
+    });
 }
 
 export function readSpellcasting(raw: unknown): Dnd5eSpellcasting {

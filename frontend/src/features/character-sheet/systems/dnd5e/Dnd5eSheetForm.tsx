@@ -5,6 +5,7 @@ import { ChevronDown, ClipboardList, Dices, Sparkles } from "lucide-react";
 
 import type { SheetRollRequest, SheetRollResponse } from "../../../../api/types";
 import { Button, CollapsibleSection, Input, Switch, Tooltip } from "../../../../components/ui";
+import type { SpeakerPayload } from "../../../scene/speakerOptions";
 import { mergeAdvantageIntoContext, type AdvantageMode } from "../../../systems";
 import { AdvantageToggle } from "../../../systems/dnd5e/AdvantageToggle";
 import { dnd5eSkillModifier } from "../../../systems/dnd5e/rolls";
@@ -25,6 +26,7 @@ import { InspirationBox, InspirationSpendToggle } from "./InspirationBox";
 import { Dnd5eSpellcastingPanel } from "./Dnd5eSpellcastingPanel";
 
 type Dnd5eSheetFormProps = {
+  campaignId: string;
   defaultValues: Dnd5eSheet;
   onSubmit: (sheet: Dnd5eSheet) => void;
   onRoll?: (payload: SheetRollRequest) => Promise<SheetRollResponse | void> | SheetRollResponse | void;
@@ -33,6 +35,8 @@ type Dnd5eSheetFormProps = {
   isRolling?: boolean;
   /** Master-only: grant or revoke inspiration on this sheet. */
   canGrantInspiration?: boolean;
+  /** Speaker attribution when posting spells to scene chat. */
+  spellPostSpeaker?: SpeakerPayload;
 };
 
 type RollButtonProps = {
@@ -112,6 +116,7 @@ function formatDamageDefenseSummary(resistances: number, vulnerabilities: number
 }
 
 export function Dnd5eSheetForm({
+  campaignId,
   defaultValues,
   onSubmit,
   onRoll,
@@ -119,6 +124,7 @@ export function Dnd5eSheetForm({
   isSaving,
   isRolling,
   canGrantInspiration = false,
+  spellPostSpeaker,
 }: Dnd5eSheetFormProps) {
   const rollDisabled = disabled || isRolling || !onRoll;
   const [advantageMode, setAdvantageMode] = useState<AdvantageMode>("normal");
@@ -792,11 +798,13 @@ export function Dnd5eSheetForm({
         className="sheet-spellcasting-collapsible"
       >
         <Dnd5eSpellcastingPanel
+          campaignId={campaignId}
           control={control}
           register={register}
           watch={watch}
           setValue={setValue}
           disabled={disabled}
+          spellPostSpeaker={spellPostSpeaker}
         />
       </CollapsibleSection>
 

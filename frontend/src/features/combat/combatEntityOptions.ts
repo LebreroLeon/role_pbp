@@ -22,7 +22,7 @@ function isEntityInScene(
 ): boolean {
   if (entity.entity_type === "NPC") {
     const normalized = normalizeSceneState(sceneState);
-    return normalized.context.active_npc_ids.includes(entity.id) || initiativeIds.has(entity.id);
+    return normalized.context.active_npc_ids.includes(entity.id);
   }
 
   const flags = entity.document.state_flags as { is_present_in_scene?: boolean } | undefined;

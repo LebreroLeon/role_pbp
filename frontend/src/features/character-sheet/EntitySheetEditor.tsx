@@ -20,6 +20,7 @@ import { VtmSheetForm } from "./systems/vtm_v5/VtmSheetForm";
 import { parseVtmV5Sheet } from "./systems/vtm_v5/schema";
 import type { CampaignEntity } from "../entities/entityDefaults";
 import { getEntityDisplayName, normalizeEntityRefId } from "../entities/entityDefaults";
+import type { SpeakerPayload } from "../scene/speakerOptions";
 import { ensureNpcTypedMechanics } from "../entities/npcDocument";
 import { extractAvatarUrl } from "../entities/entityAvatar";
 import { extractIllustrationUrl } from "../entities/entityIllustration";
@@ -110,6 +111,15 @@ export function EntitySheetEditor({
     () => entities.filter((item) => item.entity_type === "LOCATION"),
     [entities],
   );
+
+  const spellPostSpeaker = useMemo<SpeakerPayload | undefined>(() => {
+    if (entity.entity_type !== "PC" && entity.entity_type !== "NPC") return undefined;
+    return {
+      speaker_type: entity.entity_type,
+      speaker_entity_id: entity.id,
+      speaker_display_name: name.trim() || getEntityDisplayName(entity, entities),
+    };
+  }, [entity, name, entities]);
 
   useEffect(() => {
     const identity = workingDocument.identity as { name?: string; concept?: string } | undefined;
@@ -391,12 +401,14 @@ export function EntitySheetEditor({
           {gameSystem === "dnd5e" && (
             <Dnd5eSheetForm
               key={`${entity.id}-${entity.updated_at}`}
+              campaignId={campaignId}
               defaultValues={sheetDefaults as ReturnType<typeof parseDnd5eSheet>}
               onSubmit={handleSaveSheet}
               onRoll={handleSheetRoll}
               isSaving={updateMutation.isPending}
               isRolling={rollMutation.isPending}
               canGrantInspiration
+              spellPostSpeaker={spellPostSpeaker}
             />
           )}
           {gameSystem === "cyberpunk_red" && (

@@ -140,6 +140,17 @@ class SpellEntry(BaseModel):
     prepared: bool = False
     ritual: bool = False
     notes: str = ""
+    casting_time: str = ""
+    concentration: bool = False
+    range: str = ""
+    area: str = ""
+    components: str = ""
+    duration: str = ""
+    school: str = ""
+    resolution: str = ""
+    damage_type: str = ""
+    higher_levels: str = ""
+    end_conditions: str = ""
 
 
 def _default_spell_slots() -> list[SpellSlotEntry]:

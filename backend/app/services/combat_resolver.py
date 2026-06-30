@@ -795,7 +795,6 @@ async def execute_initiative(
     hidden_npc_ids = await get_effective_hidden_npc_ids(db, campaign.id)
 
     entries: list[InitiativeEntry] = []
-    roll_messages: list[dict[str, Any]] = []
     for entity in scene_entities:
         sheet = get_entity_sheet(entity)
         roll = plugin.resolve_roll("initiative", sheet, RollContext())
@@ -807,25 +806,6 @@ async def execute_initiative(
                 initiative_score=roll.total,
                 is_active=True,
             )
-        )
-        roll_messages.append(
-            {
-                "id": str(uuid.uuid4()),
-                "timestamp": _utc_now_iso(),
-                "sender_id": sender_id,
-                "type": "DICE_ROLL",
-                "text": f"{entity_display_name(entity)} — {roll.chat_summary}",
-                "entity_id": str(entity.id),
-                "roll_type": "initiative",
-                "roll_details": {
-                    "total": roll.total,
-                    "rolls": roll.rolls,
-                    "expression": roll.expression,
-                },
-                "final_result": roll.total,
-                "read_by": [sender_id],
-                "visibility": "master_only" if str(entity.id) in hidden_npc_ids else "all",
-            }
         )
 
     entries.sort(key=lambda item: item.initiative_score or 0, reverse=True)
@@ -856,4 +836,4 @@ async def execute_initiative(
         "read_by": [sender_id],
         "visibility": "master_only" if hidden_npc_ids.intersection({entry.entity_id for entry in entries}) else "all",
     }
-    return CombatExecutionResult(messages=[combat_message, *roll_messages], state=state)
+    return CombatExecutionResult(messages=[combat_message], state=state)

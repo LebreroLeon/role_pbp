@@ -24,6 +24,7 @@ from app.rules.dnd5e.mechanics import (
 from app.rules.dnd5e.roll_format import (
     format_attack_roll_line,
     format_damage_roll_line,
+    format_d20_roll_line,
     format_dice_rolls_sum,
 )
 from app.rules.dnd5e.save_attack_format import damage_type_label_es, format_save_damage_taken_line
@@ -535,12 +536,15 @@ class Dnd5ePlugin(GameSystemPlugin):
         details.update(extra_details)
 
         label = roll_label or roll_type.replace("_", " ")
-        summary = f"{label}: {dice_label}={natural}"
-        if modifier:
-            summary += f" {sign}"
-        summary += f" = {total}"
-        if context.dc is not None:
-            summary += f" vs CD {context.dc} — {'éxito' if success else 'fallo'}"
+        summary = format_d20_roll_line(
+            label=label,
+            natural=natural,
+            modifier=modifier,
+            total=total,
+            dice_label=dice_label,
+            dc=context.dc,
+            success=success,
+        )
 
         return RollResult(
             roll_type=roll_type,

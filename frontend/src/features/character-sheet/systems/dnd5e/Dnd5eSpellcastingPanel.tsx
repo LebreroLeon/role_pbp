@@ -1,7 +1,20 @@
-import { ChevronDown } from "lucide-react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, Send } from "lucide-react";
 import { Controller, useFieldArray, type Control, type UseFormRegister, type UseFormSetValue, type UseFormWatch } from "react-hook-form";
 
-import { Button } from "../../../../components/ui";
+import { api } from "../../../../api/client";
+import { queryKeys } from "../../../../api/queryKeys";
+import { Button, CollapsibleSection, Toast } from "../../../../components/ui";
+import { useOpenSceneQuery } from "../../../../hooks/queries/useSceneQueries";
+import type { SpeakerPayload } from "../../../scene/speakerOptions";
+import { DND5E_DAMAGE_TYPE_GROUPS } from "./damageTypes";
+import {
+  DND5E_CASTING_TIME_OPTIONS,
+  DND5E_SPELL_RESOLUTION_OPTIONS,
+  DND5E_SPELL_SCHOOL_OPTIONS,
+} from "./spellConstants";
+import { formatSpellChatMessage } from "./spellChat";
 import {
   DND5E_ABILITIES,
   DND5E_ABILITY_LABELS,
@@ -9,15 +22,18 @@ import {
   abilityModifier,
   computedSpellAttackBonus,
   computedSpellSaveDc,
+  defaultSpellEntry,
   type Dnd5eSheet,
 } from "./schema";
 
 type Dnd5eSpellcastingPanelProps = {
+  campaignId: string;
   control: Control<Dnd5eSheet>;
   register: UseFormRegister<Dnd5eSheet>;
   watch: UseFormWatch<Dnd5eSheet>;
   setValue: UseFormSetValue<Dnd5eSheet>;
   disabled?: boolean;
+  spellPostSpeaker?: SpeakerPayload;
 };
 
 function formatMod(mod: number): string {
@@ -25,12 +41,19 @@ function formatMod(mod: number): string {
 }
 
 export function Dnd5eSpellcastingPanel({
+  campaignId,
   control,
   register,
   watch,
   setValue,
   disabled,
+  spellPostSpeaker,
 }: Dnd5eSpellcastingPanelProps) {
+  const queryClient = useQueryClient();
+  const { data: openScene } = useOpenSceneQuery(campaignId);
+  const [postingSpellIndex, setPostingSpellIndex] = useState<number | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
   const abilities = watch("abilities");
   const proficiencyBonus = watch("proficiency.bonus") ?? 0;
   const spellcasting = watch("spellcasting");
@@ -55,13 +78,39 @@ export function Dnd5eSpellcastingPanel({
   }
 
   function addSpell(level: number) {
-    append({ name: "", level, prepared: level > 0, ritual: false, notes: "" });
+    append(defaultSpellEntry(level));
   }
 
   function resetSlotUsed(level: number) {
     const slotIndex = slots.findIndex((slot) => slot.level === level);
     if (slotIndex < 0) return;
     setValue(`spellcasting.slots.${slotIndex}.used`, 0, { shouldDirty: true });
+  }
+
+  async function handlePostSpellToScene(spellIndex: number) {
+    const spell = spells[spellIndex];
+    if (!spell) return;
+
+    if (!openScene) {
+      setToastMessage("No hay escena abierta para publicar.");
+      return;
+    }
+    if (openScene.status !== "ACTIVE" && openScene.status !== "PAUSED") {
+      setToastMessage("La escena debe estar activa o pausada para publicar.");
+      return;
+    }
+
+    const text = formatSpellChatMessage(spell);
+    setPostingSpellIndex(spellIndex);
+    try {
+      const updated = await api.postMessage(openScene.id, text, "ACTION", spellPostSpeaker);
+      queryClient.setQueryData(queryKeys.campaigns.activeScene(campaignId), updated);
+      setToastMessage("Conjuro publicado en el chat de la escena.");
+    } catch (err) {
+      setToastMessage(err instanceof Error ? err.message : "No se pudo publicar el conjuro.");
+    } finally {
+      setPostingSpellIndex(null);
+    }
   }
 
   return (
@@ -155,103 +204,270 @@ export function Dnd5eSpellcastingPanel({
         </div>
       </section>
 
-      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((level) => {
-        const levelSpells = spellsForLevel(level);
-        return (
-          <section key={level} className="sheet-section sheet-spell-level">
-            <div className="sheet-section__header">
-              <h3>{DND5E_SPELL_LEVEL_LABELS[level]}</h3>
-              <Button
-                type="button"
-                variant="secondary"
-                className="sheet-spell-level__add"
-                disabled={disabled}
-                onClick={() => addSpell(level)}
-              >
-                Añadir
-              </Button>
-            </div>
-            {levelSpells.length === 0 ? (
-              <p className="muted sheet-spell-level__empty">
-                Sin conjuros de {level === 0 ? "truco" : `nivel ${level}`}.
-              </p>
-            ) : (
-              <div className="sheet-spell-list">
-                {levelSpells.map(({ field, index, spell }) => (
-                  <div key={field.id} className="sheet-spell-entry">
-                    <div className="sheet-spell-entry__main">
-                      <label className="sheet-spell-entry__name">
-                        <span className="sr-only">Nombre del conjuro</span>
-                        <input
-                          type="text"
-                          disabled={disabled}
-                          placeholder="Nombre del conjuro"
-                          {...register(`spellcasting.spells.${index}.name`)}
-                        />
-                      </label>
-                      <div className="sheet-spell-entry__toggles">
-                        {level > 0 && (
+      <section className="sheet-section sheet-spellcasting__list">
+        <h3>Lista de conjuros</h3>
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((level) => {
+          const levelSpells = spellsForLevel(level);
+          const levelLabel = DND5E_SPELL_LEVEL_LABELS[level];
+          const countLabel =
+            levelSpells.length === 0
+              ? "vacío"
+              : levelSpells.length === 1
+                ? "1 conjuro"
+                : `${levelSpells.length} conjuros`;
+
+          return (
+            <CollapsibleSection
+              key={level}
+              title={levelLabel}
+              description={countLabel}
+              defaultOpen={levelSpells.length > 0}
+              className="sheet-spell-level-collapsible"
+            >
+              <div className="sheet-spell-level__toolbar">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="sheet-spell-level__add"
+                  disabled={disabled}
+                  onClick={() => addSpell(level)}
+                >
+                  Añadir conjuro
+                </Button>
+              </div>
+              {levelSpells.length === 0 ? (
+                <p className="muted sheet-spell-level__empty">
+                  Sin conjuros de {level === 0 ? "truco" : `nivel ${level}`}.
+                </p>
+              ) : (
+                <div className="sheet-spell-list">
+                  {levelSpells.map(({ field, index, spell }) => (
+                    <div key={field.id} className="sheet-spell-entry">
+                      <div className="sheet-spell-entry__main">
+                        <label className="sheet-spell-entry__name">
+                          <span className="sr-only">Nombre del conjuro</span>
+                          <input
+                            type="text"
+                            disabled={disabled}
+                            placeholder="Nombre del conjuro"
+                            {...register(`spellcasting.spells.${index}.name`)}
+                          />
+                        </label>
+                        <div className="sheet-spell-entry__toggles">
+                          {level > 0 && (
+                            <Controller
+                              control={control}
+                              name={`spellcasting.spells.${index}.prepared`}
+                              render={({ field: preparedField }) => (
+                                <label className="sheet-spell-toggle">
+                                  <input
+                                    type="checkbox"
+                                    checked={preparedField.value}
+                                    onChange={(event) => preparedField.onChange(event.target.checked)}
+                                    disabled={disabled}
+                                  />
+                                  <span>Prep.</span>
+                                </label>
+                              )}
+                            />
+                          )}
                           <Controller
                             control={control}
-                            name={`spellcasting.spells.${index}.prepared`}
-                            render={({ field: preparedField }) => (
-                              <label className="sheet-spell-toggle">
+                            name={`spellcasting.spells.${index}.ritual`}
+                            render={({ field: ritualField }) => (
+                              <label className="sheet-spell-toggle sheet-spell-toggle--ritual">
                                 <input
                                   type="checkbox"
-                                  checked={preparedField.value}
-                                  onChange={(event) => preparedField.onChange(event.target.checked)}
+                                  checked={ritualField.value}
+                                  onChange={(event) => ritualField.onChange(event.target.checked)}
                                   disabled={disabled}
                                 />
-                                <span>Prep.</span>
+                                <span>Ritual</span>
                               </label>
                             )}
                           />
-                        )}
-                        <Controller
-                          control={control}
-                          name={`spellcasting.spells.${index}.ritual`}
-                          render={({ field: ritualField }) => (
-                            <label className="sheet-spell-toggle sheet-spell-toggle--ritual">
-                              <input
-                                type="checkbox"
-                                checked={ritualField.value}
-                                onChange={(event) => ritualField.onChange(event.target.checked)}
-                                disabled={disabled}
-                              />
-                              <span>Ritual</span>
-                            </label>
-                          )}
-                        />
+                          <Controller
+                            control={control}
+                            name={`spellcasting.spells.${index}.concentration`}
+                            render={({ field: concentrationField }) => (
+                              <label className="sheet-spell-toggle sheet-spell-toggle--concentration">
+                                <input
+                                  type="checkbox"
+                                  checked={concentrationField.value}
+                                  onChange={(event) => concentrationField.onChange(event.target.checked)}
+                                  disabled={disabled}
+                                />
+                                <span>Conc.</span>
+                              </label>
+                            )}
+                          />
+                        </div>
+                        <div className="sheet-spell-entry__actions">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            className="sheet-spell-entry__post"
+                            disabled={disabled || postingSpellIndex === index}
+                            onClick={() => handlePostSpellToScene(index)}
+                          >
+                            <Send size={14} aria-hidden />
+                            {postingSpellIndex === index ? "Enviando…" : "Enviar a escena"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            className="sheet-spell-entry__remove"
+                            disabled={disabled}
+                            onClick={() => remove(index)}
+                          >
+                            Quitar
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="sheet-spell-entry__remove"
-                        disabled={disabled}
-                        onClick={() => remove(index)}
+
+                      <div className="sheet-spell-entry__fields">
+                        <label className="form-field form-field--compact">
+                          <span>Tipo de lanzamiento</span>
+                          <input
+                            type="text"
+                            list={`spell-casting-times-${index}`}
+                            disabled={disabled}
+                            placeholder="Acción"
+                            {...register(`spellcasting.spells.${index}.casting_time`)}
+                          />
+                          <datalist id={`spell-casting-times-${index}`}>
+                            {DND5E_CASTING_TIME_OPTIONS.map((option) => (
+                              <option key={option} value={option} />
+                            ))}
+                          </datalist>
+                        </label>
+                        <label className="form-field form-field--compact">
+                          <span>Escuela de magia</span>
+                          <input
+                            type="text"
+                            list={`spell-schools-${index}`}
+                            disabled={disabled}
+                            placeholder="Evocación"
+                            {...register(`spellcasting.spells.${index}.school`)}
+                          />
+                          <datalist id={`spell-schools-${index}`}>
+                            {DND5E_SPELL_SCHOOL_OPTIONS.map((option) => (
+                              <option key={option} value={option} />
+                            ))}
+                          </datalist>
+                        </label>
+                        <label className="form-field form-field--compact">
+                          <span>Alcance</span>
+                          <input
+                            type="text"
+                            disabled={disabled}
+                            placeholder="18 m (60 pies)"
+                            {...register(`spellcasting.spells.${index}.range`)}
+                          />
+                        </label>
+                        <label className="form-field form-field--compact">
+                          <span>Área de efecto</span>
+                          <input
+                            type="text"
+                            disabled={disabled}
+                            placeholder="Esfera de 6 m"
+                            {...register(`spellcasting.spells.${index}.area`)}
+                          />
+                        </label>
+                        <label className="form-field form-field--compact">
+                          <span>Componentes</span>
+                          <input
+                            type="text"
+                            disabled={disabled}
+                            placeholder="V, S, M"
+                            {...register(`spellcasting.spells.${index}.components`)}
+                          />
+                        </label>
+                        <label className="form-field form-field--compact">
+                          <span>Duración</span>
+                          <input
+                            type="text"
+                            disabled={disabled}
+                            placeholder="Instantánea"
+                            {...register(`spellcasting.spells.${index}.duration`)}
+                          />
+                        </label>
+                        <label className="form-field form-field--compact">
+                          <span>Resolución</span>
+                          <select disabled={disabled} {...register(`spellcasting.spells.${index}.resolution`)}>
+                            {DND5E_SPELL_RESOLUTION_OPTIONS.map((option) => (
+                              <option key={option || "none"} value={option}>
+                                {option || "—"}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="form-field form-field--compact">
+                          <span>Tipo de daño</span>
+                          <select disabled={disabled} {...register(`spellcasting.spells.${index}.damage_type`)}>
+                            <option value="">—</option>
+                            {DND5E_DAMAGE_TYPE_GROUPS.map((group) => (
+                              <optgroup key={group.label} label={group.label}>
+                                {group.options.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+
+                      <label className="form-field sheet-spell-entry__description">
+                        <span>Descripción</span>
+                        <textarea
+                          disabled={disabled}
+                          rows={2}
+                          placeholder="Efecto del conjuro"
+                          {...register(`spellcasting.spells.${index}.notes`)}
+                        />
+                      </label>
+
+                      <details
+                        className="sheet-spell-entry__extra"
+                        {...(spell?.higher_levels || spell?.end_conditions ? { open: true } : {})}
                       >
-                        Quitar
-                      </Button>
+                        <summary>
+                          <span>Escalado y finalización</span>
+                          <ChevronDown size={14} aria-hidden />
+                        </summary>
+                        <div className="sheet-spell-entry__extra-fields">
+                          <label className="form-field">
+                            <span>Escalado a niveles superiores</span>
+                            <textarea
+                              disabled={disabled}
+                              rows={2}
+                              placeholder="Opcional"
+                              {...register(`spellcasting.spells.${index}.higher_levels`)}
+                            />
+                          </label>
+                          <label className="form-field">
+                            <span>Condiciones de finalización</span>
+                            <textarea
+                              disabled={disabled}
+                              rows={2}
+                              placeholder="Opcional"
+                              {...register(`spellcasting.spells.${index}.end_conditions`)}
+                            />
+                          </label>
+                        </div>
+                      </details>
                     </div>
-                    <details className="sheet-spell-entry__notes" {...(spell?.notes ? { open: true } : {})}>
-                      <summary>
-                        <span>Notas</span>
-                        <ChevronDown size={14} aria-hidden />
-                      </summary>
-                      <textarea
-                        disabled={disabled}
-                        rows={2}
-                        placeholder="Opcional"
-                        {...register(`spellcasting.spells.${index}.notes`)}
-                      />
-                    </details>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        );
-      })}
+                  ))}
+                </div>
+              )}
+            </CollapsibleSection>
+          );
+        })}
+      </section>
+
+      <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
     </div>
   );
 }

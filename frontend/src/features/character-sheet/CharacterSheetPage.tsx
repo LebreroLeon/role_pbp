@@ -24,6 +24,7 @@ import { useEntitiesQuery } from "../../hooks/queries/useEntityQueries";
 import { EntityRefFields } from "../entities/EntityRefFields";
 import type { CampaignEntity } from "../entities/entityDefaults";
 import { getEntityDisplayName, normalizeEntityRefId } from "../entities/entityDefaults";
+import type { SpeakerPayload } from "../scene/speakerOptions";
 import { extractAvatarUrl } from "../entities/entityAvatar";
 import { extractIllustrationUrl } from "../entities/entityIllustration";
 
@@ -164,6 +165,15 @@ export function CharacterSheetPage() {
   const supportsSheet = hasSheetTemplate(gameSystem);
 
   const hasSheetEditor = supportsSheet && gameSystem !== "generic";
+
+  const spellPostSpeaker = useMemo<SpeakerPayload | undefined>(() => {
+    if (!myPc) return undefined;
+    return {
+      speaker_type: "PC",
+      speaker_entity_id: myPc.id,
+      speaker_display_name: name.trim() || getEntityDisplayName(myPc, entities),
+    };
+  }, [myPc, name, entities]);
 
 
 
@@ -482,6 +492,8 @@ export function CharacterSheetPage() {
 
                 key={myPc.updated_at}
 
+                campaignId={campaignId}
+
                 defaultValues={sheetDefaults as ReturnType<typeof parseDnd5eSheet>}
 
                 onSubmit={handleSaveSheet}
@@ -491,6 +503,8 @@ export function CharacterSheetPage() {
                 isSaving={upsertMutation.isPending}
 
                 isRolling={rollMutation.isPending}
+
+                spellPostSpeaker={spellPostSpeaker}
 
               />
 

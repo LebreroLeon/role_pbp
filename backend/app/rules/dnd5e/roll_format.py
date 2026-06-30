@@ -25,6 +25,25 @@ def format_dice_rolls_sum(rolls: list[int]) -> str:
     return "+".join(str(value) for value in rolls)
 
 
+def format_d20_roll_line(
+    *,
+    label: str,
+    natural: int,
+    modifier: int,
+    total: int,
+    dice_label: str = "1d20",
+    dc: int | None = None,
+    success: bool | None = None,
+) -> str:
+    mod_suffix = format_modifier_suffix(modifier)
+    expression = f"{dice_label}{mod_suffix}"
+    breakdown = format_natural_plus_modifier(natural, modifier)
+    line = f"{label}: {expression} = {breakdown} = {total}"
+    if dc is not None and success is not None:
+        line += f" vs CD {dc} — {'éxito' if success else 'fallo'}"
+    return line
+
+
 def format_attack_roll_line(
     *,
     natural: int,

@@ -77,3 +77,4 @@ class TestDnd5eAdvantage:
         assert dice_service.is_single_d20_expression("1d20+3") is True
         assert dice_service.is_single_d20_expression("2d20") is False
         assert dice_service.is_single_d20_expression("1d8") is False
+        assert dice_service.is_single_d20_expression("1d20+3+2d6") is False

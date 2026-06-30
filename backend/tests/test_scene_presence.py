@@ -106,6 +106,23 @@ class TestNpcPresenceState:
         assert state.context.active_npc_ids == []
         assert state.context.hidden_npc_ids == []
 
+    def test_remove_npc_clears_initiative_and_current_turn(self):
+        npc_id = str(uuid.uuid4())
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id=str(uuid.uuid4()), status="ACTIVE"),
+            context=SceneContext(active_npc_ids=[npc_id], hidden_npc_ids=[]),
+        )
+        state.combat.initiative_order = [
+            InitiativeEntry(entity_id=npc_id, entity_type="NPC", display_name="Goblin"),
+        ]
+        state.combat.current_turn_entity_id = npc_id
+
+        _apply_npc_presence_to_state(state, add=[], remove=[npc_id])
+
+        assert state.context.active_npc_ids == []
+        assert state.combat.initiative_order == []
+        assert state.combat.current_turn_entity_id is None
+
     def test_reveal_npc_updates_hidden_list(self):
         npc_id = str(uuid.uuid4())
         state = SceneState(
@@ -207,7 +224,7 @@ class TestDiceRollMessage:
                 "rolls": [12],
                 "raw_result": 12,
                 "final_result": 15,
-                "chat_summary": "Percepción: 1d20=12 +3 = 15",
+                "chat_summary": "Percepción: 1d20+3 = 12+3 = 15",
                 "roll_type": "skill_check",
                 "roll_details": {
                     "skill": "Perception",
@@ -223,11 +240,11 @@ class TestDiceRollMessage:
         )
 
         assert message["type"] == "DICE_ROLL"
-        assert message["text"] == "Percepción: 1d20=12 +3 = 15"
+        assert message["text"] == "Percepción: 1d20+3 = 12+3 = 15"
         assert message["entity_id"] == "entity-1"
         assert message["roll_type"] == "skill_check"
         assert message["rolls"] == [12]
-        assert message["chat_summary"] == "Percepción: 1d20=12 +3 = 15"
+        assert message["chat_summary"] == "Percepción: 1d20+3 = 12+3 = 15"
         assert message["skill_checked"] == "Percepción"
         assert message["roll_details"]["roll_label"] == "Percepción"
 

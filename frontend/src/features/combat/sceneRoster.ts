@@ -61,13 +61,9 @@ function isPcInScene(
   return false;
 }
 
-function isNpcInScene(
-  entity: CampaignEntity,
-  sceneState: SceneStateInput,
-  initiativeIds: Set<string>,
-): boolean {
+function isNpcInScene(entity: CampaignEntity, sceneState: SceneStateInput): boolean {
   const normalized = normalizeSceneState(sceneState);
-  return normalized.context.active_npc_ids.includes(entity.id) || initiativeIds.has(entity.id);
+  return normalized.context.active_npc_ids.includes(entity.id);
 }
 
 function readEntityHp(entity: CampaignEntity): { current: number; max: number } | null {
@@ -184,7 +180,7 @@ export function buildSceneRoster(
     const inScene =
       entity.entity_type === "PC"
         ? isPcInScene(entity, initiativeIds, turnOrderUserIds)
-        : isNpcInScene(entity, sceneState, initiativeIds);
+        : isNpcInScene(entity, sceneState);
 
     if (!inScene) continue;
 
