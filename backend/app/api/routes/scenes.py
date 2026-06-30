@@ -34,6 +34,7 @@ from app.schemas.scene import (
     SceneScratchpadUpdate,
     SceneStatusUpdate,
     SceneMessageImageUploadResponse,
+    SceneMessagesHasOlderResponse,
     SceneTurnManagementUpdate,
     SceneUpdate,
 )
@@ -46,7 +47,7 @@ from app.services.chat_message_images import (
 from app.services.entities import CharacterSheetError, get_campaign_or_error
 from app.services.lore_assist import build_player_lore_response
 from app.services.scene_ws import broadcast_scene_update, scene_response_with_likes
-from app.services.scene_messages import list_scene_messages
+from app.services.scene_messages import list_scene_messages, scene_has_older_messages
 from app.services.scenes import (
     SceneServiceError,
     add_player_to_scene_presence,
@@ -111,12 +112,33 @@ async def get_scene_route(
     return await scene_response_with_likes(db, scene, viewer_role=role)
 
 
+@router.get("/{scene_id}/messages/has-older", response_model=SceneMessagesHasOlderResponse)
+async def scene_messages_has_older_route(
+    scene_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+    before: str | None = None,
+    before_timestamp: str | None = None,
+) -> SceneMessagesHasOlderResponse:
+    scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
+    await require_player_open_scene(db, current_user, scene)
+    await require_campaign_member(db, current_user, scene.campaign_id)
+    has_older = await scene_has_older_messages(
+        db,
+        scene.id,
+        oldest_visible_message_id=before,
+        oldest_visible_timestamp=before_timestamp,
+    )
+    return SceneMessagesHasOlderResponse(has_older=has_older)
+
+
 @router.get("/{scene_id}/messages", response_model=list[ChatMessage])
 async def list_scene_messages_route(
     scene_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
     before: str | None = None,
+    before_timestamp: str | None = None,
     limit: int = 50,
 ) -> list[ChatMessage]:
     scene = await get_scene_for_member(db, current_user, parse_uuid(scene_id, "scene_id"))
@@ -126,6 +148,7 @@ async def list_scene_messages_route(
         db,
         scene.id,
         before_message_id=before,
+        before_timestamp=before_timestamp,
         limit=limit,
         viewer_role=role,
     )

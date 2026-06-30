@@ -256,7 +256,6 @@ export function EntitySheetEditor({
         iconTone="violet"
         title="Datos narrativos"
         description="Nombre, concepto, descripción, facción, localización e imágenes."
-        defaultOpen={mode === "create"}
         className="sheet-narrative-collapsible"
       >
       <form className="auth-form sheet-narrative-form" onSubmit={handleNarrativeSubmit}>

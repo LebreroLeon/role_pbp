@@ -309,7 +309,6 @@ export function Dnd5eSheetForm({
         iconTone="teal"
         title="Ficha mecánica"
         description="Atributos, defensa, habilidades, equipo y ataques."
-        defaultOpen
         className="sheet-mechanics-collapsible"
       >
       <div className="sheet-form__roll-toolbar">

@@ -123,13 +123,26 @@ export const api = {
       }),
     }),
   getScene: (sceneId: string) => http<Scene>(`/api/v1/scenes/${sceneId}`),
-  listSceneMessages: (sceneId: string, options?: { before?: string; limit?: number }) => {
+  listSceneMessages: (sceneId: string, options?: { before?: string; beforeTimestamp?: string; limit?: number }) => {
     const params = new URLSearchParams();
     if (options?.before) params.set("before", options.before);
+    if (options?.beforeTimestamp) params.set("before_timestamp", options.beforeTimestamp);
     if (options?.limit != null) params.set("limit", String(options.limit));
     const query = params.toString();
     return http<import("./types").ChatMessage[]>(
       `/api/v1/scenes/${sceneId}/messages${query ? `?${query}` : ""}`,
+    );
+  },
+  hasOlderSceneMessages: (
+    sceneId: string,
+    options?: { beforeMessageId?: string; beforeTimestamp?: string },
+  ) => {
+    const params = new URLSearchParams();
+    if (options?.beforeMessageId) params.set("before", options.beforeMessageId);
+    if (options?.beforeTimestamp) params.set("before_timestamp", options.beforeTimestamp);
+    const query = params.toString();
+    return http<{ has_older: boolean }>(
+      `/api/v1/scenes/${sceneId}/messages/has-older${query ? `?${query}` : ""}`,
     );
   },
   postMessage: (

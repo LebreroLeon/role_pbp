@@ -9,7 +9,12 @@ from app.main import app
 from app.models.campaign import Scene, SceneMessage
 from app.models.user import User
 from app.schemas.scene import ChatMessage, SceneContext, SceneMetadata, SceneState, TurnManagement
-from app.services.scene_messages import list_all_scene_messages, list_scene_messages, persist_scene_message
+from app.services.scene_messages import (
+    list_all_scene_messages,
+    list_scene_messages,
+    persist_scene_message,
+    scene_has_older_messages,
+)
 from app.services.scenes import append_chat_message, generate_scene_closure_summary, load_scene_state
 
 
@@ -151,6 +156,110 @@ class TestListSceneMessages:
         assert [message.id for message in player_messages] == ["public"]
         assert [message.id for message in master_messages] == ["public", "secret"]
 
+    @pytest.mark.asyncio
+    async def test_scene_has_older_messages_before_cursor(self):
+        scene_id = uuid.uuid4()
+        rows = [
+            SceneMessage(
+                id="m1",
+                scene_id=scene_id,
+                payload=_message("m1", "Uno", index=1),
+                created_at=datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc),
+            ),
+            SceneMessage(
+                id="m2",
+                scene_id=scene_id,
+                payload=_message("m2", "Dos", index=2),
+                created_at=datetime(2026, 1, 1, 12, 1, tzinfo=timezone.utc),
+            ),
+            SceneMessage(
+                id="m3",
+                scene_id=scene_id,
+                payload=_message("m3", "Tres", index=3),
+                created_at=datetime(2026, 1, 1, 12, 2, tzinfo=timezone.utc),
+            ),
+        ]
+
+        db = AsyncMock()
+        db.get = AsyncMock(return_value=rows[1])
+        db.scalar = AsyncMock(return_value=1)
+
+        has_older = await scene_has_older_messages(
+            db,
+            scene_id,
+            oldest_visible_message_id="m2",
+        )
+
+        assert has_older is True
+
+    @pytest.mark.asyncio
+    async def test_scene_has_older_messages_false_when_oldest_visible(self):
+        scene_id = uuid.uuid4()
+        oldest = SceneMessage(
+            id="m1",
+            scene_id=scene_id,
+            payload=_message("m1", "Uno", index=1),
+            created_at=datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+
+        db = AsyncMock()
+        db.get = AsyncMock(return_value=oldest)
+        db.scalar = AsyncMock(return_value=0)
+
+        has_older = await scene_has_older_messages(
+            db,
+            scene_id,
+            oldest_visible_message_id="m1",
+        )
+
+        assert has_older is False
+
+    @pytest.mark.asyncio
+    async def test_uses_timestamp_when_before_message_missing_from_db(self):
+        scene_id = uuid.uuid4()
+        rows = [
+            SceneMessage(
+                id="m1",
+                scene_id=scene_id,
+                payload=_message("m1", "Antiguo", index=1),
+                created_at=datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc),
+            ),
+        ]
+
+        db = AsyncMock()
+        db.get = AsyncMock(return_value=None)
+        db.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=rows)))
+
+        with patch(
+            "app.services.scene_messages.fetch_likes_by_message_id",
+            new=AsyncMock(return_value={}),
+        ):
+            messages = await list_scene_messages(
+                db,
+                scene_id,
+                before_message_id="buffer-only",
+                before_timestamp="2026-01-01T12:30:00Z",
+                limit=50,
+            )
+
+        assert [message.id for message in messages] == ["m1"]
+
+    @pytest.mark.asyncio
+    async def test_scene_has_older_messages_uses_timestamp_fallback(self):
+        scene_id = uuid.uuid4()
+        db = AsyncMock()
+        db.get = AsyncMock(return_value=None)
+        db.scalar = AsyncMock(return_value=2)
+
+        has_older = await scene_has_older_messages(
+            db,
+            scene_id,
+            oldest_visible_message_id="buffer-only",
+            oldest_visible_timestamp="2026-06-28T19:18:00Z",
+        )
+
+        assert has_older is True
+
 
 class TestSceneClosureSummary:
     @pytest.mark.asyncio
@@ -262,3 +371,28 @@ async def test_list_scene_messages_route(override_db, mock_db):
     assert response.status_code == 200
     assert response.json()[0]["id"] == "m1"
     list_messages.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_scene_messages_has_older_route(override_db, mock_db):
+    user = _make_user()
+    scene_id = uuid.uuid4()
+    _override_user(user)
+
+    with (
+        patch("app.api.routes.scenes.get_scene_for_member", new=AsyncMock(return_value=MagicMock(id=scene_id))),
+        patch("app.api.routes.scenes.require_player_open_scene", new=AsyncMock()),
+        patch("app.api.routes.scenes.require_campaign_member", new=AsyncMock(return_value="PLAYER")),
+        patch(
+            "app.api.routes.scenes.scene_has_older_messages",
+            new=AsyncMock(return_value=True),
+        ) as has_older,
+    ):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get(
+                f"/api/v1/scenes/{scene_id}/messages/has-older?before=m2&before_timestamp=2026-06-28T19:18:00Z",
+            )
+
+    assert response.status_code == 200
+    assert response.json() == {"has_older": True}
+    has_older.assert_awaited_once()

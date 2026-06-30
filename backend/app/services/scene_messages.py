@@ -122,17 +122,23 @@ async def list_scene_messages(
     scene_id: uuid.UUID,
     *,
     before_message_id: str | None = None,
+    before_timestamp: str | None = None,
     limit: int = DEFAULT_SCENE_MESSAGE_PAGE_SIZE,
     viewer_role: str = "PLAYER",
 ) -> list[ChatMessage]:
     page_size = max(1, min(limit, MAX_SCENE_MESSAGE_PAGE_SIZE))
     query = select(SceneMessage).where(SceneMessage.scene_id == scene_id)
 
-    if before_message_id:
-        before_row = await db.get(SceneMessage, before_message_id)
-        if before_row is None or before_row.scene_id != scene_id:
-            return []
-        query = query.where(SceneMessage.created_at < before_row.created_at)
+    if before_message_id or before_timestamp:
+        cutoff: datetime | None = None
+        if before_message_id:
+            before_row = await db.get(SceneMessage, before_message_id)
+            if before_row is not None and before_row.scene_id == scene_id:
+                cutoff = before_row.created_at
+        if cutoff is None and before_timestamp:
+            cutoff = _parse_message_timestamp(before_timestamp)
+        if cutoff is not None:
+            query = query.where(SceneMessage.created_at < cutoff)
 
     rows = (
         await db.scalars(
@@ -173,15 +179,22 @@ async def scene_has_older_messages(
     scene_id: uuid.UUID,
     *,
     oldest_visible_message_id: str | None,
+    oldest_visible_timestamp: str | None = None,
 ) -> bool:
-    if not oldest_visible_message_id:
+    if not oldest_visible_message_id and not oldest_visible_timestamp:
         count = await db.scalar(
             select(func.count()).select_from(SceneMessage).where(SceneMessage.scene_id == scene_id)
         )
         return bool(count)
 
-    oldest_row = await db.get(SceneMessage, oldest_visible_message_id)
-    if oldest_row is None or oldest_row.scene_id != scene_id:
+    cutoff: datetime | None = None
+    if oldest_visible_message_id:
+        oldest_row = await db.get(SceneMessage, oldest_visible_message_id)
+        if oldest_row is not None and oldest_row.scene_id == scene_id:
+            cutoff = oldest_row.created_at
+    if cutoff is None and oldest_visible_timestamp:
+        cutoff = _parse_message_timestamp(oldest_visible_timestamp)
+    if cutoff is None:
         return False
 
     older_count = await db.scalar(
@@ -189,7 +202,7 @@ async def scene_has_older_messages(
         .select_from(SceneMessage)
         .where(
             SceneMessage.scene_id == scene_id,
-            SceneMessage.created_at < oldest_row.created_at,
+            SceneMessage.created_at < cutoff,
         )
     )
     return bool(older_count)

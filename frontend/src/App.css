@@ -2237,17 +2237,67 @@
 }
 
 .sheet-spell-level__add {
-  padding: 0.3rem 0.55rem;
-  font-size: 0.78rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.72rem;
 }
 
 .sheet-spell-level-collapsible {
-  margin-top: 0.35rem;
+  margin-top: 0.25rem;
   box-shadow: none;
 }
 
+.sheet-spell-level-collapsible.panel {
+  padding: 0.4rem 0.55rem;
+}
+
+.sheet-spell-level-collapsible .collapsible-section__header {
+  margin-bottom: 0;
+}
+
+.sheet-spell-level-collapsible .panel-header__title-row {
+  align-items: center;
+}
+
+.sheet-spell-level-collapsible .panel-header__title-row > div {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.sheet-spell-level-collapsible .panel-header h2 {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.sheet-spell-level-collapsible .panel-header h2::after {
+  content: "·";
+  margin: 0 0.35rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.sheet-spell-level-collapsible .panel-header p {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  padding: 0.12rem 0.38rem;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.sheet-spell-level-collapsible .collapsible-section__chevron {
+  width: 15px;
+  height: 15px;
+}
+
 .sheet-spell-level-collapsible .collapsible-section__body {
-  padding-top: 0.35rem;
+  padding-top: 0.3rem;
 }
 
 .sheet-spellcasting__list > h3 {
@@ -2257,23 +2307,48 @@
 .sheet-spell-level__toolbar {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
 }
 
-.sheet-spell-level__empty {
+.sheet-spell-level-add-other {
+  margin-top: 0.35rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.02);
+}
+
+.sheet-spell-level-add-other__field {
+  display: grid;
+  gap: 0.25rem;
   margin: 0;
+}
+
+.sheet-spell-level-add-other__field span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.sheet-spell-level-add-other__field select {
+  width: 100%;
+  padding: 0.32rem 0.45rem;
   font-size: 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
 }
 
 .sheet-spell-list {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.25rem;
 }
 
 .sheet-spell-entry {
   display: grid;
-  gap: 0.2rem;
-  padding: 0.35rem 0.45rem;
+  gap: 0.15rem;
+  padding: 0.3rem 0.4rem;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   background: rgba(15, 23, 42, 0.02);
@@ -2370,28 +2445,40 @@
 .sheet-spell-entry__fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem;
+  gap: 0.25rem;
+}
+
+.sheet-spell-entry__fields .form-field--compact span {
+  font-size: 0.68rem;
+}
+
+.sheet-spell-entry__fields .form-field--compact input,
+.sheet-spell-entry__fields .form-field--compact select {
+  padding: 0.28rem 0.4rem;
+  font-size: 0.78rem;
 }
 
 .sheet-spell-entry__description textarea {
-  margin-top: 0.2rem;
-  padding: 0.35rem 0.45rem;
-  font-size: 0.8rem;
+  margin-top: 0.15rem;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.78rem;
+  min-height: 2.4rem;
 }
 
 .sheet-spell-entry__extra {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
 }
 
 .sheet-spell-entry__extra summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.35rem;
+  gap: 0.3rem;
   cursor: pointer;
   list-style: none;
   color: var(--text-muted);
-  padding: 0.1rem 0;
+  padding: 0.05rem 0;
+  font-size: 0.72rem;
 }
 
 .sheet-spell-entry__extra summary::-webkit-details-marker {
@@ -2410,8 +2497,18 @@
 
 .sheet-spell-entry__extra-fields {
   display: grid;
-  gap: 0.35rem;
-  margin-top: 0.25rem;
+  gap: 0.25rem;
+  margin-top: 0.2rem;
+}
+
+.sheet-spell-entry__extra-fields .form-field span {
+  font-size: 0.72rem;
+}
+
+.sheet-spell-entry__extra-fields textarea {
+  padding: 0.3rem 0.4rem;
+  font-size: 0.78rem;
+  min-height: 2.4rem;
 }
 
 .sheet-spell-toggle--concentration {
@@ -2427,9 +2524,29 @@
   background: rgba(167, 139, 250, 0.12);
 }
 
+@media (min-width: 720px) {
+  .sheet-spell-entry__fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
   .sheet-spell-entry__fields {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sheet-spell-entry__main {
+    gap: 0.25rem;
+  }
+
+  .sheet-spell-entry__actions {
+    width: 100%;
+  }
+
+  .sheet-spell-entry__post,
+  .sheet-spell-entry__remove {
+    flex: 1 1 auto;
+    justify-content: center;
   }
 }
 

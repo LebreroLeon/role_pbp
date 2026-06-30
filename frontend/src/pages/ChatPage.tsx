@@ -143,42 +143,69 @@ export function ChatPage() {
     setLoadingMoreHistory(false);
   }, [currentScene?.id]);
 
+  const oldestVisible = displayMessages[0] ?? null;
+
+  const refreshHasMoreHistory = useCallback(
+    async (cursor?: Pick<ChatMessage, "id" | "timestamp"> | null) => {
+      if (!currentScene) {
+        setHasMoreHistory(false);
+        return;
+      }
+      try {
+        const result = await api.hasOlderSceneMessages(currentScene.id, {
+          beforeMessageId: cursor?.id,
+          beforeTimestamp: cursor?.timestamp,
+        });
+        setHasMoreHistory(result.has_older);
+      } catch {
+        const maxSize = currentScene.scene_state.memory_settings?.max_chat_buffer_size ?? 60;
+        setHasMoreHistory(bufferMessages.length >= maxSize);
+      }
+    },
+    [currentScene, bufferMessages.length],
+  );
+
   useEffect(() => {
     if (!currentScene) {
       setHasMoreHistory(false);
       return;
     }
-    const maxSize = currentScene.scene_state.memory_settings?.max_chat_buffer_size ?? 60;
-    if (bufferMessages.length >= maxSize) {
-      setHasMoreHistory(true);
-    }
-  }, [currentScene, bufferMessages.length]);
+    void refreshHasMoreHistory(oldestVisible);
+  }, [currentScene?.id, oldestVisible?.id, oldestVisible?.timestamp, refreshHasMoreHistory]);
 
   const handleLoadMoreHistory = useCallback(async () => {
     if (!currentScene || loadingMoreHistory) return;
-    const oldestVisible = displayMessages[0];
-    if (!oldestVisible?.id) return;
+    const oldest = displayMessages[0];
+    if (!oldest?.id && !oldest?.timestamp) return;
 
     setLoadingMoreHistory(true);
     try {
       const batch = await api.listSceneMessages(currentScene.id, {
-        before: oldestVisible.id,
+        before: oldest.id,
+        beforeTimestamp: oldest.timestamp,
         limit: SCENE_MESSAGE_PAGE_SIZE,
       });
       if (batch.length === 0) {
         setHasMoreHistory(false);
         return;
       }
-      setOlderMessages((current) => mergeSceneMessages(batch, current));
-      if (batch.length < SCENE_MESSAGE_PAGE_SIZE) {
-        setHasMoreHistory(false);
-      }
+      const mergedOlder = mergeSceneMessages(batch, olderMessages);
+      setOlderMessages(mergedOlder);
+      const newOldest = mergeSceneMessages(mergedOlder, bufferMessages)[0] ?? null;
+      await refreshHasMoreHistory(newOldest);
     } catch {
       setErrorMessage("No se pudieron cargar mensajes anteriores");
     } finally {
       setLoadingMoreHistory(false);
     }
-  }, [currentScene, displayMessages, loadingMoreHistory]);
+  }, [
+    currentScene,
+    displayMessages,
+    loadingMoreHistory,
+    olderMessages,
+    bufferMessages,
+    refreshHasMoreHistory,
+  ]);
 
   const handleSceneUpdate = useCallback(
     (updated: Scene) => {
@@ -658,6 +685,7 @@ export function ChatPage() {
               onLoadMore={handleLoadMoreHistory}
               hasMoreHistory={hasMoreHistory}
               loadingMore={loadingMoreHistory}
+              scrollResetKey={currentScene.id}
             />
 
             {pbpEnabled && pbpTurnLabel && (

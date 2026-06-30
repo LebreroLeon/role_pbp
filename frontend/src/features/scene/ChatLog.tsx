@@ -23,6 +23,7 @@ type ChatLogProps = {
   onLoadMore?: () => void;
   hasMoreHistory?: boolean;
   loadingMore?: boolean;
+  scrollResetKey?: string;
 };
 
 function getTailSignature(messages: ChatMessage[]): string {
@@ -52,23 +53,28 @@ export function ChatLog({
   onLoadMore,
   hasMoreHistory = false,
   loadingMore = false,
+  scrollResetKey = "",
 }: ChatLogProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const tailSignatureRef = useRef(getTailSignature(messages));
-  const initialScrollRef = useRef(true);
+  const prevMessageCountRef = useRef(messages.length);
+  const stickToBottomRef = useRef(true);
+  const scrollResetKeyRef = useRef(scrollResetKey);
   const onVisibleRef = useRef(onVisible);
   const markReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scrollSnapshotRef = useRef(0);
-  const messagesRef = useRef(messages);
-
-  if (messagesRef.current !== messages && containerRef.current) {
-    scrollSnapshotRef.current = containerRef.current.scrollTop;
-  }
-  messagesRef.current = messages;
 
   useEffect(() => {
     onVisibleRef.current = onVisible;
   }, [onVisible]);
+
+  useLayoutEffect(() => {
+    if (scrollResetKey !== scrollResetKeyRef.current) {
+      scrollResetKeyRef.current = scrollResetKey;
+      stickToBottomRef.current = true;
+      tailSignatureRef.current = "0";
+      prevMessageCountRef.current = 0;
+    }
+  }, [scrollResetKey]);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -76,34 +82,32 @@ export function ChatLog({
 
     if (messages.length === 0) {
       tailSignatureRef.current = getTailSignature(messages);
+      prevMessageCountRef.current = 0;
       return;
     }
 
     const nextSignature = getTailSignature(messages);
     const hasNewTail = nextSignature !== tailSignatureRef.current;
-    tailSignatureRef.current = nextSignature;
-
-    if (initialScrollRef.current) {
-      container.scrollTop = container.scrollHeight;
-      initialScrollRef.current = false;
-      return;
-    }
-
-    if (!hasNewTail) {
-      container.scrollTop = scrollSnapshotRef.current;
-      return;
-    }
+    const prevCount = prevMessageCountRef.current;
+    const prevScrollHeight = container.scrollHeight;
+    const prevScrollTop = container.scrollTop;
 
     const lastMessage = messages[messages.length - 1];
     const ownMessage = lastMessage?.sender_id === currentUserId;
+    const isPrepend = !hasNewTail && messages.length > prevCount;
 
-    if (ownMessage || isNearBottom(container)) {
+    if (stickToBottomRef.current || ownMessage || (hasNewTail && !isPrepend)) {
       container.scrollTop = container.scrollHeight;
-      return;
+    } else if (isPrepend) {
+      const heightDelta = container.scrollHeight - prevScrollHeight;
+      if (heightDelta > 0) {
+        container.scrollTop = prevScrollTop + heightDelta;
+      }
     }
 
-    container.scrollTop = scrollSnapshotRef.current;
-  }, [messages, currentUserId]);
+    tailSignatureRef.current = nextSignature;
+    prevMessageCountRef.current = messages.length;
+  }, [messages, currentUserId, scrollResetKey]);
 
   const scheduleMarkRead = () => {
     if (!onVisibleRef.current) return;
@@ -127,6 +131,7 @@ export function ChatLog({
     if (!container) return;
 
     const handleScroll = () => {
+      stickToBottomRef.current = isNearBottom(container);
       if (isNearBottom(container)) scheduleMarkRead();
     };
 

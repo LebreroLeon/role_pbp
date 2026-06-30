@@ -180,6 +180,10 @@ class SceneMessageImageUploadResponse(BaseModel):
     image_url: str
 
 
+class SceneMessagesHasOlderResponse(BaseModel):
+    has_older: bool
+
+
 class DiceRollRequest(BaseModel):
     dice_expression: str
     modifier: int = 0

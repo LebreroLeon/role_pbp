@@ -206,42 +206,37 @@ export function Dnd5eSpellcastingPanel({
 
       <section className="sheet-section sheet-spellcasting__list">
         <h3>Lista de conjuros</h3>
-        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((level) => {
-          const levelSpells = spellsForLevel(level);
-          const levelLabel = DND5E_SPELL_LEVEL_LABELS[level];
-          const countLabel =
-            levelSpells.length === 0
-              ? "vacío"
-              : levelSpells.length === 1
-                ? "1 conjuro"
-                : `${levelSpells.length} conjuros`;
+        {(() => {
+          const allLevels = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+          const levelsWithSpells = allLevels.filter((level) => spellsForLevel(level).length > 0);
+          const emptyLevels = allLevels.filter((level) => spellsForLevel(level).length === 0);
 
           return (
-            <CollapsibleSection
-              key={level}
-              title={levelLabel}
-              description={countLabel}
-              defaultOpen={levelSpells.length > 0}
-              className="sheet-spell-level-collapsible"
-            >
-              <div className="sheet-spell-level__toolbar">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="sheet-spell-level__add"
-                  disabled={disabled}
-                  onClick={() => addSpell(level)}
-                >
-                  Añadir conjuro
-                </Button>
-              </div>
-              {levelSpells.length === 0 ? (
-                <p className="muted sheet-spell-level__empty">
-                  Sin conjuros de {level === 0 ? "truco" : `nivel ${level}`}.
-                </p>
-              ) : (
-                <div className="sheet-spell-list">
-                  {levelSpells.map(({ field, index, spell }) => (
+            <>
+              {levelsWithSpells.map((level) => {
+                const levelSpells = spellsForLevel(level);
+                const levelLabel = DND5E_SPELL_LEVEL_LABELS[level];
+
+                return (
+                  <CollapsibleSection
+                    key={level}
+                    title={levelLabel}
+                    description={String(levelSpells.length)}
+                    className="sheet-spell-level-collapsible"
+                  >
+                    <div className="sheet-spell-level__toolbar">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="sheet-spell-level__add"
+                        disabled={disabled}
+                        onClick={() => addSpell(level)}
+                      >
+                        Añadir conjuro
+                      </Button>
+                    </div>
+                    <div className="sheet-spell-list">
+                      {levelSpells.map(({ field, index }) => (
                     <div key={field.id} className="sheet-spell-entry">
                       <div className="sheet-spell-entry__main">
                         <label className="sheet-spell-entry__name">
@@ -429,10 +424,7 @@ export function Dnd5eSpellcastingPanel({
                         />
                       </label>
 
-                      <details
-                        className="sheet-spell-entry__extra"
-                        {...(spell?.higher_levels || spell?.end_conditions ? { open: true } : {})}
-                      >
+                      <details className="sheet-spell-entry__extra">
                         <summary>
                           <span>Escalado y finalización</span>
                           <ChevronDown size={14} aria-hidden />
@@ -459,12 +451,39 @@ export function Dnd5eSpellcastingPanel({
                         </div>
                       </details>
                     </div>
-                  ))}
+                      ))}
+                    </div>
+                  </CollapsibleSection>
+                );
+              })}
+              {emptyLevels.length > 0 && (
+                <div className="sheet-spell-level-add-other">
+                  <label className="sheet-spell-level-add-other__field">
+                    <span>Añadir conjuro en otro nivel</span>
+                    <select
+                      disabled={disabled}
+                      defaultValue=""
+                      onChange={(event) => {
+                        const level = Number(event.target.value);
+                        if (!Number.isNaN(level)) {
+                          addSpell(level);
+                          event.target.value = "";
+                        }
+                      }}
+                    >
+                      <option value="">Seleccionar nivel…</option>
+                      {emptyLevels.map((level) => (
+                        <option key={level} value={level}>
+                          {DND5E_SPELL_LEVEL_LABELS[level]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
               )}
-            </CollapsibleSection>
+            </>
           );
-        })}
+        })()}
       </section>
 
       <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
