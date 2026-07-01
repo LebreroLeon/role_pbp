@@ -7,6 +7,8 @@ import pytest
 from app.models.campaign import Campaign, Scene
 from app.schemas.scene import ChatMessage, SceneContext, SceneCreate, SceneMetadata, SceneScratchpadUpdate, SceneState, TurnManagement
 from app.services.scenes import (
+    CLOSURE_SUMMARY_MAX_TOKENS,
+    SCENE_CLOSURE_SUMMARY_SYSTEM_PROMPT,
     _build_narrative_text,
     _placeholder_scene_summary,
     SceneServiceError,
@@ -138,6 +140,114 @@ class TestSceneLabelsAndSummary:
 
         narrative = _build_narrative_text(state)
         assert "No debe aparecer" not in narrative
+
+    def test_build_narrative_text_excludes_master_only_for_closure(self):
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id="c1", status="ACTIVE"),
+            context=SceneContext(),
+            turn_management=TurnManagement(),
+            chat_buffer=[
+                ChatMessage(
+                    id="m1",
+                    timestamp="t1",
+                    sender_id="u1",
+                    type="SPEAK",
+                    text="Visible para todos.",
+                    visibility="all",
+                ),
+                ChatMessage(
+                    id="m2",
+                    timestamp="t2",
+                    sender_id="master",
+                    type="CONTEXT",
+                    text="Nota secreta del máster.",
+                    visibility="master_only",
+                ),
+            ],
+        )
+
+        assert "Nota secreta" in _build_narrative_text(state)
+        assert "Nota secreta" not in _build_narrative_text(state, exclude_master_only=True)
+
+    def test_build_narrative_text_formatted_includes_type_and_speaker(self):
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id="c1", status="ACTIVE"),
+            context=SceneContext(),
+            turn_management=TurnManagement(),
+            chat_buffer=[
+                ChatMessage(
+                    id="m1",
+                    timestamp="t1",
+                    sender_id="npc-1",
+                    type="SPEAK",
+                    text="«Bienvenidos, viajeros.»",
+                    speaker_display_name="Tabernero",
+                    speaker_type="NPC",
+                ),
+            ],
+        )
+
+        narrative = _build_narrative_text(state, formatted=True)
+        assert "[Diálogo | Tabernero]: «Bienvenidos, viajeros.»" in narrative
+
+    def test_generate_scene_closure_summary_llm_prompt_structure(self):
+        state = SceneState(
+            metadata=SceneMetadata(campaign_id=str(uuid.uuid4()), status="ACTIVE"),
+            context=SceneContext(),
+            turn_management=TurnManagement(),
+            chat_buffer=[
+                ChatMessage(
+                    timestamp="t1",
+                    sender_id="u1",
+                    type="CONTEXT",
+                    text="El sol se pone sobre el pueblo.",
+                ),
+                ChatMessage(
+                    timestamp="t2",
+                    sender_id="npc-1",
+                    type="SPEAK",
+                    text="«Pasad, forasteros.»",
+                    speaker_display_name="Tabernero",
+                    speaker_type="NPC",
+                ),
+            ],
+        )
+        completion_mock = AsyncMock(
+            return_value=(
+                "El sol se pone sobre el pueblo cuando el tabernero los recibe con "
+                "«Pasad, forasteros.»\n\n## Estado al cierre\nQuedan en la posada."
+            )
+        )
+
+        with patch(
+            "app.services.scenes.chat_completion",
+            new=completion_mock,
+        ):
+            summary = asyncio.run(
+                generate_scene_closure_summary(
+                    state,
+                    scene_number=2,
+                    display_name="Posada",
+                )
+            )
+
+        assert "«Pasad, forasteros.»" in summary
+        assert "## Estado al cierre" in summary
+        completion_mock.assert_awaited_once()
+        call_kwargs = completion_mock.await_args.kwargs
+        assert call_kwargs["max_tokens"] == CLOSURE_SUMMARY_MAX_TOKENS
+        messages = completion_mock.await_args.args[0]
+        assert messages[0]["content"] == SCENE_CLOSURE_SUMMARY_SYSTEM_PROMPT
+        assert "crónica narrativa" in messages[0]["content"]
+        assert "orden cronológico estricto" in messages[0]["content"]
+        assert "## Diálogos clave" not in messages[0]["content"]
+        user_content = messages[1]["content"]
+        assert "crónica de cierre" in user_content
+        assert "diario detallado" in user_content
+        assert "Escena 2 (Posada)" in user_content
+        assert "[Contexto |" in user_content
+        assert "[Diálogo | Tabernero]" in user_content
+        assert "«Pasad, forasteros.»" in user_content
 
     def test_placeholder_summary_for_empty_chat(self):
         summary = _placeholder_scene_summary("", scene_number=3, display_name=None)

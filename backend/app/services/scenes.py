@@ -77,6 +77,48 @@ OPEN_SCENE_BLOCK_MESSAGE = (
 )
 AUTO_CLOSED_SCENE_NOTE = "Cerrada automáticamente al abrir otra escena."
 FALLBACK_SUMMARY_MESSAGE_COUNT = 5
+CLOSURE_SUMMARY_MAX_INPUT_CHARS = 32_000
+CLOSURE_SUMMARY_MAX_TOKENS = 2_500
+
+SCENE_CLOSURE_SUMMARY_SYSTEM_PROMPT = """Eres un cronista experto de partidas de rol por escrito (play-by-post).
+
+Tu tarea: redactar un resumen de cierre de escena en español como una crónica narrativa — un diario detallado de lo ocurrido, escrito en orden estrictamente cronológico tal como sucedió en el chat.
+
+Formato y tono:
+- Un relato continuo y fluido, no secciones desconectadas ni listas temáticas.
+- Sucesión de eventos en el orden exacto en que aparecen en el historial del chat.
+- Tono de crónica o diario de campaña: alguien que documenta la partida a medida que avanza, con detalle y fidelidad.
+- Puedes ser tan extenso como haga falta; la exhaustividad prima sobre la brevedad.
+
+Qué incluir (integrado en el flujo narrativo, no como bloques aparte):
+- Narración del máster, contexto y descripciones (CONTEXT, MASTER, NARRATIVE).
+- Diálogos de NPCs y jugadores: teje las frases importantes en el relato; usa comillas «» cuando las palabras exactas importen (nombres, pistas, amenazas, promesas, mentiras).
+- Acciones, decisiones y momentos destacados de los PJs: acciones concretas, tiradas relevantes mencionadas en el chat, beats conversacionales.
+- Pistas, secretos o información revelada explícitamente en el texto (sin inferir lo no dicho).
+
+Reglas:
+- Basa el resumen ÚNICAMENTE en el historial de chat; no inventes eventos, personajes ni consecuencias ausentes.
+- Los mensajes de solo-máster NO aparecen en el chat: no los menciones ni deduzcas secretos ocultos.
+- Escribe siempre en español.
+
+Estructura:
+- Cuerpo principal: crónica narrativa continua, en orden cronológico estricto, sin encabezados intermedios.
+- Al final, opcionalmente, un bloque breve «## Estado al cierre» (2–4 frases) con la situación al cerrar: dónde están, con quién, qué queda pendiente o en el aire."""
+
+_MESSAGE_TYPE_LABELS: dict[str, str] = {
+    "SPEAK": "Diálogo",
+    "ACTION": "Acción",
+    "CONTEXT": "Contexto",
+    "MASTER": "Máster",
+    "NARRATIVE": "Narración",
+}
+
+_SPEAKER_TYPE_LABELS: dict[str, str] = {
+    "MASTER": "Máster",
+    "NPC": "NPC",
+    "PC": "PJ",
+    "NARRATOR": "Narrador",
+}
 
 
 class SceneServiceError(ValueError):
@@ -500,16 +542,46 @@ def _normalize_display_name(display_name: str | None) -> str | None:
     return trimmed or None
 
 
+def _message_speaker_label(message: ChatMessage) -> str:
+    if message.speaker_display_name and message.speaker_display_name.strip():
+        return message.speaker_display_name.strip()
+    if message.speaker_type:
+        return _SPEAKER_TYPE_LABELS.get(message.speaker_type, message.speaker_type)
+    if message.entity_name and message.entity_name.strip():
+        return message.entity_name.strip()
+    if message.sender_id:
+        return message.sender_id
+    return "Desconocido"
+
+
+def _format_narrative_line(message: ChatMessage) -> str | None:
+    text = (message.text or "").strip()
+    if not text:
+        return None
+    type_label = _MESSAGE_TYPE_LABELS.get(message.type.upper(), message.type)
+    speaker = _message_speaker_label(message)
+    return f"[{type_label} | {speaker}]: {text}"
+
+
 def _build_narrative_text(
     state: SceneState,
     *,
     last_n: int | None = None,
     messages: list[ChatMessage] | None = None,
+    formatted: bool = False,
+    exclude_master_only: bool = False,
 ) -> str:
     lines: list[str] = []
     source = messages if messages is not None else state.chat_buffer
     for message in source:
         if message.type not in NARRATIVE_MESSAGE_TYPES:
+            continue
+        if exclude_master_only and (message.visibility or "all") == "master_only":
+            continue
+        if formatted:
+            line = _format_narrative_line(message)
+            if line:
+                lines.append(line)
             continue
         text = (message.text or "").strip()
         if text:
@@ -517,6 +589,18 @@ def _build_narrative_text(
     if last_n is not None and last_n > 0:
         lines = lines[-last_n:]
     return "\n".join(lines)
+
+
+def _build_closure_summary_user_prompt(scene_label: str, narrative: str) -> str:
+    return (
+        f"Redacta la crónica de cierre de {scene_label}.\n\n"
+        "Escribe un diario detallado en español: relato narrativo continuo que siga "
+        "el orden exacto de los eventos del chat. Integra diálogos clave, acciones de "
+        "jugadores y narración del máster en un mismo flujo; no uses secciones "
+        "temáticas separadas. Puedes cerrar con «## Estado al cierre» si ayuda.\n\n"
+        "Historial completo de la escena (cronológico):\n\n"
+        f"{narrative}"
+    )
 
 
 async def append_chat_message(
@@ -563,7 +647,12 @@ async def generate_scene_closure_summary(
         if not messages:
             messages = state.chat_buffer
 
-    narrative = _build_narrative_text(state, messages=messages)
+    narrative = _build_narrative_text(
+        state,
+        messages=messages,
+        formatted=True,
+        exclude_master_only=True,
+    )
     if not narrative.strip():
         return _placeholder_scene_summary(
             narrative,
@@ -580,18 +669,18 @@ async def generate_scene_closure_summary(
             [
                 {
                     "role": "system",
-                    "content": (
-                        "Eres un cronista de rol. Resume la escena en español en 2-4 frases claras, "
-                        "sin inventar eventos que no aparezcan en el chat."
-                    ),
+                    "content": SCENE_CLOSURE_SUMMARY_SYSTEM_PROMPT,
                 },
                 {
                     "role": "user",
-                    "content": f"Resume lo ocurrido en {scene_label}:\n\n{narrative[:8000]}",
+                    "content": _build_closure_summary_user_prompt(
+                        scene_label,
+                        narrative[:CLOSURE_SUMMARY_MAX_INPUT_CHARS],
+                    ),
                 },
             ],
             temperature=0.3,
-            max_tokens=400,
+            max_tokens=CLOSURE_SUMMARY_MAX_TOKENS,
         )
         if summary.strip():
             return summary.strip()
@@ -601,7 +690,13 @@ async def generate_scene_closure_summary(
         pass
 
     return _placeholder_scene_summary(
-        _build_narrative_text(state, last_n=FALLBACK_SUMMARY_MESSAGE_COUNT, messages=messages),
+        _build_narrative_text(
+            state,
+            last_n=FALLBACK_SUMMARY_MESSAGE_COUNT,
+            messages=messages,
+            formatted=True,
+            exclude_master_only=True,
+        ),
         scene_number=scene_number,
         display_name=display_name,
     )
